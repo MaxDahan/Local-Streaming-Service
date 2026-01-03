@@ -1,0 +1,11 @@
+[
+  { "name": "Anime", "id": "anime" },
+  { "name": "Cartoons", "id": "cartoons" },
+  { "name": "Olschool Cartoons", "id": "oldschool-cartoons" },
+  { "name": "Music Videos", "id": "music-videos" },
+  { "name": "Documentaries", "id": "documentaries" },
+  { "name": "Movies", "id": "movies" },
+  { "name": "Sitcoms", "id": "sitcoms" },
+  { "name": "Test", "id": "test" }
+]
+

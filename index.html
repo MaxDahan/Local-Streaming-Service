@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Channels</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 200px;
+      background: #222;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      overflow-x: hidden; /* Prevent horizontal scroll on Windows */
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: #444;
+      margin: 10px 0;
+    }
+
+    .sidebar button {
+      background: #333;
+      color: #eee;
+      border: none;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      width: 100%;
+      cursor: pointer;
+      font-size: 16px;
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .sidebar button:hover {
+      background: #444;
+    }
+
+    .content {
+      flex: 1;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #333; /* Grey background */
+    }
+
+    video {
+      width: 80%;
+      max-width: 800px;
+      background: black;
+    }
+
+    .home-text {
+      font-size: 20px;
+      text-align: center;
+      max-width: 600px;
+    }
+
+    /* Hide time and play/pause buttons */
+    video::-webkit-media-controls-timeline,
+    video::-webkit-media-controls-current-time-display,
+    video::-webkit-media-controls-time-remaining-display,
+    video::-webkit-media-controls-play-button {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo" onclick="showHome()">📺💰👑💥👽 MAXISTREAMS 🥶💯💣🤯🔥</div>
+    <button onclick="showHome()">Home</button>
+    <div class="divider"></div>
+    <div id="channelButtons"></div>
+  </div>
+
+  <div class="content" id="content">
+    <div class="home-text" id="homeText">
+      <h2>Welcome to MAXISTREAMS!</h2>
+      <p>Maximum stream enjoyment. Includes: little to no lag, free content streamed on your wifi, and multiple channels of excellent media. Contact Maxime with ideas for the stream.</p>
+    <img src="images/big-chongler.webp" alt="Big Chungus" style="max-width: 100%; margin-top: 20px; border-radius: 12px;" />
+    </div>
+    <video id="video" controls autoplay muted playsinline style="display: none;"></video>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const homeText = document.getElementById('homeText');
+    const channelButtons = document.getElementById('channelButtons');
+    let hlsInstance = null;
+    let currentChannelId = null;
+    let playlistURL = null;
+    let lastETag = null;
+    let lastModified = null;
+    let playlistCheckInterval = null;
+
+    function showHome() {
+      clearInterval(playlistCheckInterval);
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.style.display = 'none';
+      homeText.style.display = 'block';
+    }
+
+    function switchChannel(channelId) {
+      showHome(); // Reset any current playback
+      currentChannelId = channelId;
+      playlistURL = `channels/${channelId}/output/${channelId}.m3u8`;
+
+      homeText.style.display = 'none';
+      video.style.display = 'block';
+
+      if (Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(playlistURL);
+        hlsInstance.attachMedia(video);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play();
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = playlistURL;
+        video.addEventListener('loadedmetadata', () => {
+          video.play();
+        });
+      }
+
+      // Begin monitoring for playlist change
+      clearInterval(playlistCheckInterval);
+      playlistCheckInterval = setInterval(checkPlaylistChange, 5000);
+    }
+
+    function checkPlaylistChange() {
+      if (!playlistURL) return;
+
+      fetch(playlistURL, {
+        method: 'HEAD',
+        cache: 'no-cache'
+      }).then(res => {
+        const newETag = res.headers.get('ETag');
+        const newLastModified = res.headers.get('Last-Modified');
+
+        if ((lastETag && newETag && newETag !== lastETag) ||
+            (lastModified && newLastModified && newLastModified !== lastModified)) {
+          console.log('🔄 Playlist change detected. Refreshing stream seamlessly...');
+          if (hlsInstance) {
+            hlsInstance.stopLoad();
+            hlsInstance.startLoad();
+          }
+        }
+
+        lastETag = newETag;
+        lastModified = newLastModified;
+      }).catch(err => {
+        console.warn('Failed to fetch playlist header:', err);
+      });
+    }
+
+    video.addEventListener('pause', () => {
+      setTimeout(() => {
+        video.play().catch(() => {});
+      }, 100);
+    });
+
+    // Load channel buttons from channels.json
+    fetch('channels.json')
+      .then(res => res.json())
+      .then(channels => {
+        channels.forEach(channel => {
+          const btn = document.createElement('button');
+          btn.textContent = channel.name;
+          btn.onclick = () => switchChannel(channel.id);
+          channelButtons.appendChild(btn);
+        });
+      });
+
+    // Start at homepage
+    showHome();
+  </script>
+  
+</body>
+</html>
+

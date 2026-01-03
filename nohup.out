@@ -1,0 +1,72 @@
+🎬 Starting encoding for channel: anime
+📁 Channel dir: /Volumes/WDEXTERNAL/Streaming/channels/anime
+💾 Output dir: /Volumes/WDEXTERNAL/Streaming/channels/anime/converted
+⏩ Skipping already converted: golden boy episode 1.mp4
+⚙️ Encoding: golden boy episode 2.mp4 → golden boy episode 2_720p.mp4
+🎬 Starting encoding for channel: cartoons
+📁 Channel dir: /Volumes/WDEXTERNAL/Streaming/channels/cartoons
+💾 Output dir: /Volumes/WDEXTERNAL/Streaming/channels/cartoons/converted
+⚙️ Encoding: samurai-jack-s3-ep3.mp4 → samurai-jack-s3-ep3_720p.mp4
+✅ Finished: golden boy episode 2.mp4
+⚙️ Encoding: Neon Genesis Evangelion Episode 04 [Bad Sound, SBS, 09-01-99].mp4 → Neon Genesis Evangelion Episode 04 [Bad Sound, SBS, 09-01-99]_720p.mp4
+❌ Error encoding: Neon Genesis Evangelion Episode 04 [Bad Sound, SBS, 09-01-99].mp4
+⚙️ Encoding: Neon Genesis Evangelion Episode 05 [SBS, 16-01-99].mp4 → Neon Genesis Evangelion Episode 05 [SBS, 16-01-99]_720p.mp4
+✅ Finished: samurai-jack-s3-ep3.mp4
+⚙️ Encoding: samurai-jack-s2-ep7.mp4 → samurai-jack-s2-ep7_720p.mp4
+❌ Error encoding: samurai-jack-s2-ep7.mp4
+⚙️ Encoding: samurai-jack-s2-ep6.mp4 → samurai-jack-s2-ep6_720p.mp4
+✅ Finished: samurai-jack-s2-ep6.mp4
+⚙️ Encoding: samurai-jack-s1-ep11.mp4 → samurai-jack-s1-ep11_720p.mp4
+❌ Error encoding: samurai-jack-s1-ep11.mp4
+⚙️ Encoding: samurai-jack-s1-ep10.mp4 → samurai-jack-s1-ep10_720p.mp4
+📼 Starting encoding for channel: anime
+📁 Source directory: /Volumes/WDEXTERNAL/Streaming/channels/anime
+💾 Output directory: /Volumes/WDEXTERNAL/Streaming/channels/anime/converted
+🎞️ Encoding 'golden boy episode 1.mp4'...
+✅ Finished: Neon Genesis Evangelion Episode 05 [SBS, 16-01-99].mp4
+⚙️ Encoding: Neon Genesis Evangelion Episode 23 & 24 [SBS, 20-03-99].mp4 → Neon Genesis Evangelion Episode 23 & 24 [SBS, 20-03-99]_720p.mp4
+❌ Error encoding: Neon Genesis Evangelion Episode 23 & 24 [SBS, 20-03-99].mp4
+⚙️ Encoding: Neon Genesis Evangelion Episode 25 [SBS, 27-03-99].mp4 → Neon Genesis Evangelion Episode 25 [SBS, 27-03-99]_720p.mp4
+📼 Starting encoding for channel: anime
+📁 Source directory: /Volumes/WDEXTERNAL/Streaming/channels/anime
+💾 Output directory: /Volumes/WDEXTERNAL/Streaming/channels/anime/converted
+✅ Finished: samurai-jack-s1-ep10.mp4
+⚙️ Encoding: Adventure Time - S03E03 - Memory of a Memory.mp4 → Adventure Time - S03E03 - Memory of a Memory_720p.mp4
+❌ Error encoding: Adventure Time - S03E03 - Memory of a Memory.mp4
+⚙️ Encoding: Adventure Time Shorts - S00E03 - Frog Seasons Autumn.mkv → Adventure Time Shorts - S00E03 - Frog Seasons Autumn_720p.mp4
+📼 Starting encoding for channel: anime
+📁 Source directory: /Volumes/WDEXTERNAL/Streaming/channels/anime
+💾 Output directory: /Volumes/WDEXTERNAL/Streaming/channels/anime/converted
+🎞️ Encoding 'golden boy episode 1.mp4'...
+✅ Finished: Adventure Time Shorts - S00E03 - Frog Seasons Autumn.mkv
+⚙️ Encoding: Adventure Time - S03E09 - Fionna and Cake.mp4 → Adventure Time - S03E09 - Fionna and Cake_720p.mp4
+❌ Error encoding: Adventure Time - S03E09 - Fionna and Cake.mp4
+⚙️ Encoding: Adventure Time - S03E10 - What Was Missing.mp4 → Adventure Time - S03E10 - What Was Missing_720p.mp4
+rm: /Volumes/WDEXTERNAL/Streaming/output/encode_cartoons.log: No such file or directory
+📼 Starting encoding for channel: cartoons
+📁 Source directory: /Volumes/WDEXTERNAL/Streaming/channels/cartoons
+💾 Output directory: /Volumes/WDEXTERNAL/Streaming/channels/cartoons/converted
+🎞️ Encoding 'samurai-jack-s3-ep3.mp4'...
+✅ Finished: Neon Genesis Evangelion Episode 25 [SBS, 27-03-99].mp4
+⚙️ Encoding: Initial D - 1st Stage - 23 - The Rainy Downhill!.mkv → Initial D - 1st Stage - 23 - The Rainy Downhill!_720p.mp4
+❌ Error encoding: Initial D - 1st Stage - 23 - The Rainy Downhill!.mkv
+⚙️ Encoding: Initial D - 1st Stage - 24 - Akagi's White Comet!.mkv → Initial D - 1st Stage - 24 - Akagi's White Comet!_720p.mp4
+./encode_to_720p.sh: line 45: 85812 Killed: 9               ffmpeg -y -i "$input" -vf "scale=-2:720" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -map_metadata 0 "$output" >> "$LOG_FILE" 2>&1
+❌ Error encoding: Initial D - 1st Stage - 24 - Akagi's White Comet!.mkv
+⚙️ Encoding: Initial D - 1st Stage - 01 - The Ultimate Tofu Store Drift.mkv → Initial D - 1st Stage - 01 - The Ultimate Tofu Store Drift_720p.mp4
+❌ Error encoding: Initial D - 1st Stage - 01 - The Ultimate Tofu Store Drift.mkv
+⚙️ Encoding: Initial D - 1st Stage - 02 - Revenge! The Rumbling Turbo.mkv → Initial D - 1st Stage - 02 - Revenge! The Rumbling Turbo_720p.mp4
+✅ Finished: Adventure Time - S03E10 - What Was Missing.mp4
+./encode_to_720p.sh: line 49: 85794 Killed: 9               ffmpeg -y -i "$input" -vf "scale=-2:720" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -map_metadata 0 "$output" >> "$LOG_FILE" 2>&1
+❌ Failed to encode 'samurai-jack-s3-ep3.mp4'
+⚙️ Encoding: Adventure Time - S03E17 - Thank You.mp4 → Adventure Time - S03E17 - Thank You_720p.mp4
+🎞️ Encoding 'Chowder.S02E07.Hey.Hey.Its.Knishmas.720p.HULU.WEBRip.AAC2.0.H.264-RTN.mkv'...
+❌ Error encoding: Adventure Time - S03E17 - Thank You.mp4
+❌ Failed to encode 'Chowder.S02E07.Hey.Hey.Its.Knishmas.720p.HULU.WEBRip.AAC2.0.H.264-RTN.mkv'
+⚙️ Encoding: Adventure Time - S03E18 - The New Frontier.mp4 → Adventure Time - S03E18 - The New Frontier_720p.mp4
+🎞️ Encoding 'Adventure Time - S01E11 - Wizard.mp4'...
+./encode_to_720p.sh: line 49: 85535 Killed: 9               ffmpeg -y -i "$input" -vf "scale=-2:720" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -map_metadata 0 "$output" >> "$LOG_FILE" 2>&1
+❌ Failed to encode 'golden boy episode 1.mp4'
+./encode_to_720p.sh: line 49: 85688 Killed: 9               ffmpeg -y -i "$input" -vf "scale=-2:720" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -map_metadata 0 "$output" >> "$LOG_FILE" 2>&1
+❌ Failed to encode 'golden boy episode 1.mp4'
+🎉 All encoding completed for channel: anime
