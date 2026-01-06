@@ -1,11 +1,34 @@
 [
-  { "name": "Anime", "id": "anime" },
-  { "name": "Cartoons", "id": "cartoons" },
-  { "name": "Olschool Cartoons", "id": "oldschool-cartoons" },
-  { "name": "Music Videos", "id": "music-videos" },
-  { "name": "Documentaries", "id": "documentaries" },
-  { "name": "Movies", "id": "movies" },
-  { "name": "Sitcoms", "id": "sitcoms" },
-  { "name": "Test", "id": "test" }
+  {
+    "name": "Anime", "id": "anime",
+    "folders": ["Golden Boy", "Initial D", "Neon Genesis Evangelion"]
+  },
+  {
+    "name": "Cartoons", "id": "cartoons",
+    "folders": ["Adventure Time", "Chowder", "Futurama", "Samurai Jack", "The Simpsons"]
+  },
+  {
+    "name": "Olschool Cartoons", "id": "oldschool-cartoons",
+    "folders": ["Angry Beavers", "Vintage Cartoons", "Woody Woodpecker"]
+  },
+  {
+    "name": "Music Videos", "id": "music-videos",
+    "folders": ["Music-Videos"]
+  },
+  {
+    "name": "Documentaries", "id": "documentaries",
+    "folders": ["BBC - Planet Earth"]
+  },
+  {
+    "name": "Movies", "id": "movies",
+    "folders": ["Movies"]
+  },
+  {
+    "name": "Sitcoms", "id": "sitcoms",
+    "folders": ["Mac Miller Show", "That 70s Show", "Trailer Park Boys"]
+  },
+  {
+    "name": "Test", "id": "test",
+    "folders": ["bruh","bruh 2"]
+  }
 ]
-
