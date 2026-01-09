@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# start_stream_logic.sh
-# Streams videos for a channel based on folders in media/converted
+# start_stream_logic_fixed.sh
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <channel_id>"
@@ -14,49 +13,69 @@ OUTPUT_DIR="$CHANNEL_DIR/output"
 OUTPUT_PLAYLIST="$OUTPUT_DIR/$CHANNEL.m3u8"
 SEGMENT_PREFIX="$OUTPUT_DIR/${CHANNEL}_"
 
-# Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
-# Load folders for this channel from channels.json
+echo "🔹 Base dir: $BASE_DIR"
+echo "🔹 Channel dir: $CHANNEL_DIR"
+echo "🔹 Output playlist: $OUTPUT_PLAYLIST"
+
+# Load folders from channels.json safely
 mapfile -t FOLDERS < <(jq -r --arg id "$CHANNEL" '.[] | select(.id==$id) | .folders[]' "$BASE_DIR/channels.json")
 
+echo "🔹 Folders for channel $CHANNEL:"
+for f in "${FOLDERS[@]}"; do
+  echo "   -> [$f]"
+done
+
 if [ ${#FOLDERS[@]} -eq 0 ]; then
-  echo "❌ No folders defined for channel $CHANNEL in channels.json"
+  echo "❌ No folders found for channel $CHANNEL"
   exit 1
 fi
-
-echo "🚀 Starting infinite streaming loop for channel: $CHANNEL"
-echo "Output path: $OUTPUT_PLAYLIST"
 
 while true; do
   PLAYLIST_FILE="$CHANNEL_DIR/current_playlist.txt"
   : > "$PLAYLIST_FILE"
+  ALL_FILES=()
 
-  # Loop through each folder
   for folder in "${FOLDERS[@]}"; do
     MEDIA_DIR="$BASE_DIR/media/converted/$folder"
+    echo "🔹 Checking folder: '$MEDIA_DIR'"
 
     if [ -d "$MEDIA_DIR" ]; then
-      # Find all mp4 files, shuffle them, and add to playlist
-      while IFS= read -r f; do
-        escaped_path=$(realpath "$f" | sed "s/'/'\\\\''/g")
-        echo "file '$escaped_path'" >> "$PLAYLIST_FILE"
-      done < <(find "$MEDIA_DIR" -maxdepth 1 -type f -iname "*.mp4" ! -name "._*" | shuf)
+      echo "   ✅ Folder exists. Collecting mp4 files..."
+      while IFS= read -r -d '' file; do
+        ALL_FILES+=("$file")
+        echo "      -> Adding file: $file"
+      done < <(find "$MEDIA_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.MP4" \) ! -name "._*" -print0)
     else
       echo "⚠️ Folder '$MEDIA_DIR' does not exist, skipping"
     fi
   done
 
-  # If no files found, wait and retry
-  if [ ! -s "$PLAYLIST_FILE" ]; then
-    echo "⚠️ No video files found for channel '$CHANNEL'. Retrying in 10 seconds..."
+  if [ ${#ALL_FILES[@]} -eq 0 ]; then
+    echo "⚠️ No video files found. Retrying in 10s..."
     sleep 10
     continue
   fi
 
-  echo "🎬 Launching FFmpeg for channel: $CHANNEL"
+  echo "🔹 Total files collected: ${#ALL_FILES[@]}"
+  printf "   -> %s\n" "${ALL_FILES[@]}"
 
-  ffmpeg -nostdin -re -f concat -safe 0 -i "$PLAYLIST_FILE" \
+  # Shuffle safely
+  mapfile -t SHUFFLED_FILES < <(printf '%s\0' "${ALL_FILES[@]}" | shuf -z | xargs -0 -n1)
+
+  echo "🔹 Shuffled files:"
+  printf "   -> %s\n" "${SHUFFLED_FILES[@]}"
+
+  # Write playlist
+  : > "$CHANNEL_DIR/current_playlist.txt"
+  for f in "${SHUFFLED_FILES[@]}"; do
+    escaped=$(printf "%s" "$f" | sed "s/'/'\\\\''/g")
+    echo "file '$escaped'" >> "$CHANNEL_DIR/current_playlist.txt"
+  done
+
+  echo "🎬 Launching FFmpeg..."
+  ffmpeg -nostdin -re -f concat -safe 0 -i "$CHANNEL_DIR/current_playlist.txt" \
     -c copy \
     -f hls \
     -hls_time 6 \
@@ -65,6 +84,6 @@ while true; do
     -hls_segment_filename "${SEGMENT_PREFIX}%03d.ts" \
     "$OUTPUT_PLAYLIST" 2>&1
 
-  echo "🔁 FFmpeg finished. Restarting with a new shuffled playlist in 2 seconds..."
+  echo "🔁 Restarting loop in 2 seconds..."
   sleep 2
 done
