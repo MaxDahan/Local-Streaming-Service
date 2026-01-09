@@ -42,10 +42,6 @@ def stop_session(slot):
             proc.kill()
         cleanup_folder(slot)
         del sessions[slot]
-        # Remove IP from queue
-        for ip in ip_queue:
-            if ip == sessions.get(slot, {}).get("ip"):
-                ip_queue.remove(ip)
 
 def get_slot_for_ip(ip):
     """Assign a slot number for a given IP (FIFO if full)"""
@@ -77,7 +73,6 @@ def start_ffmpeg(file_list, slot, ip):
         print("⚠️ No files provided to stream!")
         return None
 
-    # Kill old process if exists
     if slot in sessions and "ffmpeg" in sessions[slot]:
         proc = sessions[slot]["ffmpeg"]
         if proc and proc.poll() is None:
@@ -117,7 +112,6 @@ def start_ffmpeg(file_list, slot, ip):
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
-
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -128,8 +122,7 @@ class Handler(SimpleHTTPRequestHandler):
 
             items = []
             for name in sorted(os.listdir(full)):
-                if name.startswith("."):
-                    continue
+                if name.startswith("."): continue
                 p = os.path.join(full, name)
                 items.append({
                     "name": name,
@@ -156,7 +149,6 @@ class Handler(SimpleHTTPRequestHandler):
         path = body.get("path")
         real = safe_path(path)
 
-        # Optional: stop session
         if self.path == "/api/stop_session":
             ip = self.client_address[0]
             for slot, info in sessions.items():
@@ -174,10 +166,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         files = []
-
-        if self.path == "/api/play_file":
-            if os.path.isfile(real):
-                files = [real]
+        if self.path == "/api/play_file" and os.path.isfile(real):
+            files = [real]
         elif self.path == "/api/play_folder":
             for root, _, names in os.walk(real):
                 for n in names:
@@ -205,7 +195,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.chdir(BASE_DIR)
-
-    server = HTTPServer(("0.0.0.0", 80), Handler)
-    print("🚀 Server running on http://0.0.0.0:8000")
+    server = HTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces
+    print("🚀 Server running on http://0.0.0.0:80 (maxistreams.local)")
     server.serve_forever()
