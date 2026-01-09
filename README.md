@@ -1,4 +1,4 @@
-Local broadcasting service to local network. Great for running on a raspberry pi.
+Local broadcasting service to local network and file/folder streamer. Great for running on a raspberry pi.
 
 **Directions**
 
