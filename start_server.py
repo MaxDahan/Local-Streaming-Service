@@ -9,49 +9,92 @@ from urllib.parse import urlparse, parse_qs
 BASE_DIR = os.path.abspath(os.getcwd())
 MEDIA_ROOT = os.path.join(BASE_DIR, "media", "converted")
 ON_DEMAND_DIR = os.path.join(BASE_DIR, "on_demand")
-PLAYLIST = os.path.join(ON_DEMAND_DIR, "output.m3u8")
-SEGMENT_PATTERN = os.path.join(ON_DEMAND_DIR, "seg_%03d.ts")
+MAX_SESSIONS = 5
 
+# Ensure session folders exist
 os.makedirs(ON_DEMAND_DIR, exist_ok=True)
-ffmpeg_process = None
+for i in range(1, MAX_SESSIONS + 1):
+    os.makedirs(os.path.join(ON_DEMAND_DIR, str(i)), exist_ok=True)
+
+# Session management: { slot_number: {"ip": str, "ffmpeg": Popen} }
+sessions = {}
+ip_queue = []  # FIFO queue of IPs
 
 def safe_path(path):
-    """Prevent path traversal outside MEDIA_ROOT"""
     real = os.path.realpath(os.path.join(BASE_DIR, path))
     if not real.startswith(MEDIA_ROOT):
         return None
     return real
 
-def cleanup_hls():
-    """Remove old .ts and .m3u8 files"""
-    for f in os.listdir(ON_DEMAND_DIR):
-        if f.endswith(".ts") or f.endswith(".m3u8") or f.endswith(".txt"):
-            try:
-                os.remove(os.path.join(ON_DEMAND_DIR, f))
-            except Exception as e:
-                print("⚠️ Failed to remove:", f, e)
+def cleanup_folder(slot):
+    folder = os.path.join(ON_DEMAND_DIR, str(slot))
+    for f in os.listdir(folder):
+        try:
+            os.remove(os.path.join(folder, f))
+        except Exception as e:
+            print("⚠️ Failed to remove:", f, e)
 
-def start_ffmpeg(file_list):
-    global ffmpeg_process
+def stop_session(slot):
+    """Kill FFmpeg and clean folder"""
+    if slot in sessions:
+        proc = sessions[slot].get("ffmpeg")
+        if proc and proc.poll() is None:
+            proc.kill()
+        cleanup_folder(slot)
+        del sessions[slot]
+        # Remove IP from queue
+        for ip in ip_queue:
+            if ip == sessions.get(slot, {}).get("ip"):
+                ip_queue.remove(ip)
 
+def get_slot_for_ip(ip):
+    """Assign a slot number for a given IP (FIFO if full)"""
+    global ip_queue, sessions
+
+    # Already has a slot?
+    for slot, info in sessions.items():
+        if info.get("ip") == ip:
+            return slot
+
+    # Find first empty slot
+    for slot in range(1, MAX_SESSIONS + 1):
+        if slot not in sessions:
+            return slot
+
+    # All slots taken: evict oldest IP
+    old_ip = ip_queue.pop(0)
+    old_slot = None
+    for slot, info in sessions.items():
+        if info.get("ip") == old_ip:
+            old_slot = slot
+            break
+    if old_slot:
+        stop_session(old_slot)
+    return old_slot
+
+def start_ffmpeg(file_list, slot, ip):
     if not file_list:
         print("⚠️ No files provided to stream!")
-        return
+        return None
 
-    cleanup_hls()
+    # Kill old process if exists
+    if slot in sessions and "ffmpeg" in sessions[slot]:
+        proc = sessions[slot]["ffmpeg"]
+        if proc and proc.poll() is None:
+            proc.kill()
 
-    concat_file = os.path.join(ON_DEMAND_DIR, "playlist.txt")
+    cleanup_folder(slot)
+
+    folder = os.path.join(ON_DEMAND_DIR, str(slot))
+    concat_file = os.path.join(folder, "playlist.txt")
     with open(concat_file, "w") as f:
         for path in file_list:
-            # FFmpeg needs absolute paths
             f.write(f"file '{os.path.abspath(path)}'\n")
 
-    # Kill previous FFmpeg if still running
-    if ffmpeg_process and ffmpeg_process.poll() is None:
-        ffmpeg_process.kill()
+    playlist_path = os.path.join(folder, "output.m3u8")
+    segment_pattern = os.path.join(folder, "seg_%03d.ts")
 
-    # Run FFmpeg to generate HLS
-    ffmpeg_process = subprocess.Popen([
+    proc = subprocess.Popen([
         "ffmpeg", "-nostdin", "-re",
         "-f", "concat", "-safe", "0",
         "-i", concat_file,
@@ -60,14 +103,18 @@ def start_ffmpeg(file_list):
         "-hls_time", "6",
         "-hls_list_size", "30",
         "-hls_flags", "program_date_time",
-        "-hls_segment_filename", SEGMENT_PATTERN,
-        PLAYLIST
+        "-hls_segment_filename", segment_pattern,
+        playlist_path
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    print("▶️ Started FFmpeg for on-demand streaming")
+    sessions[slot] = {"ip": ip, "ffmpeg": proc}
+
+    if ip not in ip_queue:
+        ip_queue.append(ip)
+
+    return playlist_path, slot
 
 class Handler(SimpleHTTPRequestHandler):
-
     def do_GET(self):
         parsed = urlparse(self.path)
 
@@ -100,10 +147,28 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length))
-        path = body.get("path")
+        try:
+            body = json.loads(self.rfile.read(length))
+        except json.JSONDecodeError:
+            self.send_error(400)
+            return
 
+        path = body.get("path")
         real = safe_path(path)
+
+        # Optional: stop session
+        if self.path == "/api/stop_session":
+            ip = self.client_address[0]
+            for slot, info in sessions.items():
+                if info.get("ip") == ip:
+                    stop_session(slot)
+                    break
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "stopped"}).encode())
+            return
+
         if not real:
             self.send_error(400)
             return
@@ -113,15 +178,12 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/play_file":
             if os.path.isfile(real):
                 files = [real]
-
         elif self.path == "/api/play_folder":
-            # Recursively collect all .mp4 or .mkv files
             for root, _, names in os.walk(real):
                 for n in names:
                     if n.lower().endswith((".mp4", ".mkv")):
                         files.append(os.path.join(root, n))
             random.shuffle(files)
-
         else:
             self.send_error(404)
             return
@@ -130,17 +192,20 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(404)
             return
 
-        start_ffmpeg(files)
+        ip = self.client_address[0]
+        playlist_path, slot = start_ffmpeg(files, get_slot_for_ip(ip), ip)
 
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps({
-            "playlist": "/on_demand/output.m3u8"
+            "playlist": f"/on_demand/{slot}/output.m3u8",
+            "slot": slot
         }).encode())
 
 if __name__ == "__main__":
     os.chdir(BASE_DIR)
-    server = HTTPServer(("0.0.0.0", 8000), Handler)
+
+    server = HTTPServer(("0.0.0.0", 80), Handler)
     print("🚀 Server running on http://0.0.0.0:8000")
     server.serve_forever()

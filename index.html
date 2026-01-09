@@ -67,10 +67,11 @@ let mode = "channels";
 let currentPath = "media/converted";
 const originalHomeHTML = homeText.innerHTML;
 
-let lastLoadingItem = null;        // currently showing skeleton
-let currentlyPlayingItem = null;    // currently playing file/folder/folder stream
-let currentlyPlayingChannel = null; // currently playing channel
+let lastLoadingItem = null;
+let currentlyPlayingItem = null;
+let currentlyPlayingChannel = null;
 let isPlayingFolder = false;
+let activeSlot = null; // <-- store session slot
 
 /* ---------- Helpers ---------- */
 function resetPlayer() {
@@ -87,27 +88,32 @@ function resetPlayer() {
     currentlyPlayingItem = null;
   }
   isPlayingFolder = false;
+  activeSlot = null;
+}
+
+function stopCurrentStream(){
+  if(activeSlot !== null){
+    fetch("/api/stop_session",{ method:"POST" }).catch(()=>{});
+    activeSlot = null;
+  }
 }
 
 function stopVideo() {
   resetPlayer();
   homeText.style.display="none";
 
-  if(lastLoadingItem){
-    restoreSidebarItem(lastLoadingItem);
-  }
+  if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
 
-  // Remove channel highlight if switching
   if(currentlyPlayingChannel){
     currentlyPlayingChannel.classList.remove("playing");
     currentlyPlayingChannel = null;
   }
+
+  stopCurrentStream();
 }
 
-function showSkeleton(item, title){
-  if(lastLoadingItem && lastLoadingItem !== item){
-    restoreSidebarItem(lastLoadingItem);
-  }
+function showSkeleton(item){
+  if(lastLoadingItem && lastLoadingItem !== item) restoreSidebarItem(lastLoadingItem);
 
   if(currentlyPlayingItem || isPlayingFolder){
     stopVideo();
@@ -121,19 +127,18 @@ function showSkeleton(item, title){
     item.dataset.originalText = item.textContent;
     item.innerHTML = "<span class='loadingText'>Loading stream...</span>";
   }
-
-  return title;
 }
 
 function restoreSidebarItem(item){
-  if(item && item.dataset.originalText){
-    item.textContent = item.dataset.originalText;
-  }
+  if(item && item.dataset.originalText) item.textContent = item.dataset.originalText;
   if(item === lastLoadingItem) lastLoadingItem = null;
 }
 
-function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false){
-  video.style.display = "block";
+function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false, slot=null){
+  stopCurrentStream();
+  if(slot) activeSlot = slot;
+
+  video.style.display="block";
   if(hideTimeline) video.classList.add("hide-timeline");
 
   if(Hls.isSupported()){
@@ -144,16 +149,13 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
     video.src = url;
   }
 
-  // Only show text for file/folder streams
   if(title && !isChannel) nowPlaying.textContent = title;
 
   video.oncanplay = () => {
-    loadingImage.style.display = "none";
-    homeText.style.display = "none";
+    loadingImage.style.display="none";
+    homeText.style.display="none";
 
-    if(lastLoadingItem){
-      restoreSidebarItem(lastLoadingItem);
-    }
+    if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
 
     if(sidebarItem){
       sidebarItem.classList.add("playing");
@@ -183,9 +185,8 @@ function setMode(m){
   homeText.style.display = (m==="channels") ? "block" : "none";
 
   loadChannels();
-
-  if(m !== "channels") {
-    currentPath = "media/converted"; // <-- reset to base folder
+  if(m!=="channels"){
+    currentPath="media/converted";
     loadFolder(currentPath);
   }
 }
@@ -208,7 +209,7 @@ function loadChannels(){
         div.textContent=c.name;
         div.onclick=()=>{ 
           homeText.style.display="none"; 
-          playHLS(`channels/${c.id}/output/${c.id}.m3u8`, true, c.name, false, div, true); // mark as channel
+          playHLS(`channels/${c.id}/output/${c.id}.m3u8`, true, c.name, false, div, true);
         };
         list.appendChild(div);
       });
@@ -222,7 +223,6 @@ function loadFolder(path){
     .then(items=>{
       list.innerHTML="";
       homeText.style.display="none";
-
       stopVideo();
 
       if(path!=="media/converted"){
@@ -249,8 +249,16 @@ function loadFolder(path){
             homeText.style.display="block";
 
             document.getElementById("playFolderBtn").onclick=()=>{
-              const title = showSkeleton(div, i.name);
-              playFolder(i.path, div, title);
+              showSkeleton(div);
+              fetch("/api/play_folder",{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({path:i.path})
+              })
+              .then(r=>r.json())
+              .then(d=>waitForSegments(d.playlist,2,()=>{
+                playHLS(d.playlist,false,i.name,true,div,false,d.slot);
+              }));
             };
           };
           div.ondblclick=()=>{
@@ -258,7 +266,18 @@ function loadFolder(path){
             loadFolder(i.path);
           };
         } else {
-          div.onclick=()=> showFile(div, i.path, i.name);
+          div.onclick=()=>{
+            showSkeleton(div);
+            fetch("/api/play_file",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({path:i.path})
+            })
+            .then(r=>r.json())
+            .then(d=>waitForSegments(d.playlist,2,()=>{
+              playHLS(d.playlist,false,i.name,false,div,false,d.slot);
+            }));
+          };
         }
 
         list.appendChild(div);
@@ -266,41 +285,11 @@ function loadFolder(path){
     });
 }
 
-/* ---------- Play file/folder ---------- */
-function showFile(div, path, title){
-  const realTitle = showSkeleton(div, title);
-  playFile(path, div, realTitle);
-}
-
-function playFile(path, div, title){
-  fetch("/api/play_file",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({path})
-  }).then(r=>r.json())
-    .then(d=>waitForSegments(d.playlist,2,()=>{
-      restoreSidebarItem(div);
-      playHLS(d.playlist,false,title,false, div);
-    }));
-}
-
-function playFolder(path, div, title){
-  fetch("/api/play_folder",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({path})
-  }).then(r=>r.json())
-    .then(d=>waitForSegments(d.playlist,2,()=>{
-      restoreSidebarItem(div);
-      playHLS(d.playlist,false,title,true, div);
-    }));
-}
-
-/* ---------- Wait helper ---------- */
+/* ---------- Wait for segments before playing ---------- */
 function waitForSegments(url,minSegments,callback){
   const interval=setInterval(()=>{
     fetch(url)
-      .then(res=>res.text())
+      .then(r=>r.text())
       .then(text=>{
         if((text.match(/\.ts/g)||[]).length>=minSegments){
           clearInterval(interval);
