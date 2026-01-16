@@ -46,7 +46,7 @@ while true; do
       while IFS= read -r -d '' file; do
         ALL_FILES+=("$file")
         echo "      -> Adding file: $file"
-      done < <(find "$MEDIA_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.MP4" \) ! -name "._*" -print0)
+      done < <(find "$MEDIA_DIR" -type f \( -iname "*.mp4" -o -iname "*.MP4" \) ! -name "._*" -print0)
     else
       echo "⚠️ Folder '$MEDIA_DIR' does not exist, skipping"
     fi

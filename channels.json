@@ -1,14 +1,14 @@
 [
   {
     "name": "Anime", "id": "anime",
-    "folders": ["Golden Boy", "Initial D", "Neon Genesis Evangelion"]
+    "folders": ["Cowboy Bebop", "Dragonball Z", "Golden Boy", "Initial D", "Neon Genesis Evangelion", "Sailor Moon", "Samurai Shamploo",  "Space Dandy"]
   },
   {
     "name": "Cartoons", "id": "cartoons",
-    "folders": ["Adventure Time", "Chowder", "Futurama", "Samurai Jack", "The Simpsons"]
+    "folders": ["Adventure Time", "Amazing World Of Gumball", "Avatar The Last Airbender", "Beavis and Butthead", "Ben 10", "Chowder", "Fairly OddParents", "Family Guy", "Futurama", "Invader Zim", "King of the Hill", "Pokemon", "Regular Show", "Rick and Morty", "Samurai Jack", "Smiling Friends", "Spongebob Squarepants", "The Boondocks", "The Simpsons"]
   },
   {
-    "name": "Olschool Cartoons", "id": "oldschool-cartoons",
+    "name": "Oldschool Cartoons", "id": "oldschool-cartoons",
     "folders": ["Angry Beavers", "Vintage Cartoons", "Woody Woodpecker"]
   },
   {
@@ -17,18 +17,26 @@
   },
   {
     "name": "Documentaries", "id": "documentaries",
-    "folders": ["BBC - Planet Earth"]
+    "folders": ["BBC - Planet Earth", "How Its Made", "Mythbusters"]
   },
   {
     "name": "Movies", "id": "movies",
-    "folders": ["Movies"]
+    "folders": ["Movies", "Trailers"]
   },
   {
     "name": "Sitcoms", "id": "sitcoms",
     "folders": ["Mac Miller Show", "That 70s Show", "Trailer Park Boys"]
   },
   {
+    "name": "Comedy", "id": "comedy",
+    "folders": ["Jackass", "Top Gear"]
+  },
+  {
+    "name": "Trippy", "id": "trippy",
+    "folders": ["Max Headroom", "Trippy Visuals", "Twilight Zone"]
+  },
+  {
     "name": "Test", "id": "test",
-    "folders": ["bruh","bruh 2"]
+    "folders": ["bruh", "bruh 2"]
   }
 ]

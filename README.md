@@ -10,12 +10,12 @@ converted folder.
 2. From here define your channels in "channels.json" with the folder names for each channel.
 This will pull from the converted folder so make sure the folder names match.
 
-3. Run "./start_all_streams.sh" to boot up the channel servers!
-
-3. From here run "sudo python3 start_server.py" and you're good to go!
+3. Run "./start_server.sh" to boot up the channel servers and website!
 
 Access the stream from maxistreams.local
 *you can also access m3u8 links for debugging at "<ipaddress>/channels/<channel-name>/output/<channel-name>.m3u8"
+
+4. run "./stop_server.sh" to end the streaming and website processes.
 
 **Information**
 
