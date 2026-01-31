@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>📺 MAXISTREAMS</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+body { margin:0; font-family:sans-serif; background:#111; color:#eee; display:flex; height:100vh; }
+.sidebar { width:220px; background:#222; padding:15px; box-sizing:border-box; display:flex; flex-direction:column; }
+.logo { font-size:22px; font-weight:bold; margin-bottom:10px; cursor:pointer; text-align:center; }
+.mode-buttons button { width:100%; margin-bottom:6px; background:#333; color:#eee; border:none; padding:8px; cursor:pointer; }
+.mode-buttons button.active { background:#555; }
+.divider { height:1px; background:#444; margin:10px 0; }
+.list { flex:1; overflow-y:auto; }
+.item { padding:8px; background:#333; margin-bottom:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item:hover { background:#444; }
+.item.playing { color:#00ff00; font-weight:bold; }
+.folder::before { content:"📁 "; }
+.file::before   { content:"🎞️ "; }
+.content { flex:1; background:#333; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
+video { width:80%; max-width:900px; background:black; }
+video.hide-timeline::-webkit-media-controls-timeline,
+video.hide-timeline::-webkit-media-controls-current-time-display,
+video.hide-timeline::-webkit-media-controls-time-remaining-display { display:none !important; }
+.home-text { font-size:20px; text-align:center; max-width:600px; }
+#playFolderBtn { font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:#ff6600; border:none; border-radius:8px; color:#111; }
+#playFolderBtn:hover { background:#ff3300; transform:scale(1.05); transition:all 0.2s; }
+#loadingImage { display:none; max-width:100%; margin-top:20px; border-radius:12px; }
+#nowPlaying { margin-top:10px; font-size:18px; text-align:center; color:#ff6600; }
+.loadingText { color:#ff4444; font-weight:bold; }
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <div class="logo" onclick="goHome()">📺 MAXISTREAMS</div>
+  <div class="mode-buttons">
+    <button id="channelsBtn" class="active" onclick="setMode('channels')">Channels</button>
+    <button id="browseBtn" onclick="setMode('browse')">Browse</button>
+  </div>
+  <div class="divider"></div>
+  <div class="list" id="list"></div>
+</div>
+
+<div class="content">
+  <div class="home-text" id="homeText">
+    <h2>Welcome to MAXISTREAMS!</h2>
+    <p>Maximum stream enjoyment. Browse channels or folders, shuffle media, and watch instantly.</p>
+    <img src="images/big-chongler.webp" alt="Big Chungus" style="max-width:100%; margin-top:20px; border-radius:12px;" />
+  </div>
+  <img id="loadingImage" src="./images/skeleton.jpg" alt="Loading" />
+  <video id="video" controls autoplay muted playsinline style="display:none;"></video>
+  <div id="nowPlaying"></div>
+</div>
+
+<script>
+const list = document.getElementById("list");
+const video = document.getElementById("video");
+const homeText = document.getElementById("homeText");
+const loadingImage = document.getElementById("loadingImage");
+const nowPlaying = document.getElementById("nowPlaying");
+
+let hls = null;
+let mode = "channels";
+let currentPath = "media/converted";
+const originalHomeHTML = homeText.innerHTML;
+
+let lastLoadingItem = null;
+let currentlyPlayingItem = null;
+let currentlyPlayingChannel = null;
+let isPlayingFolder = false;
+let activeSlot = null; // <-- store session slot
+
+/* ---------- Helpers ---------- */
+function resetPlayer() {
+  if(hls){ hls.destroy(); hls=null; }
+  video.pause();
+  video.removeAttribute("src");
+  video.style.display="none";
+  video.classList.remove("hide-timeline");
+  loadingImage.style.display="none";
+  nowPlaying.textContent = "";
+
+  if(currentlyPlayingItem){
+    currentlyPlayingItem.classList.remove("playing");
+    currentlyPlayingItem = null;
+  }
+  isPlayingFolder = false;
+  activeSlot = null;
+}
+
+function stopCurrentStream(){
+  if(activeSlot !== null){
+    fetch("/api/stop_session",{ method:"POST" }).catch(()=>{});
+    activeSlot = null;
+  }
+}
+
+function stopVideo() {
+  resetPlayer();
+  homeText.style.display="none";
+
+  if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
+
+  if(currentlyPlayingChannel){
+    currentlyPlayingChannel.classList.remove("playing");
+    currentlyPlayingChannel = null;
+  }
+
+  stopCurrentStream();
+}
+
+function showSkeleton(item){
+  if(lastLoadingItem && lastLoadingItem !== item) restoreSidebarItem(lastLoadingItem);
+
+  if(currentlyPlayingItem || isPlayingFolder){
+    stopVideo();
+  }
+
+  lastLoadingItem = item;
+  loadingImage.style.display="block";
+  homeText.style.display="none";
+
+  if(item){
+    item.dataset.originalText = item.textContent;
+    item.innerHTML = "<span class='loadingText'>Loading stream...</span>";
+  }
+}
+
+function restoreSidebarItem(item){
+  if(item && item.dataset.originalText) item.textContent = item.dataset.originalText;
+  if(item === lastLoadingItem) lastLoadingItem = null;
+}
+
+function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false, slot=null){
+  stopCurrentStream();
+  if(slot) activeSlot = slot;
+
+  video.style.display="block";
+  if(hideTimeline) video.classList.add("hide-timeline");
+
+  if(Hls.isSupported()){
+    hls = new Hls();
+    hls.loadSource(url);
+    hls.attachMedia(video);
+  } else {
+    video.src = url;
+  }
+
+  if(title && !isChannel) nowPlaying.textContent = title;
+
+  video.oncanplay = () => {
+    loadingImage.style.display="none";
+    homeText.style.display="none";
+
+    if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
+
+    if(sidebarItem){
+      sidebarItem.classList.add("playing");
+      if(isChannel){
+        if(currentlyPlayingChannel && currentlyPlayingChannel !== sidebarItem){
+          currentlyPlayingChannel.classList.remove("playing");
+        }
+        currentlyPlayingChannel = sidebarItem;
+      } else {
+        currentlyPlayingItem = sidebarItem;
+      }
+    }
+
+    isPlayingFolder = folder;
+  };
+}
+
+/* ---------- Mode switching ---------- */
+function setMode(m){
+  mode = m;
+  document.getElementById("channelsBtn").classList.toggle("active", m==="channels");
+  document.getElementById("browseBtn").classList.toggle("active", m==="browse");
+
+  stopVideo();
+  homeText.innerHTML = originalHomeHTML;
+  list.innerHTML = "";
+  homeText.style.display = (m==="channels") ? "block" : "none";
+
+  loadChannels();
+  if(m!=="channels"){
+    currentPath="media/converted";
+    loadFolder(currentPath);
+  }
+}
+
+function goHome(){
+  stopVideo();
+  homeText.innerHTML = originalHomeHTML;
+  homeText.style.display="block";
+}
+
+/* ---------- Channels ---------- */
+function loadChannels(){
+  fetch("channels.json")
+    .then(r=>r.json())
+    .then(channels=>{
+      list.innerHTML="";
+      channels.forEach(c=>{
+        const div=document.createElement("div");
+        div.className="item";
+        div.textContent=c.name;
+        div.onclick=()=>{ 
+          homeText.style.display="none"; 
+          playHLS(`channels/${c.id}/output/${c.id}.m3u8`, true, c.name, false, div, true);
+        };
+        list.appendChild(div);
+      });
+    });
+}
+
+/* ---------- Browse filesystem ---------- */
+function loadFolder(path){
+  fetch(`/api/list?path=${encodeURIComponent(path)}`)
+    .then(r=>r.json())
+    .then(items=>{
+      list.innerHTML="";
+      homeText.style.display="none";
+      stopVideo();
+
+      if(path!=="media/converted"){
+        const up=document.createElement("div");
+        up.className="item folder";
+        up.textContent="..";
+        up.onclick=()=>loadFolder(path.split("/").slice(0,-1).join("/"));
+        list.appendChild(up);
+      }
+
+      items.forEach(i=>{
+        const div=document.createElement("div");
+        div.className="item "+i.type;
+        div.textContent=i.name;
+
+        if(i.type==="folder"){
+          div.onclick=()=>{
+            stopVideo();
+            homeText.innerHTML = `
+              <h2>📁 ${i.name}</h2>
+              <p>Shuffle and play all videos in <strong>${i.name}</strong></p>
+              <button id="playFolderBtn">▶️ Play Folder</button>
+            `;
+            homeText.style.display="block";
+
+            document.getElementById("playFolderBtn").onclick=()=>{
+              showSkeleton(div);
+              fetch("/api/play_folder",{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({path:i.path})
+              })
+              .then(r=>r.json())
+              .then(d=>waitForSegments(d.playlist,2,()=>{
+                playHLS(d.playlist,false,i.name,true,div,false,d.slot);
+              }));
+            };
+          };
+          div.ondblclick=()=>{
+            currentPath=i.path;
+            loadFolder(i.path);
+          };
+        } else {
+          div.onclick=()=>{
+            showSkeleton(div);
+            fetch("/api/play_file",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({path:i.path})
+            })
+            .then(r=>r.json())
+            .then(d=>waitForSegments(d.playlist,2,()=>{
+              playHLS(d.playlist,false,i.name,false,div,false,d.slot);
+            }));
+          };
+        }
+
+        list.appendChild(div);
+      });
+    });
+}
+
+/* ---------- Wait for segments before playing ---------- */
+function waitForSegments(url,minSegments,callback){
+  const interval=setInterval(()=>{
+    fetch(url)
+      .then(r=>r.text())
+      .then(text=>{
+        if((text.match(/\.ts/g)||[]).length>=minSegments){
+          clearInterval(interval);
+          callback();
+        }
+      })
+      .catch(()=>{});
+  },200);
+}
+
+/* ---------- Init ---------- */
+setMode("channels");
+</script>
+
+</body>
+</html>
