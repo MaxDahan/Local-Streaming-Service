@@ -1,5 +1,5 @@
-# stops a stream started with start_stream. Kills all the necessary processes and cleans files.
 #!/bin/bash
+# stops a stream started with start_stream. Kills all the necessary processes and cleans files.
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <channel_name>"
@@ -9,7 +9,11 @@ fi
 CHANNEL="$1"
 echo "🔴 Stopping looping stream for channel: $CHANNEL"
 
-# Kill cleanup.sh
+# Absolute path to project root (one level up from src/)
+BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUTPUT_DIR="$BASE_DIR/channels/$CHANNEL/output"
+
+# Kill cleanup.sh processes for this channel
 CLEANUP_PIDS=$(ps aux | grep "[c]leanup.sh" | grep "$CHANNEL" | awk '{print $2}')
 if [ -n "$CLEANUP_PIDS" ]; then
   echo "Killing cleanup.sh PIDs: $CLEANUP_PIDS"
@@ -18,7 +22,7 @@ else
   echo "No cleanup.sh processes found for $CHANNEL"
 fi
 
-# Kill start_stream_logic.sh
+# Kill start_stream_logic.sh processes for this channel
 START_PIDS=$(ps aux | grep "[s]tart_stream_logic.sh" | grep "$CHANNEL" | awk '{print $2}')
 if [ -n "$START_PIDS" ]; then
   echo "Killing start_stream_logic.sh PIDs: $START_PIDS"
@@ -36,9 +40,8 @@ else
   echo "No ffmpeg processes found for $CHANNEL"
 fi
 
-# remove old HLS segment files and playlist
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUTPUT_DIR="$BASE_DIR/channels/$CHANNEL/output"
+# Remove old HLS segment files and playlists
+mkdir -p "$OUTPUT_DIR"  # ensure folder exists
 echo "🧹 Cleaning up old HLS segments and playlists..."
 rm -f "$OUTPUT_DIR"/*.ts "$OUTPUT_DIR"/*.m3u8
 

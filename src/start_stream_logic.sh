@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# start_stream_logic_fixed.sh
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <channel_id>"
@@ -7,12 +6,15 @@ if [ -z "$1" ]; then
 fi
 
 CHANNEL="$1"
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Project root (one level up from src/)
+BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHANNEL_DIR="$BASE_DIR/channels/$CHANNEL"
 OUTPUT_DIR="$CHANNEL_DIR/output"
 OUTPUT_PLAYLIST="$OUTPUT_DIR/$CHANNEL.m3u8"
 SEGMENT_PREFIX="$OUTPUT_DIR/${CHANNEL}_"
 
+# Ensure output folder exists
 mkdir -p "$OUTPUT_DIR"
 
 echo "🔹 Base dir: $BASE_DIR"

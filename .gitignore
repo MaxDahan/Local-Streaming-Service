@@ -1,5 +1,18 @@
-backup/
-output/
-channels/
-on_demand/
+# Ignore everything in these folders
+backup/*
+media/*
+output/*
+channels/*
+on_demand/*
+
+# Keep folder placeholders
+!backup/.gitkeep
+!media/.gitkeep
+!media/converted/.gitkeep
+!media/raw/.gitkeep
+!output/.gitkeep
+!channels/.gitkeep
+!on_demand/.gitkeep
+
+# Ignore macOS resource fork files
 ._*

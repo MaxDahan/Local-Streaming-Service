@@ -1,12 +1,12 @@
 #!/bin/bash
 
-./start_all_streams.sh
+./src/start_all_streams.sh
 
-LOGFILE="server.log"
-PIDFILE="server.pid"
+LOGFILE="output/server.log"
+PIDFILE="output/server.pid"
 
 # Start server detached from terminal
-nohup sudo python3 start_server.py > "$LOGFILE" 2>&1 &
+nohup sudo python3 src/start_server.py > "$LOGFILE" 2>&1 &
 
 # Save PID
 echo $! > "$PIDFILE"
