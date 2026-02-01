@@ -1,9 +1,10 @@
 # Ignore everything in these folders
 backup/*
-media/*
 output/*
 channels/*
 on_demand/*
+media/raw/*
+media/converted/*
 
 # Keep folder placeholders
 !backup/.gitkeep
