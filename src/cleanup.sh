@@ -1,6 +1,7 @@
 #!/bin/bash
 
-OUTPUT_DIR="channels/$1/output"
+BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUTPUT_DIR="$BASE_DIR/channels/$1/output"
 FFMPEG_LOG="$OUTPUT_DIR/ffmpeg.log"
 CLEANUP_LOG="$OUTPUT_DIR/cleanup.log"
 
@@ -15,7 +16,7 @@ rm -f "${CLEANUP_LOG}".*.gz
 echo "Starting cleanup in $OUTPUT_DIR"
 
 # Use neutral location for logrotate state file
-LOGROTATE_CONF="/mnt/usb/Streaming/logrotate.conf"
+LOGROTATE_CONF="$BASE_DIR/logrotate.conf"
 LOGROTATE_STATE="/tmp/logrotate_channels.status"
 
 while true; do

@@ -6,5 +6,5 @@ CHANNEL="$1"
 # nohup setsid ./start_stream_logic.sh "$1" 2>&1 | tr -cd '\11\12\15\40-\176' >> "channels/$1/output/ffmpeg.log" &
 
 
-nohup ./cleanup.sh "$1" 2>&1 | tr -cd '\11\12\15\40-\176' >> "channels/$1/output/cleanup.log" &
-nohup ./start_stream_logic.sh "$1" 2>&1 | tr -cd '\11\12\15\40-\176' >> "channels/$1/output/ffmpeg.log" &
+nohup ./src/cleanup.sh "$1" 2>&1 | tr -cd '\11\12\15\40-\176' >> "channels/$1/output/cleanup.log" &
+nohup ./src/start_stream_logic.sh "$1" 2>&1 | tr -cd '\11\12\15\40-\176' >> "channels/$1/output/ffmpeg.log" &

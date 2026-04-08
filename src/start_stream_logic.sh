@@ -7,7 +7,7 @@ if [ -z "$1" ]; then
 fi
 
 CHANNEL="$1"
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHANNEL_DIR="$BASE_DIR/channels/$CHANNEL"
 OUTPUT_DIR="$CHANNEL_DIR/output"
 OUTPUT_PLAYLIST="$OUTPUT_DIR/$CHANNEL.m3u8"

@@ -112,6 +112,19 @@ def start_ffmpeg(file_list, slot, ip):
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/":
+            # Serve index.html from src/
+            index_path = os.path.join(BASE_DIR, "src", "index.html")
+            if os.path.exists(index_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                with open(index_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            else:
+                self.send_error(404)
+                return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]

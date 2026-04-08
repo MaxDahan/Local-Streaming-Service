@@ -14,7 +14,7 @@ echo "🛑 Stopping all channels listed in $CHANNELS_FILE..."
 # Extract "id" fields and loop over them
 jq -r '.[].id' "$CHANNELS_FILE" | while read -r channel_id; do
   echo "🔻 Stopping stream for channel: $channel_id"
-  ./stop_stream.sh "$channel_id"
+  ./src/stop_stream.sh "$channel_id"
 done
 
 echo "✅ All channels attempted to stop."
