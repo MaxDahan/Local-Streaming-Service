@@ -10,18 +10,28 @@ PIDFILE="$BASE_DIR/output/server.pid"
 # Stop all on demand streams
 "$BASE_DIR/src/stop_on_demand.sh"
 
-if [ ! -f "$PIDFILE" ]; then
-    echo "❌ Server not running (no PID file found)"
+SERVER_PIDS="$(pgrep -f "src/start_server.py" | tr '\n' ' ' )"
+stopped=0
+
+if [ -f "$PIDFILE" ]; then
+    PID=$(cat "$PIDFILE")
+    if ps -p "$PID" > /dev/null 2>&1; then
+        sudo kill "$PID"
+        echo "✅ Server stopped (PID $PID)"
+        stopped=1
+    else
+        echo "⚠️ PID file exists but process not running"
+    fi
+    rm -f "$PIDFILE"
+fi
+
+if [ -n "$SERVER_PIDS" ]; then
+    echo "⚠️ Found leftover start_server.py process(es): $SERVER_PIDS"
+    sudo kill $SERVER_PIDS
+    stopped=1
+fi
+
+if [ "$stopped" -eq 0 ]; then
+    echo "❌ Server not running"
     exit 1
 fi
-
-PID=$(cat "$PIDFILE")
-
-if ps -p "$PID" > /dev/null 2>&1; then
-    sudo kill "$PID"
-    echo "✅ Server stopped (PID $PID)"
-else
-    echo "⚠️ Process not found, cleaning up PID file"
-fi
-
-rm -f "$PIDFILE"
