@@ -5,7 +5,7 @@
   },
   {
     "name": "Cartoons", "id": "cartoons",
-    "folders": ["Adventure Time", "Amazing World Of Gumball", "Avatar The Last Airbender", "Beavis and Butthead", "Ben 10", "Chowder", "Fairly OddParents", "Family Guy", "Futurama", "Invader Zim", "King of the Hill", "Pokemon", "Regular Show", "Rick and Morty", "Samurai Jack", "Smiling Friends", "Spongebob Squarepants", "The Boondocks", "The Simpsons"]
+    "folders": ["Adventure Time", "Amazing World Of Gumball", "Avatar The Last Airbender", "Ben 10", "Chowder", "Fairly OddParents", "Family Guy", "Futurama", "Invader Zim", "King of the Hill", "Pokemon", "Regular Show", "Rick and Morty", "Samurai Jack", "Smiling Friends", "Spongebob Squarepants", "The Boondocks", "The Simpsons"]
   },
   {
     "name": "Oldschool Cartoons", "id": "oldschool-cartoons",

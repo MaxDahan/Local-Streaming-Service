@@ -5,6 +5,9 @@ channels/*
 on_demand/*
 media/raw/*
 media/converted/*
+src/__pycache__/*
+.vscode/
+backup-channels.json
 
 # Keep folder placeholders
 !backup/.gitkeep
@@ -14,6 +17,9 @@ media/converted/*
 !output/.gitkeep
 !channels/.gitkeep
 !on_demand/.gitkeep
+
+# Ignore saved local chat history and context notes
+chat_history/
 
 # Ignore macOS resource fork files
 ._*

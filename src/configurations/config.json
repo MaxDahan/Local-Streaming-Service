@@ -1,3 +1,4 @@
 {
-  "max_sessions": 5
+  "max_sessions": 5,
+  "media_root": "/mnt/usb/Streaming/media/converted"
 }

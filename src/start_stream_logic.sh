@@ -15,8 +15,15 @@ SEGMENT_PREFIX="$OUTPUT_DIR/${CHANNEL}_"
 
 mkdir -p "$OUTPUT_DIR"
 PLAYLIST_FILE="$CHANNEL_DIR/current_playlist.txt"
+CONFIG_FILE="$BASE_DIR/src/configurations/config.json"
+MEDIA_ROOT="$(jq -r '.media_root // empty' "$CONFIG_FILE" 2>/dev/null)"
+
+if [ -z "$MEDIA_ROOT" ] || [ "$MEDIA_ROOT" = "null" ]; then
+  MEDIA_ROOT="$BASE_DIR/media/converted"
+fi
 
 echo "🔹 Base dir: $BASE_DIR"
+echo "🔹 Media root: $MEDIA_ROOT"
 echo "🔹 Channel dir: $CHANNEL_DIR"
 echo "🔹 Output playlist: $OUTPUT_PLAYLIST"
 echo "🔹 Playlist file: $PLAYLIST_FILE"
@@ -40,7 +47,7 @@ rm -f "$OUTPUT_DIR"/*.ts
 echo "🧹 Cleaned old .ts files"
 declare -a show_names=()
 for folder in "${FOLDERS[@]}"; do
-  MEDIA_DIR="$BASE_DIR/media/converted/$folder"
+  MEDIA_DIR="$MEDIA_ROOT/$folder"
   echo "🔹 Checking folder: '$MEDIA_DIR'"
 
   if [ -d "$MEDIA_DIR" ]; then

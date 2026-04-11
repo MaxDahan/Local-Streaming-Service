@@ -64,14 +64,27 @@ const nowPlaying = document.getElementById("nowPlaying");
 
 let hls = null;
 let mode = "channels";
-let currentPath = "media/converted";
+let mediaRoot = "media/converted";
+let currentPath = mediaRoot;
 const originalHomeHTML = homeText.innerHTML;
 
 let lastLoadingItem = null;
 let currentlyPlayingItem = null;
 let currentlyPlayingChannel = null;
 let isPlayingFolder = false;
-let activeSlot = null; // <-- store session slot
+let activeSlot = null;
+
+function loadConfig(){
+  return fetch("/api/config")
+    .then(r => r.ok ? r.json() : {})
+    .then(config => {
+      if(config.media_root){
+        mediaRoot = config.media_root;
+        currentPath = mediaRoot;
+      }
+    })
+    .catch(() => {});
+}
 
 /* ---------- Helpers ---------- */
 function resetPlayer() {
@@ -186,7 +199,7 @@ function setMode(m){
 
   loadChannels();
   if(m!=="channels"){
-    currentPath="media/converted";
+    currentPath = mediaRoot;
     loadFolder(currentPath);
   }
 }
@@ -225,7 +238,7 @@ function loadFolder(path){
       homeText.style.display="none";
       stopVideo();
 
-      if(path!=="media/converted"){
+      if(path!==mediaRoot){
         const up=document.createElement("div");
         up.className="item folder";
         up.textContent="..";
@@ -256,7 +269,7 @@ function loadFolder(path){
                 body: JSON.stringify({path:i.path})
               })
               .then(r=>r.json())
-              .then(d=>waitForSegments(d.playlist,2,()=>{
+              .then(d=>waitForSegments(d.playlist,3,()=>{
                 playHLS(d.playlist,false,i.name,true,div,false,d.slot);
               }));
             };
@@ -274,7 +287,7 @@ function loadFolder(path){
               body: JSON.stringify({path:i.path})
             })
             .then(r=>r.json())
-            .then(d=>waitForSegments(d.playlist,2,()=>{
+            .then(d=>waitForSegments(d.playlist,3,()=>{
               playHLS(d.playlist,false,i.name,false,div,false,d.slot);
             }));
           };
@@ -288,8 +301,8 @@ function loadFolder(path){
 /* ---------- Wait for segments before playing ---------- */
 function waitForSegments(url,minSegments,callback){
   const interval=setInterval(()=>{
-    fetch(url)
-      .then(r=>r.text())
+    fetch(url, { cache: "no-store" })
+      .then(r=>r.ok ? r.text() : "")
       .then(text=>{
         if((text.match(/\.ts/g)||[]).length>=minSegments){
           clearInterval(interval);
@@ -297,11 +310,11 @@ function waitForSegments(url,minSegments,callback){
         }
       })
       .catch(()=>{});
-  },200);
+  },150);
 }
 
 /* ---------- Init ---------- */
-setMode("channels");
+loadConfig().finally(() => setMode("channels"));
 </script>
 
 </body>

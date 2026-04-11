@@ -4,12 +4,35 @@ import json
 import subprocess
 import random
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs
 
 BASE_DIR = os.path.abspath(os.getcwd())
-MEDIA_ROOT = os.path.join(BASE_DIR, "media", "converted")
+CONFIG_PATH = os.path.join(BASE_DIR, "src", "configurations", "config.json")
+
+
+def load_config():
+    config = {
+        "max_sessions": 5,
+        "media_root": os.path.join(BASE_DIR, "media", "converted")
+    }
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            config.update(loaded)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return config
+
+
+CONFIG = load_config()
+MEDIA_ROOT = os.path.realpath(CONFIG.get("media_root", os.path.join(BASE_DIR, "media", "converted")))
 ON_DEMAND_DIR = os.path.join(BASE_DIR, "on_demand")
-MAX_SESSIONS = 5
+try:
+    MAX_SESSIONS = int(CONFIG.get("max_sessions", 5))
+except (TypeError, ValueError):
+    MAX_SESSIONS = 5
 
 # Ensure session folders exist
 os.makedirs(ON_DEMAND_DIR, exist_ok=True)
@@ -89,15 +112,19 @@ def start_ffmpeg(file_list, slot, ip):
     playlist_path = os.path.join(folder, "output.m3u8")
     segment_pattern = os.path.join(folder, "seg_%03d.ts")
 
+    # Keep the full on-demand playlist/segments for the active session so the
+    # viewer can seek backward through already-generated content. When the user
+    # switches streams, stop_session()/cleanup_folder() clears everything.
     proc = subprocess.Popen([
         "ffmpeg", "-nostdin", "-re",
         "-f", "concat", "-safe", "0",
         "-i", concat_file,
         "-c", "copy",
         "-f", "hls",
-        "-hls_time", "6",
-        "-hls_list_size", "30",
-        "-hls_flags", "program_date_time",
+        "-hls_time", "2",
+        "-hls_list_size", "0",
+        "-hls_playlist_type", "event",
+        "-hls_flags", "program_date_time+append_list",
         "-hls_segment_filename", segment_pattern,
         playlist_path
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -108,6 +135,10 @@ def start_ffmpeg(file_list, slot, ip):
         ip_queue.append(ip)
 
     return playlist_path, slot
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """HTTP server with threading to handle multiple requests concurrently"""
+    pass
 
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -125,6 +156,15 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 self.send_error(404)
                 return
+        if parsed.path == "/api/config":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "media_root": os.path.relpath(MEDIA_ROOT, BASE_DIR),
+                "max_sessions": MAX_SESSIONS
+            }).encode())
+            return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -208,6 +248,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.chdir(BASE_DIR)
-    server = HTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces
+    server = ThreadingHTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces
     print("🚀 Server running on http://0.0.0.0:80 (maxistreams.local)")
     server.serve_forever()
