@@ -29,6 +29,29 @@ video.hide-timeline::-webkit-media-controls-time-remaining-display { display:non
 #loadingImage { display:none; max-width:100%; margin-top:20px; border-radius:12px; }
 #nowPlaying { margin-top:10px; font-size:18px; text-align:center; color:#ff6600; }
 .loadingText { color:#ff4444; font-weight:bold; }
+.github-card {
+  margin-top:18px;
+  padding:14px 18px;
+  background:linear-gradient(135deg, #1f1f1f, #2c2c2c);
+  border:1px solid #444;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.25);
+}
+.github-card a {
+  color:#7cc7ff;
+  text-decoration:none;
+  font-weight:bold;
+}
+.github-card a:hover {
+  color:#a8ddff;
+  text-decoration:underline;
+}
+.github-label {
+  display:block;
+  font-size:14px;
+  color:#bbb;
+  margin-bottom:6px;
+}
 </style>
 </head>
 
@@ -49,6 +72,12 @@ video.hide-timeline::-webkit-media-controls-time-remaining-display { display:non
     <h2>Welcome to MAXISTREAMS!</h2>
     <p>Maximum stream enjoyment. Browse channels or folders, shuffle media, and watch instantly.</p>
     <img src="src/images/big-chongler.webp" alt="Big Chungus" style="max-width:100%; margin-top:20px; border-radius:12px;" />
+    <div class="github-card">
+      <span class="github-label">🔗 Check out the project on GitHub</span>
+      <a href="https://github.com/MaxDahan/Local-Streaming-Service" target="_blank" rel="noopener noreferrer">
+        MaxDahan/Local-Streaming-Service
+      </a>
+    </div>
   </div>
   <img id="loadingImage" src="src/images/skeleton.jpg" alt="Loading" />
   <video id="video" controls autoplay muted playsinline style="display:none;"></video>
