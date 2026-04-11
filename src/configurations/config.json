@@ -1,4 +1,5 @@
 {
   "max_sessions": 5,
-  "media_root": "/mnt/usb/Streaming/media/converted"
+  "media_root": "/mnt/usb/Streaming/media/converted",
+  "title_cleanup_config": "src/configurations/title_cleanup.json"
 }
