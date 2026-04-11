@@ -73,6 +73,7 @@ let currentlyPlayingItem = null;
 let currentlyPlayingChannel = null;
 let isPlayingFolder = false;
 let activeSlot = null;
+let listLoadToken = 0;
 
 function loadConfig(){
   return fetch("/api/config")
@@ -194,16 +195,21 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
 /* ---------- Mode switching ---------- */
 function setMode(m){
   mode = m;
+  listLoadToken++;
   document.getElementById("channelsBtn").classList.toggle("active", m==="channels");
   document.getElementById("browseBtn").classList.toggle("active", m==="browse");
 
   stopVideo();
   homeText.innerHTML = originalHomeHTML;
   list.innerHTML = "";
+  if(m === "browse"){
+    list.innerHTML = '<div class="item">Loading folders...</div>';
+  }
   homeText.style.display = (m==="channels") ? "block" : "none";
 
-  loadChannels();
-  if(m!=="channels"){
+  if(m === "channels"){
+    loadChannels();
+  } else {
     currentPath = mediaRoot;
     loadFolder(currentPath);
   }
@@ -217,9 +223,11 @@ function goHome(){
 
 /* ---------- Channels ---------- */
 function loadChannels(){
+  const token = listLoadToken;
   fetch("channels.json")
     .then(r=>r.json())
     .then(channels=>{
+      if(mode !== "channels" || token !== listLoadToken) return;
       list.innerHTML="";
       channels.forEach(c=>{
         const div=document.createElement("div");
@@ -237,9 +245,11 @@ function loadChannels(){
 
 /* ---------- Browse filesystem ---------- */
 function loadFolder(path){
+  const token = listLoadToken;
   fetch(`/api/list?path=${encodeURIComponent(path)}`)
     .then(r=>r.json())
     .then(items=>{
+      if(mode !== "browse" || token !== listLoadToken) return;
       list.innerHTML="";
       homeText.style.display="none";
       stopVideo();
