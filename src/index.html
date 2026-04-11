@@ -106,12 +106,18 @@ function resetPlayer() {
 
 function stopCurrentStream(){
   if(activeSlot !== null){
-    fetch("/api/stop_session",{ method:"POST" }).catch(()=>{});
+    fetch("/api/stop_session", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:"{}",
+      keepalive:true
+    }).catch(()=>{});
     activeSlot = null;
   }
 }
 
 function stopVideo() {
+  stopCurrentStream();
   resetPlayer();
   homeText.style.display="none";
 
@@ -128,7 +134,7 @@ function stopVideo() {
 function showSkeleton(item){
   if(lastLoadingItem && lastLoadingItem !== item) restoreSidebarItem(lastLoadingItem);
 
-  if(currentlyPlayingItem || isPlayingFolder){
+  if(activeSlot !== null || currentlyPlayingItem || isPlayingFolder){
     stopVideo();
   }
 
@@ -148,7 +154,6 @@ function restoreSidebarItem(item){
 }
 
 function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false, slot=null){
-  stopCurrentStream();
   if(slot) activeSlot = slot;
 
   video.style.display="block";
@@ -221,6 +226,7 @@ function loadChannels(){
         div.className="item";
         div.textContent=c.name;
         div.onclick=()=>{ 
+          stopVideo();
           homeText.style.display="none"; 
           playHLS(`channels/${c.id}/output/${c.id}.m3u8`, true, c.name, false, div, true);
         };
@@ -312,6 +318,8 @@ function waitForSegments(url,minSegments,callback){
       .catch(()=>{});
   },150);
 }
+
+window.addEventListener("pagehide", stopCurrentStream);
 
 /* ---------- Init ---------- */
 loadConfig().finally(() => setMode("channels"));

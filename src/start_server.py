@@ -192,6 +192,18 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        if self.path == "/api/stop_session":
+            ip = self.client_address[0]
+            for slot, info in list(sessions.items()):
+                if info.get("ip") == ip:
+                    stop_session(slot)
+                    break
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "stopped"}).encode())
+            return
+
         length = int(self.headers.get("Content-Length", 0))
         try:
             body = json.loads(self.rfile.read(length))
@@ -201,18 +213,6 @@ class Handler(SimpleHTTPRequestHandler):
 
         path = body.get("path")
         real = safe_path(path)
-
-        if self.path == "/api/stop_session":
-            ip = self.client_address[0]
-            for slot, info in sessions.items():
-                if info.get("ip") == ip:
-                    stop_session(slot)
-                    break
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "stopped"}).encode())
-            return
 
         if not real:
             self.send_error(400)
