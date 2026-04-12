@@ -328,6 +328,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <option value="dinosaur">Dinosaur</option>
       <option value="beach">Beach</option>
       <option value="csgo">Counter-Strike GO</option>
+      <option value="pokemon">Pokemon</option>
     </select>
   </div>
 </div>
@@ -352,7 +353,7 @@ const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
 const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
 const DEFAULT_HOME_IMAGE = "";
 const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
-const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo"];
+const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo", "pokemon"];
 const THEME_LABELS = {
   default: "Default",
   light: "Light",
@@ -362,7 +363,8 @@ const THEME_LABELS = {
   space: "Space",
   dinosaur: "Dinosaur",
   beach: "Beach",
-  csgo: "Counter-Strike GO"
+  csgo: "Counter-Strike GO",
+  pokemon: "Pokemon"
 };
 const THEME_PRESETS = {
   default: {
@@ -774,6 +776,7 @@ function hydrateThemeConfigs(themeNames){
           home: manifest.images.home || "",
           loading: manifest.images.loading || "",
           overlay: manifest.images.overlay || "",
+          overlayOpacity: typeof manifest.images.overlay_opacity === "number" ? String(manifest.images.overlay_opacity) : "",
         };
       }
     });
@@ -785,7 +788,7 @@ function normalizeThemeName(themeName){
   return themeName === "dark" ? "default" : themeName;
 }
 
-function applyTheme(themeName){
+function applyTheme(themeName, persist=true){
   const mappedTheme = normalizeThemeName(themeName);
   const safeName = mappedTheme in THEME_PRESETS ? mappedTheme : configuredDefaultTheme;
   const preset = THEME_PRESETS[safeName] || THEME_PRESETS.default;
@@ -796,10 +799,12 @@ function applyTheme(themeName){
   });
   themeSelect.value = safeName;
   applyThemeImages(themeSelect.value);
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
-    localStorage.setItem(THEME_VARS_STORAGE_KEY, JSON.stringify(preset));
-  } catch (_) {}
+  if(persist){
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
+      localStorage.setItem(THEME_VARS_STORAGE_KEY, JSON.stringify(preset));
+    } catch (_) {}
+  }
 }
 
 function findFirstExistingImage(candidates, fallback, onDone){
@@ -851,7 +856,7 @@ function applyThemeImages(themeName){
     if(src === "__theme_default__") return;
     if(src){
       document.documentElement.style.setProperty("--theme-content-overlay", `url('${src}')`);
-      document.documentElement.style.setProperty("--theme-overlay-opacity", "0.14");
+      document.documentElement.style.setProperty("--theme-overlay-opacity", assets.overlayOpacity || "0.14");
     } else {
       document.documentElement.style.setProperty("--theme-content-overlay", "none");
       document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
@@ -866,7 +871,11 @@ function initThemePicker(){
     saved = localStorage.getItem(THEME_STORAGE_KEY) || configuredDefaultTheme;
   } catch (_) {}
   saved = normalizeThemeName(saved);
-  applyTheme(saved);
+  // If this theme comes from a manifest (not inline preset), do not force
+  // a fallback to default here; wait for loadConfig()/hydrateThemeConfigs().
+  if(saved in THEME_PRESETS){
+    applyTheme(saved, false);
+  }
 
   themeToggle.addEventListener("click", (e) => {
     e.stopPropagation();

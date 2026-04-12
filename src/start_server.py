@@ -20,7 +20,7 @@ def load_config():
         "themes": {
             "default": "default",
             "available": [
-                "default", "volcano", "space", "dinosaur", "beach", "csgo"
+                "default", "volcano", "space", "dinosaur", "beach", "csgo", "pokemon"
             ],
         },
     }
