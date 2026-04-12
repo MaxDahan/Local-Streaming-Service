@@ -41,6 +41,7 @@
   "images": {
     "home": "home.png",
     "loading": "loading.png",
+    "button": "button.png",
     "overlay": "overlay.png",
     "overlay_opacity": 0.22
   }
