@@ -233,6 +233,94 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   margin-bottom:6px;
 }
 
+.patch-notes-section {
+  margin-top:20px;
+  padding:16px 18px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 88%, #111 12%), var(--item-bg));
+  border:1px solid var(--border-input);
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.25);
+}
+
+.patch-notes-section h3 {
+  margin:0 0 12px 0;
+  font-size:16px;
+  color:var(--text-main);
+}
+
+.patch-notes-content {
+  font-size:13px;
+  line-height:1.6;
+  max-height:300px;
+  overflow-y:auto;
+  color:var(--text-muted);
+}
+
+.patch-notes-content h1,
+.patch-notes-content h2,
+.patch-notes-content h3,
+.patch-notes-content h4,
+.patch-notes-content h5,
+.patch-notes-content h6 {
+  margin:12px 0 6px 0;
+  color:var(--text-main);
+  font-size:inherit;
+}
+
+.patch-notes-content h1 { font-size:14px; font-weight:bold; }
+.patch-notes-content h2 { font-size:13px; font-weight:bold; }
+.patch-notes-content h3 { font-size:12px; font-weight:bold; }
+
+.patch-notes-content p {
+  margin:6px 0;
+  color:var(--text-muted);
+}
+
+.patch-notes-content ul {
+  margin:6px 0 6px 20px;
+  padding:0;
+}
+
+.patch-notes-content li {
+  margin:4px 0;
+  color:var(--text-muted);
+}
+
+.patch-notes-content strong {
+  color:var(--accent-strong);
+  font-weight:bold;
+}
+
+.patch-notes-content em {
+  color:var(--link);
+  font-style:italic;
+}
+
+.patch-notes-content code {
+  background:rgba(255,255,255,0.05);
+  padding:2px 4px;
+  border-radius:3px;
+  color:var(--status-text);
+  font-family:monospace;
+  font-size:12px;
+}
+
+.patch-notes-content a {
+  color:var(--link);
+  text-decoration:none;
+}
+
+.patch-notes-content a:hover {
+  color:var(--link-hover);
+  text-decoration:underline;
+}
+
+.patch-notes-content hr {
+  margin:12px 0;
+  border:none;
+  border-top:1px solid var(--border-card);
+}
+
 .theme-dock {
   position:fixed;
   right:18px;
@@ -375,6 +463,12 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <a href="https://github.com/MaxDahan/Local-Streaming-Service" target="_blank" rel="noopener noreferrer">
         MaxDahan/Local-Streaming-Service
       </a>
+    </div>
+    <div class="patch-notes-section" id="patchNotesSection">
+      <h3>📋 Latest Updates</h3>
+      <div class="patch-notes-content" id="patchNotesContent">
+        <p>Loading patch notes...</p>
+      </div>
     </div>
   </div>
   <div id="mediaStage" class="media-stage">
@@ -1020,6 +1114,23 @@ function initThemePicker(){
   });
 }
 
+function loadPatchNotes(){
+  return fetch("/api/patchnotes")
+    .then(r => r.ok ? r.json() : {html: ""})
+    .then((data) => {
+      const content = document.getElementById("patchNotesContent");
+      if(content && data.html){
+        content.innerHTML = data.html;
+      }
+    })
+    .catch(() => {
+      const content = document.getElementById("patchNotesContent");
+      if(content){
+        content.innerHTML = "<p>Could not load patch notes</p>";
+      }
+    });
+}
+
 function loadConfig(){
   return fetch("/api/config")
     .then(r => r.ok ? r.json() : {})
@@ -1391,6 +1502,7 @@ function setMode(m){
 
   if(m === "channels"){
     loadChannels();
+    loadPatchNotes();
   } else {
     currentPath = mediaRoot;
     loadFolder(currentPath);
@@ -1571,7 +1683,10 @@ window.addEventListener("pagehide", stopCurrentStream);
 
 /* ---------- Init ---------- */
 initThemePicker();
-loadConfig().finally(() => setMode("channels"));
+loadConfig().finally(() => {
+  setMode("channels");
+  loadPatchNotes();
+});
 </script>
 
 </body>

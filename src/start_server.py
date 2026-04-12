@@ -12,6 +12,94 @@ BASE_DIR = os.path.abspath(os.getcwd())
 CONFIG_PATH = os.path.join(BASE_DIR, "src", "configurations", "config.json")
 
 
+def markdown_to_html(markdown_text):
+    """Convert basic markdown to HTML"""
+    html = []
+    lines = markdown_text.split('\n')
+    in_code_block = False
+    code_lines = []
+    in_list = False
+    list_items = []
+    
+    for line in lines:
+        # Code blocks
+        if line.startswith('```'):
+            if in_code_block:
+                html.append('<pre><code>' + '\n'.join(code_lines).replace('<', '&lt;').replace('>', '&gt;') + '</code></pre>')
+                code_lines = []
+                in_code_block = False
+            else:
+                in_code_block = True
+            continue
+        
+        if in_code_block:
+            code_lines.append(line)
+            continue
+        
+        # Headings
+        heading_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+        if heading_match:
+            if in_list:
+                html.append('<ul>' + ''.join(f'<li>{item}</li>' for item in list_items) + '</ul>')
+                in_list = False
+                list_items = []
+            level = len(heading_match.group(1))
+            text = heading_match.group(2)
+            html.append(f'<h{level}>{text}</h{level}>')
+            continue
+        
+        # Horizontal rules
+        if re.match(r'^-{3,}$', line) or re.match(r'^\*{3,}$', line):
+            if in_list:
+                html.append('<ul>' + ''.join(f'<li>{item}</li>' for item in list_items) + '</ul>')
+                in_list = False
+                list_items = []
+            html.append('<hr />')
+            continue
+        
+        # Lists
+        list_match = re.match(r'^[-*+]\s+(.+)$', line)
+        if list_match:
+            text = list_match.group(1)
+            # Apply inline formatting
+            text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+            text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+            text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+            list_items.append(text)
+            in_list = True
+            continue
+        
+        # Empty lines
+        if not line.strip():
+            if in_list:
+                html.append('<ul>' + ''.join(f'<li>{item}</li>' for item in list_items) + '</ul>')
+                in_list = False
+                list_items = []
+            elif html and not html[-1].startswith('<'):
+                html.append('')
+            continue
+        
+        # Regular paragraphs
+        if in_list:
+            html.append('<ul>' + ''.join(f'<li>{item}</li>' for item in list_items) + '</ul>')
+            in_list = False
+            list_items = []
+        
+        # Apply inline formatting
+        text = line
+        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+        text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+        text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+        text = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2" target="_blank">\1</a>', text)
+        html.append(f'<p>{text}</p>')
+    
+    # Close any remaining list
+    if in_list:
+        html.append('<ul>' + ''.join(f'<li>{item}</li>' for item in list_items) + '</ul>')
+    
+    return '\n'.join(html)
+
+
 def load_config():
     config = {
         "max_sessions": 5,
@@ -339,6 +427,25 @@ class Handler(SimpleHTTPRequestHandler):
                 "max_sessions": MAX_SESSIONS,
                 "themes": themes_config,
             }).encode())
+            return
+        if parsed.path == "/api/patchnotes":
+            patchnotes_path = os.path.join(BASE_DIR, "src", "PATCHNOTES.md")
+            if os.path.exists(patchnotes_path):
+                try:
+                    with open(patchnotes_path, "r", encoding="utf-8") as f:
+                        markdown_content = f.read()
+                    html_content = markdown_to_html(markdown_content)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"html": html_content}).encode())
+                except Exception as e:
+                    self.send_error(500)
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"html": "<p>No patch notes available</p>"}).encode())
             return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
