@@ -8,6 +8,7 @@ media/converted/*
 src/__pycache__/*
 .vscode/
 backup-channels.json
+output/chat_history/channels/*
 
 # Keep folder placeholders
 !backup/.gitkeep
