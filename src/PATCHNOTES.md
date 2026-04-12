@@ -4,17 +4,14 @@
 **Release: April 2026**
 
 ### ✨ New Features
-- **Multi-Theme System** - Choose from 10+ customizable themes including Pokemon theme
+- **Multi-Theme System** - Choose from 5+ customizable themes including Pokemon theme
 - **Per-Theme Customization** - Each theme can have custom colors, images, and overlays
 - **Theme Persistence** - Your theme choice is saved across browser sessions
 - **Theme Button UI** - Interactive theme selector with live previews
 
 ### 🎨 Themes Added
 - Default (Classic dark mode)
-- Light (Bright and clean)
-- Ocean (Cool blues)
 - Volcano (Fiery reds and oranges)
-- Heaven (Soft purples and whites)
 - Space (Deep blacks and starlight)
 - Dinosaur (Earthy greens and browns)
 - Beach (Sandy warm tones)
