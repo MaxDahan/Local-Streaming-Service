@@ -4,6 +4,21 @@
 <meta charset="UTF-8" />
 <title>📺 MAXISTREAMS</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+(() => {
+  try {
+    const cachedVars = localStorage.getItem("maxistreams.theme.vars");
+    if(!cachedVars) return;
+    const vars = JSON.parse(cachedVars);
+    if(!vars || typeof vars !== "object") return;
+    Object.entries(vars).forEach(([key, value]) => {
+      if(typeof key === "string" && key.startsWith("--") && typeof value === "string"){
+        document.documentElement.style.setProperty(key, value);
+      }
+    });
+  } catch (_) {}
+})();
+</script>
 
 <style>
 :root {
@@ -333,6 +348,7 @@ const themeSelect = document.getElementById("themeSelect");
 const themeDock = document.getElementById("themeDock");
 
 const THEME_STORAGE_KEY = "maxistreams.theme";
+const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
 const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
 const DEFAULT_HOME_IMAGE = "";
 const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
@@ -782,6 +798,7 @@ function applyTheme(themeName){
   applyThemeImages(themeSelect.value);
   try {
     localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
+    localStorage.setItem(THEME_VARS_STORAGE_KEY, JSON.stringify(preset));
   } catch (_) {}
 }
 
@@ -843,6 +860,14 @@ function applyThemeImages(themeName){
 }
 
 function initThemePicker(){
+  // Apply saved theme immediately so first paint matches user preference.
+  let saved = configuredDefaultTheme;
+  try {
+    saved = localStorage.getItem(THEME_STORAGE_KEY) || configuredDefaultTheme;
+  } catch (_) {}
+  saved = normalizeThemeName(saved);
+  applyTheme(saved);
+
   themeToggle.addEventListener("click", (e) => {
     e.stopPropagation();
     themePanel.classList.toggle("open");
