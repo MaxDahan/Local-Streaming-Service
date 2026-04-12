@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import hashlib
 import subprocess
 import random
 import time
@@ -186,6 +187,94 @@ CHAT_MAX_PER_CHANNEL = 2000
 CHAT_MESSAGES = {}
 CHAT_NEXT_ID = 1
 CHAT_LOCK = Lock()
+CHAT_STORAGE_DIR = os.path.join(BASE_DIR, "output", "chat_history", "channels")
+
+
+def chat_file_path(channel):
+    channel_text = str(channel or "").strip()
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", channel_text).strip("._-") or "channel"
+    slug = slug[:64]
+    digest = hashlib.sha1(channel_text.encode("utf-8")).hexdigest()[:12]
+    return os.path.join(CHAT_STORAGE_DIR, f"{slug}__{digest}.json")
+
+
+def write_json_atomic(path, payload):
+    temp_path = f"{path}.tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(temp_path, path)
+
+
+def persist_channel_chat(channel, messages):
+    os.makedirs(CHAT_STORAGE_DIR, exist_ok=True)
+    clipped = list(messages[-CHAT_MAX_PER_CHANNEL:])
+    write_json_atomic(chat_file_path(channel), {
+        "channel": channel,
+        "messages": clipped,
+    })
+
+
+def load_chat_history():
+    global CHAT_MESSAGES, CHAT_NEXT_ID
+
+    os.makedirs(CHAT_STORAGE_DIR, exist_ok=True)
+    loaded = {}
+    max_id = 0
+
+    for filename in sorted(os.listdir(CHAT_STORAGE_DIR)):
+        if not filename.endswith(".json"):
+            continue
+        path = os.path.join(CHAT_STORAGE_DIR, filename)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        channel = str(payload.get("channel", "")).strip()
+        raw_messages = payload.get("messages", [])
+        if not channel or not isinstance(raw_messages, list):
+            continue
+
+        cleaned = []
+        for raw in raw_messages:
+            if not isinstance(raw, dict):
+                continue
+
+            try:
+                message_id = int(raw.get("id", 0))
+            except (TypeError, ValueError):
+                continue
+            if message_id <= 0:
+                continue
+
+            username = re.sub(r"\s+", " ", str(raw.get("username", "") or "Anonymous").strip())[:32] or "Anonymous"
+            text = re.sub(r"\s+", " ", str(raw.get("text", "") or "").strip())[:500]
+            if not text:
+                continue
+
+            try:
+                ts = int(raw.get("ts", int(time.time())))
+            except (TypeError, ValueError):
+                ts = int(time.time())
+
+            cleaned.append({
+                "id": message_id,
+                "channel": channel,
+                "username": username,
+                "text": text,
+                "ts": ts,
+            })
+            if message_id > max_id:
+                max_id = message_id
+
+        if cleaned:
+            cleaned.sort(key=lambda m: m.get("id", 0))
+            loaded[channel] = cleaned[-CHAT_MAX_PER_CHANNEL:]
+
+    with CHAT_LOCK:
+        CHAT_MESSAGES = loaded
+        CHAT_NEXT_ID = max_id + 1 if max_id > 0 else 1
 
 
 def build_phrase_pattern(phrase):
@@ -558,6 +647,12 @@ class Handler(SimpleHTTPRequestHandler):
                 bucket.append(entry)
                 if len(bucket) > CHAT_MAX_PER_CHANNEL:
                     del bucket[:-CHAT_MAX_PER_CHANNEL]
+                bucket_snapshot = list(bucket)
+
+            try:
+                persist_channel_chat(channel, bucket_snapshot)
+            except OSError as e:
+                print(f"⚠️ Failed to persist chat for channel '{channel}': {e}")
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -605,6 +700,7 @@ class Handler(SimpleHTTPRequestHandler):
         }).encode())
 
 if __name__ == "__main__":
+    load_chat_history()
     os.chdir(BASE_DIR)
     server = ThreadingHTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces
     print("🚀 Server running on http://0.0.0.0:80 (maxistreams.local)")
