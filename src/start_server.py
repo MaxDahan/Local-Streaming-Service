@@ -17,6 +17,12 @@ def load_config():
         "max_sessions": 5,
         "media_root": os.path.join(BASE_DIR, "media", "converted"),
         "title_cleanup_config": os.path.join("src", "configurations", "title_cleanup.json"),
+        "themes": {
+            "default": "default",
+            "available": [
+                "default", "volcano", "space", "dinosaur", "beach", "csgo"
+            ],
+        },
     }
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -321,12 +327,17 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_error(404)
                 return
         if parsed.path == "/api/config":
+            themes_config = CONFIG.get("themes") if isinstance(CONFIG.get("themes"), dict) else {
+                "default": "default",
+                "available": [],
+            }
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
                 "media_root": os.path.relpath(MEDIA_ROOT, BASE_DIR),
-                "max_sessions": MAX_SESSIONS
+                "max_sessions": MAX_SESSIONS,
+                "themes": themes_config,
             }).encode())
             return
         if parsed.path == "/api/list":

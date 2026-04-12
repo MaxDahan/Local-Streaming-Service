@@ -6,42 +6,108 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <style>
-body { margin:0; font-family:Arial, sans-serif; background:linear-gradient(135deg, #111, #171717 45%, #101820); color:#eee; display:flex; height:100vh; }
-.sidebar { width:300px; background:rgba(27,27,27,0.96); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid #333; }
+:root {
+  --bg-body: linear-gradient(135deg, #111, #171717 45%, #101820);
+  --bg-sidebar: rgba(27,27,27,0.96);
+  --border-sidebar: #333;
+  --text-main: #eee;
+  --text-muted: #bbb;
+  --bg-content: radial-gradient(circle at top, #3d3d3d, #2a2a2a 55%, #242424 100%);
+  --bg-card: #252525;
+  --border-card: #3f3f3f;
+  --bg-input: #181818;
+  --border-input: #444;
+  --bg-button: #333;
+  --bg-button-hover: #404040;
+  --accent-grad: linear-gradient(135deg, #ff9a3c, #ffd166);
+  --accent-text: #111;
+  --accent-strong: #ff6600;
+  --status-bg: #1d2733;
+  --status-text: #9fd0ff;
+  --status-border: #33485f;
+  --item-bg: #313131;
+  --item-hover-bg: #404040;
+  --item-hover-border: #555;
+  --item-selected-bg: #3b3122;
+  --item-selected-border: #ffb347;
+  --item-selected-text: #ffd79a;
+  --item-playing-bg: #1d3a29;
+  --item-playing-border: #1e7a56;
+  --item-playing-text: #00ff99;
+  --chip-bg: #3a3a3a;
+  --chip-border: #555;
+  --chip-text: #f2f2f2;
+  --link: #7cc7ff;
+  --link-hover: #a8ddff;
+  --warn: #ff4444;
+  --kbd-bg: #1f1f1f;
+  --kbd-border: #555;
+  --theme-content-overlay: none;
+  --theme-overlay-opacity: 0;
+}
+body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color:var(--text-main); display:flex; height:100vh; }
+.sidebar { width:300px; background:var(--bg-sidebar); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid var(--border-sidebar); }
 .logo { font-size:24px; font-weight:bold; margin-bottom:10px; cursor:pointer; text-align:center; }
 .mode-buttons { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.mode-buttons button { width:100%; background:#333; color:#eee; border:none; padding:9px; cursor:pointer; border-radius:10px; }
-.mode-buttons button.active { background:linear-gradient(135deg, #ff9a3c, #ffd166); color:#111; font-weight:bold; }
+.mode-buttons button { width:100%; background:var(--bg-button); color:var(--text-main); border:none; padding:9px; cursor:pointer; border-radius:10px; }
+.mode-buttons button.active { background:var(--accent-grad); color:var(--accent-text); font-weight:bold; }
 .search-box { margin-top:10px; }
 .search-box input {
   width:100%; box-sizing:border-box; padding:9px 10px; border-radius:10px;
-  border:1px solid #444; background:#181818; color:#eee;
+  border:1px solid var(--border-input); background:var(--bg-input); color:var(--text-main);
 }
 .status-pill {
   margin:10px 0 6px; padding:8px 10px; border-radius:10px;
-  background:#1d2733; color:#9fd0ff; font-size:12px; border:1px solid #33485f;
+  background:var(--status-bg); color:var(--status-text); font-size:12px; border:1px solid var(--status-border);
 }
 .selection-preview {
   padding:8px 10px;
   border-radius:10px;
-  background:#252525;
-  color:#ddd;
+  background:var(--bg-card);
+  color:var(--text-main);
   font-size:12px;
-  border:1px solid #3f3f3f;
+  border:1px solid var(--border-card);
   min-height:36px;
   line-height:1.35;
   word-break:break-word;
 }
-.divider { height:1px; background:#444; margin:10px 0; }
+.divider { height:1px; background:var(--border-input); margin:10px 0; }
 .list { flex:1; overflow-y:auto; }
-.item { padding:9px 10px; background:#313131; margin-bottom:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:10px; border:1px solid transparent; }
-.item:hover { background:#404040; border-color:#555; }
-.item.selected { background:#3b3122; border-color:#ffb347; color:#ffd79a; }
+.item { padding:9px 10px; background:var(--item-bg); margin-bottom:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:10px; border:1px solid transparent; }
+.item:hover { background:var(--item-hover-bg); border-color:var(--item-hover-border); }
+.item.selected { background:var(--item-selected-bg); border-color:var(--item-selected-border); color:var(--item-selected-text); }
 .item.playing,
-.item.playing.selected { background:#1d3a29; color:#00ff99; font-weight:bold; border-color:#1e7a56; }
+.item.playing.selected { background:var(--item-playing-bg); color:var(--item-playing-text); font-weight:bold; border-color:var(--item-playing-border); }
 .folder::before { content:"📁 "; }
 .file::before   { content:"🎞️ "; }
-.content { flex:1; background:radial-gradient(circle at top, #3d3d3d, #2a2a2a 55%, #242424 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 28px; overflow-y:auto; }
+.content {
+  flex:1;
+  position:relative;
+  background:var(--bg-content);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px 28px;
+  overflow-y:auto;
+  isolation:isolate;
+}
+.content::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:var(--theme-content-overlay);
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  opacity:var(--theme-overlay-opacity);
+  pointer-events:none;
+  z-index:0;
+}
+.content > * {
+  position:relative;
+  z-index:1;
+}
 .media-stage {
   display:none;
   position:relative;
@@ -57,7 +123,7 @@ video {
   inset:0;
   width:100%;
   height:100%;
-  background:black;
+  background:#000;
   border-radius:12px;
   box-shadow:0 8px 30px rgba(0,0,0,0.35);
   object-fit:contain;
@@ -69,13 +135,13 @@ video.hide-timeline::-webkit-media-controls-time-remaining-display { display:non
 .home-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
 .home-action {
   padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
-  background:linear-gradient(135deg, #ff9a3c, #ffd166); color:#111; font-weight:bold;
+  background:var(--accent-grad); color:var(--accent-text); font-weight:bold;
 }
-.home-action.secondary { background:#252525; color:#eee; border:1px solid #444; }
-.home-tip { font-size:13px; color:#bbb; margin-top:12px; }
-kbd { background:#1f1f1f; border:1px solid #555; border-bottom-width:2px; padding:2px 6px; border-radius:6px; font-size:12px; }
-#playFolderBtn { font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:#ff6600; border:none; border-radius:8px; color:#111; }
-#playFolderBtn:hover { background:#ff3300; transform:scale(1.05); transition:all 0.2s; }
+.home-action.secondary { background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-input); }
+.home-tip { font-size:13px; color:var(--text-muted); margin-top:12px; }
+kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-bottom-width:2px; padding:2px 6px; border-radius:6px; font-size:12px; }
+#playFolderBtn { font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:var(--accent-strong); border:none; border-radius:8px; color:var(--accent-text); }
+#playFolderBtn:hover { filter:brightness(1.08); transform:scale(1.05); transition:all 0.2s; }
 #loadingImage {
   display:none;
   position:absolute;
@@ -91,7 +157,7 @@ kbd { background:#1f1f1f; border:1px solid #555; border-bottom-width:2px; paddin
   margin-top:12px;
   font-size:16px;
   text-align:center;
-  color:#ff6600;
+  color:var(--accent-strong);
   min-height:24px;
   display:flex;
   flex-wrap:wrap;
@@ -101,40 +167,92 @@ kbd { background:#1f1f1f; border:1px solid #555; border-bottom-width:2px; paddin
 }
 .now-chip {
   display:inline-block;
-  background:#3a3a3a;
-  border:1px solid #555;
-  color:#f2f2f2;
+  background:var(--chip-bg);
+  border:1px solid var(--chip-border);
+  color:var(--chip-text);
   border-radius:8px;
   padding:4px 8px;
   line-height:1.2;
 }
 .now-sep {
-  color:#999;
+  color:var(--text-muted);
   font-size:14px;
 }
-.loadingText { color:#ff4444; font-weight:bold; }
+.loadingText { color:var(--warn); font-weight:bold; }
 .github-card {
   margin-top:18px;
   padding:14px 18px;
-  background:linear-gradient(135deg, #1f1f1f, #2c2c2c);
-  border:1px solid #444;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 88%, #000 12%), var(--item-bg));
+  border:1px solid var(--border-input);
   border-radius:12px;
   box-shadow:0 6px 18px rgba(0,0,0,0.25);
 }
 .github-card a {
-  color:#7cc7ff;
+  color:var(--link);
   text-decoration:none;
   font-weight:bold;
 }
 .github-card a:hover {
-  color:#a8ddff;
+  color:var(--link-hover);
   text-decoration:underline;
 }
 .github-label {
   display:block;
   font-size:14px;
-  color:#bbb;
+  color:var(--text-muted);
   margin-bottom:6px;
+}
+
+.theme-dock {
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:50;
+}
+.theme-toggle {
+  border:none;
+  border-radius:999px;
+  width:46px;
+  height:46px;
+  cursor:pointer;
+  font-size:18px;
+  background:var(--accent-grad);
+  color:var(--accent-text);
+  box-shadow:0 8px 20px rgba(0,0,0,0.28);
+}
+.theme-panel {
+  display:none;
+  margin-top:8px;
+  width:250px;
+  background:var(--bg-sidebar);
+  border:1px solid var(--border-input);
+  border-radius:12px;
+  padding:10px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.25);
+}
+.theme-panel.open { display:block; }
+.theme-panel h4 {
+  margin:0 0 8px;
+  font-size:14px;
+  color:var(--text-main);
+}
+.theme-panel p {
+  margin:0 0 8px;
+  font-size:12px;
+  color:var(--text-muted);
+}
+#themeSelect {
+  width:100%;
+  border-radius:10px;
+  border:1px solid var(--border-input);
+  background:var(--bg-input);
+  color:var(--text-main);
+  padding:8px;
+}
+
+@media (max-width: 780px) {
+  .sidebar { width:260px; }
+  .theme-dock { right:12px; bottom:12px; }
 }
 </style>
 </head>
@@ -165,7 +283,7 @@ kbd { background:#1f1f1f; border:1px solid #555; border-bottom-width:2px; paddin
       <button class="home-action secondary" onclick="setMode('browse')">📂 Browse Library</button>
     </div>
     <p class="home-tip">Tip: press <kbd>/</kbd> to search and <kbd>Esc</kbd> to stop playback.</p>
-    <img src="src/images/big-chongler.webp" alt="Big Chungus" style="max-width:100%; margin-top:20px; border-radius:12px;" />
+    <img data-theme-home alt="Theme homepage" style="max-width:100%; margin-top:20px; border-radius:12px; display:none;" />
     <div class="github-card">
       <span class="github-label">🔗 Check out the project on GitHub</span>
       <a href="https://github.com/MaxDahan/Local-Streaming-Service" target="_blank" rel="noopener noreferrer">
@@ -180,6 +298,25 @@ kbd { background:#1f1f1f; border:1px solid #555; border-bottom-width:2px; paddin
   <div id="nowPlaying"></div>
 </div>
 
+<div class="theme-dock" id="themeDock">
+  <button class="theme-toggle" id="themeToggle" title="Choose theme" aria-label="Choose theme">🎨</button>
+  <div class="theme-panel" id="themePanel">
+    <h4>Local Theme</h4>
+    <p>This browser only</p>
+    <select id="themeSelect" aria-label="Theme selector">
+      <option value="default">Default</option>
+      <option value="light">Light</option>
+      <option value="ocean">Ocean</option>
+      <option value="volcano">Volcano</option>
+      <option value="heaven">Heaven</option>
+      <option value="space">Space</option>
+      <option value="dinosaur">Dinosaur</option>
+      <option value="beach">Beach</option>
+      <option value="csgo">Counter-Strike GO</option>
+    </select>
+  </div>
+</div>
+
 <script>
 const list = document.getElementById("list");
 const video = document.getElementById("video");
@@ -190,6 +327,368 @@ const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
 const selectionPreview = document.getElementById("selectionPreview");
+const themeToggle = document.getElementById("themeToggle");
+const themePanel = document.getElementById("themePanel");
+const themeSelect = document.getElementById("themeSelect");
+const themeDock = document.getElementById("themeDock");
+
+const THEME_STORAGE_KEY = "maxistreams.theme";
+const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
+const DEFAULT_HOME_IMAGE = "";
+const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
+const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo"];
+const THEME_LABELS = {
+  default: "Default",
+  light: "Light",
+  ocean: "Ocean",
+  volcano: "Volcano",
+  heaven: "Heaven",
+  space: "Space",
+  dinosaur: "Dinosaur",
+  beach: "Beach",
+  csgo: "Counter-Strike GO"
+};
+const THEME_PRESETS = {
+  default: {
+    "--bg-body": "linear-gradient(135deg, #111, #171717 45%, #101820)",
+    "--bg-sidebar": "rgba(27,27,27,0.96)",
+    "--border-sidebar": "#333",
+    "--text-main": "#eee",
+    "--text-muted": "#bbb",
+    "--bg-content": "radial-gradient(circle at top, #3d3d3d, #2a2a2a 55%, #242424 100%)",
+    "--bg-card": "#252525",
+    "--border-card": "#3f3f3f",
+    "--bg-input": "#181818",
+    "--border-input": "#444",
+    "--bg-button": "#333",
+    "--bg-button-hover": "#404040",
+    "--accent-grad": "linear-gradient(135deg, #ff9a3c, #ffd166)",
+    "--accent-text": "#111",
+    "--accent-strong": "#ff6600",
+    "--status-bg": "#1d2733",
+    "--status-text": "#9fd0ff",
+    "--status-border": "#33485f",
+    "--item-bg": "#313131",
+    "--item-hover-bg": "#404040",
+    "--item-hover-border": "#555",
+    "--item-selected-bg": "#3b3122",
+    "--item-selected-border": "#ffb347",
+    "--item-selected-text": "#ffd79a",
+    "--item-playing-bg": "#1d3a29",
+    "--item-playing-border": "#1e7a56",
+    "--item-playing-text": "#00ff99",
+    "--chip-bg": "#3a3a3a",
+    "--chip-border": "#555",
+    "--chip-text": "#f2f2f2",
+    "--link": "#7cc7ff",
+    "--link-hover": "#a8ddff",
+    "--warn": "#ff4444",
+    "--kbd-bg": "#1f1f1f",
+    "--kbd-border": "#555",
+    "--theme-content-overlay": "url('src/images/big-chongler.webp')",
+    "--theme-overlay-opacity": "0.12"
+  },
+  light: {
+    "--bg-body": "linear-gradient(135deg, #f6f8fb, #edf2f7 50%, #f8fafc)",
+    "--bg-sidebar": "rgba(255,255,255,0.94)",
+    "--border-sidebar": "#d8e0ea",
+    "--text-main": "#1e293b",
+    "--text-muted": "#5b677b",
+    "--bg-content": "radial-gradient(circle at top, #ffffff, #f3f6fa 60%, #edf2f7 100%)",
+    "--bg-card": "#ffffff",
+    "--border-card": "#dde4ee",
+    "--bg-input": "#f9fbff",
+    "--border-input": "#d0d9e5",
+    "--bg-button": "#dfe7f2",
+    "--bg-button-hover": "#d1dceb",
+    "--accent-grad": "linear-gradient(135deg, #22c1c3, #fdbb2d)",
+    "--accent-text": "#102029",
+    "--accent-strong": "#1d7ac9",
+    "--status-bg": "#eaf3ff",
+    "--status-text": "#1d4f80",
+    "--status-border": "#bcd4ed",
+    "--item-bg": "#eef3f9",
+    "--item-hover-bg": "#e1e9f3",
+    "--item-hover-border": "#b7c4d8",
+    "--item-selected-bg": "#ffe6c6",
+    "--item-selected-border": "#ffb347",
+    "--item-selected-text": "#683b00",
+    "--item-playing-bg": "#d8f7e7",
+    "--item-playing-border": "#66b98d",
+    "--item-playing-text": "#0a6b3f",
+    "--chip-bg": "#e6edf6",
+    "--chip-border": "#b9c7d9",
+    "--chip-text": "#1f3247",
+    "--link": "#0f6ad6",
+    "--link-hover": "#1f8aff",
+    "--warn": "#dc2626",
+    "--kbd-bg": "#eef3f8",
+    "--kbd-border": "#b8c5d8"
+  },
+  ocean: {
+    "--bg-body": "linear-gradient(135deg, #031b2f, #0a3b62 48%, #0f6a86)",
+    "--bg-sidebar": "rgba(5,29,46,0.94)",
+    "--border-sidebar": "#23577d",
+    "--text-main": "#dff6ff",
+    "--text-muted": "#9ed2e4",
+    "--bg-content": "radial-gradient(circle at top, #0f4d78, #083451 58%, #06273c 100%)",
+    "--bg-card": "#083a59",
+    "--border-card": "#2a6f96",
+    "--bg-input": "#05263d",
+    "--border-input": "#2a6487",
+    "--bg-button": "#0c3a5b",
+    "--bg-button-hover": "#145178",
+    "--accent-grad": "linear-gradient(135deg, #00d2ff, #3a7bd5)",
+    "--accent-text": "#032334",
+    "--accent-strong": "#39c8ff",
+    "--status-bg": "#0b3754",
+    "--status-text": "#a9e8ff",
+    "--status-border": "#2b7093",
+    "--item-bg": "#0f3f60",
+    "--item-hover-bg": "#145074",
+    "--item-hover-border": "#2f7398",
+    "--item-selected-bg": "#1a5c79",
+    "--item-selected-border": "#7dd3fc",
+    "--item-selected-text": "#e0f7ff",
+    "--item-playing-bg": "#0f5f4d",
+    "--item-playing-border": "#31b28f",
+    "--item-playing-text": "#d6fff1",
+    "--chip-bg": "#145074",
+    "--chip-border": "#2f7398",
+    "--chip-text": "#e2f8ff",
+    "--link": "#7ed7ff",
+    "--link-hover": "#b9ecff",
+    "--warn": "#ff9e7b",
+    "--kbd-bg": "#0c3552",
+    "--kbd-border": "#2a678c"
+  },
+  volcano: {
+    "--bg-body": "linear-gradient(135deg, #250909, #4c0f0f 46%, #7a140f)",
+    "--bg-sidebar": "rgba(41,10,10,0.95)",
+    "--border-sidebar": "#7e2d1b",
+    "--text-main": "#ffe6df",
+    "--text-muted": "#e4a99c",
+    "--bg-content": "radial-gradient(circle at top, #702114, #4f130f 58%, #2e0c0c 100%)",
+    "--bg-card": "#4a1310",
+    "--border-card": "#9a422c",
+    "--bg-input": "#320e0d",
+    "--border-input": "#7f3722",
+    "--bg-button": "#5a1b14",
+    "--bg-button-hover": "#722014",
+    "--accent-grad": "linear-gradient(135deg, #ff6a00, #ff3b1f)",
+    "--accent-text": "#2a0605",
+    "--accent-strong": "#ff6a00",
+    "--status-bg": "#4a1a14",
+    "--status-text": "#ffcab7",
+    "--status-border": "#8a3d2c",
+    "--item-bg": "#5a1c16",
+    "--item-hover-bg": "#6f2318",
+    "--item-hover-border": "#a34a2f",
+    "--item-selected-bg": "#7a2f1f",
+    "--item-selected-border": "#ff9f68",
+    "--item-selected-text": "#ffe5dc",
+    "--item-playing-bg": "#6f3f1a",
+    "--item-playing-border": "#ffb870",
+    "--item-playing-text": "#fff2d9",
+    "--chip-bg": "#6b261a",
+    "--chip-border": "#9f4b31",
+    "--chip-text": "#ffe9e1",
+    "--link": "#ffb68a",
+    "--link-hover": "#ffd0b2",
+    "--warn": "#ffd2c2",
+    "--kbd-bg": "#4b1812",
+    "--kbd-border": "#85402c"
+  },
+  heaven: {
+    "--bg-body": "linear-gradient(135deg, #fdfbff, #e8f3ff 50%, #dbeeff)",
+    "--bg-sidebar": "rgba(252,255,255,0.94)",
+    "--border-sidebar": "#cfe5fb",
+    "--text-main": "#1b3653",
+    "--text-muted": "#537595",
+    "--bg-content": "radial-gradient(circle at top, #ffffff, #ecf6ff 58%, #e3f0ff 100%)",
+    "--bg-card": "#f7fbff",
+    "--border-card": "#cfe4f8",
+    "--bg-input": "#f2f8ff",
+    "--border-input": "#c8def4",
+    "--bg-button": "#dcecff",
+    "--bg-button-hover": "#cce4ff",
+    "--accent-grad": "linear-gradient(135deg, #8fd3ff, #ffe29f)",
+    "--accent-text": "#20364a",
+    "--accent-strong": "#3d8edb",
+    "--status-bg": "#eef7ff",
+    "--status-text": "#2c6194",
+    "--status-border": "#b9d7f3",
+    "--item-bg": "#ecf5ff",
+    "--item-hover-bg": "#dfedff",
+    "--item-hover-border": "#b8d2ea",
+    "--item-selected-bg": "#fff2d1",
+    "--item-selected-border": "#ffbf59",
+    "--item-selected-text": "#5c4413",
+    "--item-playing-bg": "#d8f7ee",
+    "--item-playing-border": "#77c8a5",
+    "--item-playing-text": "#166247",
+    "--chip-bg": "#e4f1ff",
+    "--chip-border": "#b7cfe7",
+    "--chip-text": "#24415f",
+    "--link": "#2a7ed8",
+    "--link-hover": "#4ba2ff",
+    "--warn": "#c7342a",
+    "--kbd-bg": "#e8f2fc",
+    "--kbd-border": "#bcd1e8"
+  },
+  space: {
+    "--bg-body": "linear-gradient(135deg, #04010f, #13072e 48%, #1b1454)",
+    "--bg-sidebar": "rgba(10,5,30,0.94)",
+    "--border-sidebar": "#3a2a70",
+    "--text-main": "#ece9ff",
+    "--text-muted": "#b4ace2",
+    "--bg-content": "radial-gradient(circle at top, #251a5d, #151036 60%, #0a0620 100%)",
+    "--bg-card": "#1a1240",
+    "--border-card": "#4a3f88",
+    "--bg-input": "#100b2d",
+    "--border-input": "#403674",
+    "--bg-button": "#1a1242",
+    "--bg-button-hover": "#281c62",
+    "--accent-grad": "linear-gradient(135deg, #7f7fd5, #86a8e7)",
+    "--accent-text": "#0f0a2f",
+    "--accent-strong": "#8ca8ff",
+    "--status-bg": "#1a1242",
+    "--status-text": "#cfd2ff",
+    "--status-border": "#4f4b8c",
+    "--item-bg": "#211750",
+    "--item-hover-bg": "#2c1d68",
+    "--item-hover-border": "#5d4ca3",
+    "--item-selected-bg": "#3b2b79",
+    "--item-selected-border": "#afa6ff",
+    "--item-selected-text": "#f0ecff",
+    "--item-playing-bg": "#1f3a5e",
+    "--item-playing-border": "#63a0e0",
+    "--item-playing-text": "#d9ecff",
+    "--chip-bg": "#2b1d68",
+    "--chip-border": "#5b4da3",
+    "--chip-text": "#f0ebff",
+    "--link": "#9bc7ff",
+    "--link-hover": "#c8e2ff",
+    "--warn": "#ff8bc1",
+    "--kbd-bg": "#1a1241",
+    "--kbd-border": "#4a3f86"
+  },
+  dinosaur: {
+    "--bg-body": "linear-gradient(135deg, #1e2d1a, #2f4726 48%, #4f6b2f)",
+    "--bg-sidebar": "rgba(24,38,21,0.95)",
+    "--border-sidebar": "#4a6936",
+    "--text-main": "#edf4df",
+    "--text-muted": "#b4c59d",
+    "--bg-content": "radial-gradient(circle at top, #4a6230, #334925 60%, #25361c 100%)",
+    "--bg-card": "#314623",
+    "--border-card": "#5e7a43",
+    "--bg-input": "#28381d",
+    "--border-input": "#4f6940",
+    "--bg-button": "#3a532a",
+    "--bg-button-hover": "#476533",
+    "--accent-grad": "linear-gradient(135deg, #d4b16a, #7ea24a)",
+    "--accent-text": "#223216",
+    "--accent-strong": "#d4b16a",
+    "--status-bg": "#324724",
+    "--status-text": "#dcf0be",
+    "--status-border": "#638447",
+    "--item-bg": "#3b552b",
+    "--item-hover-bg": "#496a34",
+    "--item-hover-border": "#6f9050",
+    "--item-selected-bg": "#6d562c",
+    "--item-selected-border": "#debf7a",
+    "--item-selected-text": "#fff3d7",
+    "--item-playing-bg": "#385f2f",
+    "--item-playing-border": "#73b65f",
+    "--item-playing-text": "#e0ffd7",
+    "--chip-bg": "#476634",
+    "--chip-border": "#6d8f50",
+    "--chip-text": "#eff8e0",
+    "--link": "#bfe38f",
+    "--link-hover": "#dbf6b6",
+    "--warn": "#ffd3a3",
+    "--kbd-bg": "#314924",
+    "--kbd-border": "#5f7f44"
+  },
+  beach: {
+    "--bg-body": "linear-gradient(135deg, #fff3d6, #9fe4ff 52%, #ffe1a5)",
+    "--bg-sidebar": "rgba(255,247,228,0.94)",
+    "--border-sidebar": "#ebce95",
+    "--text-main": "#29435b",
+    "--text-muted": "#5f7e92",
+    "--bg-content": "radial-gradient(circle at top, #d8f5ff, #bde9ff 50%, #ffe5ae 100%)",
+    "--bg-card": "#fff8e6",
+    "--border-card": "#e7ca95",
+    "--bg-input": "#fffdf4",
+    "--border-input": "#dcbf86",
+    "--bg-button": "#ffe4ad",
+    "--bg-button-hover": "#ffd88f",
+    "--accent-grad": "linear-gradient(135deg, #00c6ff, #ffaf47)",
+    "--accent-text": "#13334a",
+    "--accent-strong": "#1f9be0",
+    "--status-bg": "#e8f7ff",
+    "--status-text": "#1c628f",
+    "--status-border": "#aed8eb",
+    "--item-bg": "#fff0ce",
+    "--item-hover-bg": "#ffe4b3",
+    "--item-hover-border": "#d4b273",
+    "--item-selected-bg": "#ffd8a0",
+    "--item-selected-border": "#f49a4b",
+    "--item-selected-text": "#5b3609",
+    "--item-playing-bg": "#d9f8ec",
+    "--item-playing-border": "#71c99d",
+    "--item-playing-text": "#145f45",
+    "--chip-bg": "#e8f4ff",
+    "--chip-border": "#a7c8de",
+    "--chip-text": "#25506f",
+    "--link": "#0077cc",
+    "--link-hover": "#229eff",
+    "--warn": "#d14c2b",
+    "--kbd-bg": "#fff4d7",
+    "--kbd-border": "#d8b673"
+  },
+  csgo: {
+    "--bg-body": "linear-gradient(135deg, #1a1f23, #2a3034 48%, #30372e)",
+    "--bg-sidebar": "rgba(23,27,30,0.95)",
+    "--border-sidebar": "#4e5a4a",
+    "--text-main": "#f1f3ec",
+    "--text-muted": "#b6c1ac",
+    "--bg-content": "radial-gradient(circle at top, #3e4540, #2c322f 58%, #212624 100%)",
+    "--bg-card": "#2c332f",
+    "--border-card": "#5d6b56",
+    "--bg-input": "#202623",
+    "--border-input": "#596354",
+    "--bg-button": "#3b433e",
+    "--bg-button-hover": "#4a544e",
+    "--accent-grad": "linear-gradient(135deg, #f4cc57, #f19a2a)",
+    "--accent-text": "#1f2422",
+    "--accent-strong": "#f4cc57",
+    "--status-bg": "#303a33",
+    "--status-text": "#e7e1bf",
+    "--status-border": "#6c795d",
+    "--item-bg": "#39423c",
+    "--item-hover-bg": "#465249",
+    "--item-hover-border": "#66745f",
+    "--item-selected-bg": "#595334",
+    "--item-selected-border": "#e2bf61",
+    "--item-selected-text": "#fff7d7",
+    "--item-playing-bg": "#2f5a45",
+    "--item-playing-border": "#6db78b",
+    "--item-playing-text": "#d9ffea",
+    "--chip-bg": "#445048",
+    "--chip-border": "#6c7b6d",
+    "--chip-text": "#f0f4ea",
+    "--link": "#d9e991",
+    "--link-hover": "#ecfbb5",
+    "--warn": "#ffb67a",
+    "--kbd-bg": "#2c332f",
+    "--kbd-border": "#5a6758"
+  }
+};
+
+const THEME_ASSETS = {};
+let configuredThemes = [...THEME_DEFAULT_ORDER];
+let configuredDefaultTheme = "default";
 
 let hls = null;
 let mode = "channels";
@@ -208,16 +707,188 @@ let listLoadToken = 0;
 let playRequestToken = 0;
 let cachedChannels = [];
 
+function normalizeThemeList(values){
+  if(!Array.isArray(values) || !values.length) return [...THEME_DEFAULT_ORDER];
+  const seen = new Set();
+  const cleaned = [];
+  values.forEach((item) => {
+    const value = String(item || "").trim();
+    if(value && !seen.has(value)){
+      seen.add(value);
+      cleaned.push(value);
+    }
+  });
+  return cleaned.length ? cleaned : [...THEME_DEFAULT_ORDER];
+}
+
+function setThemeOptions(themeNames){
+  themeSelect.innerHTML = "";
+  themeNames.forEach((themeName) => {
+    const option = document.createElement("option");
+    option.value = themeName;
+    option.textContent = THEME_LABELS[themeName] || themeName;
+    themeSelect.appendChild(option);
+  });
+}
+
+function loadThemeManifest(themeName){
+  return fetch(`src/images/themes/${themeName}/theme.json`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+}
+
+function hydrateThemeConfigs(themeNames){
+  const jobs = themeNames.map((themeName) => {
+    return loadThemeManifest(themeName).then((manifest) => {
+      if(!manifest || typeof manifest !== "object") return;
+
+      if(manifest.name && !THEME_LABELS[themeName]){
+        THEME_LABELS[themeName] = String(manifest.name);
+      }
+
+      if(manifest.colors && typeof manifest.colors === "object"){
+        THEME_PRESETS[themeName] = {
+          ...(THEME_PRESETS[themeName] || THEME_PRESETS.default),
+          ...manifest.colors,
+        };
+      }
+
+      if(manifest.images && typeof manifest.images === "object"){
+        THEME_ASSETS[themeName] = {
+          home: manifest.images.home || "",
+          loading: manifest.images.loading || "",
+          overlay: manifest.images.overlay || "",
+        };
+      }
+    });
+  });
+  return Promise.all(jobs);
+}
+
+function normalizeThemeName(themeName){
+  return themeName === "dark" ? "default" : themeName;
+}
+
+function applyTheme(themeName){
+  const mappedTheme = normalizeThemeName(themeName);
+  const safeName = mappedTheme in THEME_PRESETS ? mappedTheme : configuredDefaultTheme;
+  const preset = THEME_PRESETS[safeName] || THEME_PRESETS.default;
+  document.documentElement.style.setProperty("--theme-content-overlay", "none");
+  document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
+  Object.entries(preset).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(key, value);
+  });
+  themeSelect.value = safeName;
+  applyThemeImages(themeSelect.value);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
+  } catch (_) {}
+}
+
+function findFirstExistingImage(candidates, fallback, onDone){
+  let idx = 0;
+  const tryNext = () => {
+    if(idx >= candidates.length){
+      onDone(fallback);
+      return;
+    }
+    const candidate = candidates[idx++];
+    const probe = new Image();
+    probe.onload = () => onDone(candidate);
+    probe.onerror = tryNext;
+    probe.src = candidate;
+  };
+  tryNext();
+}
+
+function applyThemeImages(themeName){
+  const assets = THEME_ASSETS[themeName] || {};
+  const homeCandidates = assets.home
+    ? [`src/images/themes/${themeName}/${assets.home}`, ...THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/home.${ext}`)]
+    : THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/home.${ext}`);
+  const loadingCandidates = assets.loading
+    ? [`src/images/themes/${themeName}/${assets.loading}`, ...THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/loading.${ext}`)]
+    : THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/loading.${ext}`);
+  const overlayCandidates = assets.overlay
+    ? [`src/images/themes/${themeName}/${assets.overlay}`, ...THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/overlay.${ext}`)]
+    : THEME_IMAGE_EXTENSIONS.map(ext => `src/images/themes/${themeName}/overlay.${ext}`);
+
+  const homeImg = homeText.querySelector("[data-theme-home]");
+  if(homeImg){
+    findFirstExistingImage(homeCandidates, DEFAULT_HOME_IMAGE, (src) => {
+      if(src){
+        homeImg.src = src;
+        homeImg.style.display = "";
+      } else {
+        homeImg.removeAttribute("src");
+        homeImg.style.display = "none";
+      }
+    });
+  }
+
+  findFirstExistingImage(loadingCandidates, DEFAULT_LOADING_IMAGE, (src) => {
+    loadingImage.src = src;
+  });
+
+  findFirstExistingImage(overlayCandidates, "__theme_default__", (src) => {
+    if(src === "__theme_default__") return;
+    if(src){
+      document.documentElement.style.setProperty("--theme-content-overlay", `url('${src}')`);
+      document.documentElement.style.setProperty("--theme-overlay-opacity", "0.14");
+    } else {
+      document.documentElement.style.setProperty("--theme-content-overlay", "none");
+      document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
+    }
+  });
+}
+
+function initThemePicker(){
+  themeToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    themePanel.classList.toggle("open");
+  });
+
+  themeSelect.addEventListener("change", () => {
+    applyTheme(themeSelect.value);
+  });
+
+  document.addEventListener("click", (e) => {
+    if(!themeDock.contains(e.target)){
+      themePanel.classList.remove("open");
+    }
+  });
+}
+
 function loadConfig(){
   return fetch("/api/config")
     .then(r => r.ok ? r.json() : {})
-    .then(config => {
+    .then((config) => {
       if(config.media_root){
         mediaRoot = config.media_root;
         currentPath = mediaRoot;
       }
+
+      const cfgThemes = config.themes || {};
+      configuredThemes = normalizeThemeList(cfgThemes.available);
+      configuredDefaultTheme = configuredThemes.includes(normalizeThemeName(cfgThemes.default)) ? normalizeThemeName(cfgThemes.default) : configuredThemes[0];
+
+      setThemeOptions(configuredThemes);
+      return hydrateThemeConfigs(configuredThemes).then(() => {
+        let saved = configuredDefaultTheme;
+        try {
+          saved = localStorage.getItem(THEME_STORAGE_KEY) || configuredDefaultTheme;
+        } catch (_) {}
+        saved = normalizeThemeName(saved);
+        if(!configuredThemes.includes(saved)) saved = configuredDefaultTheme;
+        applyTheme(saved);
+      });
     })
-    .catch(() => {});
+    .catch(() => {
+      configuredThemes = [...THEME_DEFAULT_ORDER];
+      configuredDefaultTheme = "default";
+      setThemeOptions(configuredThemes);
+      applyTheme(configuredDefaultTheme);
+    });
 }
 
 function setStatus(text){
@@ -334,6 +1005,7 @@ function stopAndShowHome(){
   homeText.style.display = "block";
   setStatus("Ready to stream");
   setSelectionPreview();
+  applyThemeImages(themeSelect.value);
 }
 
 function playChannel(channel, sidebarItem=null){
@@ -545,6 +1217,7 @@ function setMode(m){
 
   stopVideo();
   homeText.innerHTML = originalHomeHTML;
+  applyThemeImages(themeSelect.value);
   list.innerHTML = "";
   if(m === "browse"){
     list.innerHTML = '<div class="item">Loading folders...</div>';
@@ -735,6 +1408,7 @@ function waitForSegments(url,minSegments,callback,requestToken=null){
 window.addEventListener("pagehide", stopCurrentStream);
 
 /* ---------- Init ---------- */
+initThemePicker();
 loadConfig().finally(() => setMode("channels"));
 </script>
 

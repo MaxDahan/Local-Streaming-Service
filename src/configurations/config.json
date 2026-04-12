@@ -1,5 +1,16 @@
 {
   "max_sessions": 5,
   "media_root": "/mnt/usb/Streaming/media/converted",
-  "title_cleanup_config": "src/configurations/title_cleanup.json"
+  "title_cleanup_config": "src/configurations/title_cleanup.json",
+  "themes": {
+    "default": "default",
+    "available": [
+      "default",
+      "volcano",
+      "space",
+      "dinosaur",
+      "beach",
+      "csgo"
+    ]
+  }
 }
