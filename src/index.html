@@ -278,6 +278,49 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   border-radius:12px;
   z-index:2;
 }
+.on-demand-loader {
+  display:none;
+  position:absolute;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  width:min(86%, 620px);
+  padding:10px 12px;
+  border-radius:12px;
+  background:color-mix(in srgb, var(--bg-card) 88%, #000 12%);
+  border:1px solid var(--border-card);
+  box-shadow:0 12px 28px rgba(0,0,0,0.35);
+  z-index:3;
+}
+.on-demand-loader-title {
+  font-size:12px;
+  color:var(--text-main);
+  margin-bottom:7px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.on-demand-loader-meta {
+  color:var(--text-muted);
+  font-size:11px;
+  white-space:nowrap;
+}
+.on-demand-loader-bar {
+  height:8px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--bg-input) 82%, #000 18%);
+  border:1px solid var(--border-input);
+  overflow:hidden;
+}
+.on-demand-loader-fill {
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:var(--accent-grad);
+  box-shadow:0 0 10px color-mix(in srgb, var(--accent-strong) 65%, transparent 35%);
+  transition:width 140ms linear;
+}
 #nowPlaying {
   width:min(92%, 1400px);
   margin-top:12px;
@@ -466,6 +509,23 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   font-size:14px;
 }
 .loadingText { color:var(--warn); font-weight:bold; }
+.loadingText.retryable {
+  cursor:pointer;
+  transition:color 80ms ease;
+}
+.loadingText.retryable:active {
+  color:var(--link);
+}
+.item.retry-loading {
+  transition:background-color 80ms ease, border-color 80ms ease, color 80ms ease;
+}
+.item.retry-loading:active {
+  background:color-mix(in srgb, var(--item-hover-bg) 72%, var(--accent-strong) 28%);
+  border-color:color-mix(in srgb, var(--item-hover-border) 58%, var(--accent-strong) 42%);
+}
+.item.retry-loading:active .loadingText.retryable {
+  color:var(--link-hover);
+}
 .github-card {
   margin-top:32px;
   padding:20px 24px;
@@ -774,6 +834,15 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   </div>
   <div id="mediaStage" class="media-stage">
     <img id="loadingImage" src="src/images/skeleton.jpg" alt="Loading" />
+    <div id="onDemandLoader" class="on-demand-loader" aria-live="polite">
+      <div class="on-demand-loader-title">
+        <span id="onDemandLoaderText">Preparing on-demand stream...</span>
+        <span id="onDemandLoaderMeta" class="on-demand-loader-meta">0%</span>
+      </div>
+      <div class="on-demand-loader-bar">
+        <div id="onDemandLoaderFill" class="on-demand-loader-fill"></div>
+      </div>
+    </div>
     <video id="video" controls autoplay muted playsinline style="display:none;"></video>
   </div>
   <div id="nowPlaying"></div>
@@ -830,6 +899,10 @@ const homeText = document.getElementById("homeText");
 const contentRoot = document.querySelector(".content");
 const mediaStage = document.getElementById("mediaStage");
 const loadingImage = document.getElementById("loadingImage");
+const onDemandLoader = document.getElementById("onDemandLoader");
+const onDemandLoaderText = document.getElementById("onDemandLoaderText");
+const onDemandLoaderMeta = document.getElementById("onDemandLoaderMeta");
+const onDemandLoaderFill = document.getElementById("onDemandLoaderFill");
 const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
@@ -1238,6 +1311,56 @@ let chatChannel = "";
 let chatPollTimer = null;
 let chatLastMessageId = 0;
 let chatCollapsed = false;
+let onDemandProgressVisual = 0;
+let onDemandProgressTarget = 0;
+let onDemandProgressTimer = null;
+
+function startOnDemandLoadingUI(label="Preparing on-demand stream..."){
+  if(!onDemandLoader) return;
+  onDemandProgressVisual = 0;
+  onDemandProgressTarget = 12;
+  if(onDemandLoaderText) onDemandLoaderText.textContent = label;
+  if(onDemandLoaderMeta) onDemandLoaderMeta.textContent = "0%";
+  if(onDemandLoaderFill) onDemandLoaderFill.style.width = "0%";
+  onDemandLoader.style.display = "block";
+
+  if(onDemandProgressTimer) clearInterval(onDemandProgressTimer);
+  onDemandProgressTimer = setInterval(() => {
+    if(onDemandProgressVisual < onDemandProgressTarget){
+      const step = Math.max(0.6, (onDemandProgressTarget - onDemandProgressVisual) * 0.25);
+      onDemandProgressVisual = Math.min(onDemandProgressTarget, onDemandProgressVisual + step);
+      if(onDemandLoaderFill) onDemandLoaderFill.style.width = `${onDemandProgressVisual.toFixed(1)}%`;
+      if(onDemandLoaderMeta) onDemandLoaderMeta.textContent = `${Math.round(onDemandProgressVisual)}%`;
+    }
+  }, 80);
+}
+
+function updateOnDemandLoadingProgress(segmentCount, minSegments, elapsedMs){
+  const segRatio = minSegments > 0 ? Math.min(1, segmentCount / minSegments) : 0;
+  const timeRatio = Math.min(1, elapsedMs / 12000);
+  const computed = Math.min(94, Math.max(segRatio * 80, timeRatio * 55) + 8);
+  onDemandProgressTarget = Math.max(onDemandProgressTarget, computed);
+}
+
+function stopOnDemandLoadingUI(){
+  if(onDemandProgressTimer){
+    clearInterval(onDemandProgressTimer);
+    onDemandProgressTimer = null;
+  }
+  onDemandProgressVisual = 0;
+  onDemandProgressTarget = 0;
+  if(onDemandLoader) onDemandLoader.style.display = "none";
+  if(onDemandLoaderFill) onDemandLoaderFill.style.width = "0%";
+  if(onDemandLoaderMeta) onDemandLoaderMeta.textContent = "0%";
+}
+
+function failOnDemandLoad(item, message){
+  pendingOnDemand = false;
+  stopOnDemandLoadingUI();
+  stopVideo();
+  if(item) restoreSidebarItem(item);
+  setStatus(message || "⚠️ Could not start stream.");
+}
 
 function setChatCollapsed(collapsed){
   chatCollapsed = Boolean(collapsed);
@@ -1955,6 +2078,7 @@ function resetPlayer() {
   video.classList.remove("hide-timeline");
   mediaStage.style.display="none";
   loadingImage.style.display="none";
+  stopOnDemandLoadingUI();
   nowPlaying.innerHTML = "";
   contentRoot?.classList.remove("playback-mode");
 
@@ -1995,35 +2119,47 @@ function stopVideo() {
   }
 }
 
-function showSkeleton(item){
+function showSkeleton(item, loadingText="Loading stream...", retryable=false){
   const token = ++playRequestToken;
-  pendingOnDemand = true;
 
   if(lastLoadingItem && lastLoadingItem !== item) restoreSidebarItem(lastLoadingItem);
 
-  if(activeSlot !== null || currentlyPlayingItem || isPlayingFolder){
+  // If something is already pending/playing, stop it so clicking again acts
+  // like a clean retry for the selected file.
+  if(activeSlot !== null || currentlyPlayingItem || isPlayingFolder || pendingOnDemand){
     stopVideo();
   }
+
+  pendingOnDemand = true;
 
   lastLoadingItem = item;
   contentRoot?.classList.add("playback-mode");
   mediaStage.style.display="flex";
   loadingImage.style.display="block";
+  startOnDemandLoadingUI("Preparing on-demand stream...");
   video.style.display="block";
   video.style.visibility="hidden";
   video.style.opacity="0";
   homeText.style.display="none";
 
   if(item){
-    item.dataset.originalText = item.textContent;
-    item.innerHTML = "<span class='loadingText'>Loading stream...</span>";
+    // Keep the original label stable across retries so it restores correctly.
+    if(!item.classList.contains("retry-loading")){
+      item.dataset.originalText = item.textContent;
+    }
+    item.innerHTML = `<span class='loadingText${retryable ? " retryable" : ""}'>${loadingText}</span>`;
+    item.classList.toggle("retry-loading", Boolean(retryable));
+    item.title = retryable ? "Click again to retry loading" : (item.dataset.previewText || item.dataset.originalText || "");
   }
 
   return token;
 }
 
 function restoreSidebarItem(item){
-  if(item && item.dataset.originalText) item.textContent = item.dataset.originalText;
+  if(item && item.dataset.originalText) {
+    item.textContent = item.dataset.originalText;
+    item.classList.remove("retry-loading");
+  }
   if(item === lastLoadingItem) lastLoadingItem = null;
 }
 
@@ -2051,7 +2187,9 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(title && isChannel) setStatus(`📺 ${title}`);
 
   video.oncanplay = () => {
+    onDemandProgressTarget = 100;
     loadingImage.style.display="none";
+    stopOnDemandLoadingUI();
     video.style.visibility="visible";
     video.style.opacity="1";
     homeText.style.display="none";
@@ -2191,7 +2329,10 @@ function loadFolder(path){
                 headers:{"Content-Type":"application/json"},
                 body: JSON.stringify({path:i.path})
               })
-              .then(r=>r.json())
+              .then((r)=>{
+                if(!r.ok) throw new Error("play_folder failed");
+                return r.json();
+              })
               .then(d=>{
                 if(requestToken !== playRequestToken){
                   pendingOnDemand = false;
@@ -2209,7 +2350,14 @@ function loadFolder(path){
                   if(requestToken !== playRequestToken) return;
                   const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
                   playHLS(d.playlist,false,playTitle,true,div,false,d.slot);
-                }, requestToken);
+                }, requestToken, {
+                  timeoutMs: 45000,
+                  onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
+                  onTimeout: () => failOnDemandLoad(div, "⚠️ Stream load timed out. Try again."),
+                });
+              })
+              .catch(()=>{
+                failOnDemandLoad(div, "⚠️ Could not start folder stream. Try again.");
               });
             };
           };
@@ -2221,13 +2369,16 @@ function loadFolder(path){
         } else {
           div.onclick=()=>{
             setSelectedBrowseItem(div);
-            const requestToken = showSkeleton(div);
+            const requestToken = showSkeleton(div, "Loading stream...", true);
             fetch("/api/play_file",{
               method:"POST",
               headers:{"Content-Type":"application/json"},
               body: JSON.stringify({path:i.path})
             })
-            .then(r=>r.json())
+            .then((r)=>{
+              if(!r.ok) throw new Error("play_file failed");
+              return r.json();
+            })
             .then(d=>{
               if(requestToken !== playRequestToken){
                 pendingOnDemand = false;
@@ -2245,7 +2396,14 @@ function loadFolder(path){
                 if(requestToken !== playRequestToken) return;
                 const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
                 playHLS(d.playlist,false,playTitle,false,div,false,d.slot);
-              }, requestToken);
+              }, requestToken, {
+                timeoutMs: 45000,
+                onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
+                onTimeout: () => failOnDemandLoad(div, "⚠️ Stream load timed out. Click to retry."),
+              });
+            })
+            .catch(()=>{
+              failOnDemandLoad(div, "⚠️ Could not start file stream. Click to retry.");
             });
           };
         }
@@ -2257,10 +2415,19 @@ function loadFolder(path){
 }
 
 /* ---------- Wait for segments before playing ---------- */
-function waitForSegments(url,minSegments,callback,requestToken=null){
+function waitForSegments(url,minSegments,callback,requestToken=null,opts={}){
+  const startedAt = Date.now();
+  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 45000;
   const interval=setInterval(()=>{
     if(requestToken !== null && requestToken !== playRequestToken){
       clearInterval(interval);
+      return;
+    }
+
+    const elapsed = Date.now() - startedAt;
+    if(elapsed >= timeoutMs){
+      clearInterval(interval);
+      if(typeof opts.onTimeout === "function") opts.onTimeout();
       return;
     }
 
@@ -2271,12 +2438,20 @@ function waitForSegments(url,minSegments,callback,requestToken=null){
           clearInterval(interval);
           return;
         }
-        if((text.match(/\.ts/g)||[]).length>=minSegments){
+        const segCount = (text.match(/\.ts/g)||[]).length;
+        if(typeof opts.onProgress === "function"){
+          opts.onProgress(segCount, elapsed);
+        }
+        if(segCount>=minSegments){
           clearInterval(interval);
           callback();
         }
       })
-      .catch(()=>{});
+      .catch(()=>{
+        if(typeof opts.onProgress === "function"){
+          opts.onProgress(0, elapsed);
+        }
+      });
   },150);
 }
 

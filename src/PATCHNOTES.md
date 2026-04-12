@@ -1,5 +1,26 @@
 # MAXISTREAMS Patch Notes
 
+## v1.6.1 - On-Demand Loading UX Upgrade
+**Release: April 2026**
+
+### ✨ New Features
+- **On-Demand Loading Overlay** - Added a polished loading panel over the skeleton screen while on-demand streams prepare
+- **Smooth Progress Bar** - Added a live progress bar with percentage during on-demand startup
+- **Segment-Aware Progress** - Loading progress now reflects generated `.ts` segments and elapsed startup time
+
+### 🖥️ UI Improvements
+- Added clearer loading status text for file/folder on-demand requests
+- Improved retry interaction feedback for individual file loads
+- Added theme-aware pressed-state visuals when re-clicking a loading file
+
+### 🐛 Reliability Fixes
+- Added on-demand startup timeout handling to prevent infinite loading states
+- Added proper failure recovery when on-demand requests fail to start
+- Fixed retry flows for individual files so re-click truly restarts loading
+- Fixed retry label restoration so file names return correctly after loading
+
+---
+
 ## v1.6.0 - Live Chat & Stream UX Update
 **Release: April 2026**
 
