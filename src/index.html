@@ -37,6 +37,9 @@
 
 <style>
 :root {
+  --sidebar-width: 300px;
+  --overlay-tile-width: 100vw;
+  --overlay-tile-height: 100vh;
   --bg-body: linear-gradient(135deg, #111, #171717 45%, #101820);
   --bg-sidebar: rgba(27,27,27,0.96);
   --border-sidebar: #333;
@@ -76,7 +79,7 @@
   --theme-overlay-opacity: 0;
 }
 body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color:var(--text-main); display:flex; height:100vh; }
-.sidebar { width:300px; background:var(--bg-sidebar); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid var(--border-sidebar); }
+.sidebar { width:var(--sidebar-width); background:var(--bg-sidebar); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid var(--border-sidebar); }
 .logo { font-size:24px; font-weight:bold; margin-bottom:10px; cursor:pointer; text-align:center; }
 .mode-buttons { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .mode-buttons button { width:100%; background:var(--bg-button); color:var(--text-main); border:none; padding:9px; cursor:pointer; border-radius:10px; }
@@ -128,13 +131,13 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
 .content::before {
   content:"";
   position:absolute;
-  left:0;
-  right:0;
+  left:calc(-1 * var(--sidebar-width));
+  width:calc(100% + var(--sidebar-width));
   top:0;
   height:var(--content-overlay-height, 100%);
   background-image:var(--theme-content-overlay);
-  background-size:100% 100vh;
-  background-position:top center;
+  background-size:var(--overlay-tile-width) var(--overlay-tile-height);
+  background-position:top left;
   background-repeat:repeat-y;
   opacity:var(--theme-overlay-opacity);
   pointer-events:none;
@@ -561,7 +564,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 
 @media (max-width: 780px) {
-  .sidebar { width:260px; }
+  :root { --sidebar-width: 260px; }
   .theme-dock { right:12px; bottom:12px; }
 }
 </style>
@@ -1028,11 +1031,77 @@ let listLoadToken = 0;
 let playRequestToken = 0;
 let cachedChannels = [];
 let themeImageLoadToken = 0;
+let currentOverlaySrc = "";
+let overlayNaturalWidth = 0;
+let overlayNaturalHeight = 0;
+
+function applyOverlayTileSize(){
+  if(!contentRoot) return;
+
+  const sidebarWidthRaw = getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width").trim();
+  const sidebarWidth = Number.parseFloat(sidebarWidthRaw) || 0;
+  const targetWidth = contentRoot.clientWidth + sidebarWidth;
+  const targetHeight = window.innerHeight || contentRoot.clientHeight || 1;
+
+  if(!overlayNaturalWidth || !overlayNaturalHeight){
+    document.documentElement.style.setProperty("--overlay-tile-width", `${Math.ceil(targetWidth)}px`);
+    document.documentElement.style.setProperty("--overlay-tile-height", `${Math.ceil(targetHeight)}px`);
+    return;
+  }
+
+  // Scale proportionally so each tile covers both width and viewport height.
+  const scale = Math.max(targetWidth / overlayNaturalWidth, targetHeight / overlayNaturalHeight);
+  const tileWidth = Math.ceil(overlayNaturalWidth * scale);
+  const tileHeight = Math.ceil(overlayNaturalHeight * scale);
+
+  document.documentElement.style.setProperty("--overlay-tile-width", `${tileWidth}px`);
+  document.documentElement.style.setProperty("--overlay-tile-height", `${tileHeight}px`);
+}
+
+function setOverlaySource(src){
+  currentOverlaySrc = src || "";
+
+  if(!currentOverlaySrc){
+    overlayNaturalWidth = 0;
+    overlayNaturalHeight = 0;
+    applyOverlayTileSize();
+    return;
+  }
+
+  const probe = new Image();
+  probe.onload = () => {
+    if(currentOverlaySrc !== src) return;
+    overlayNaturalWidth = probe.naturalWidth || 0;
+    overlayNaturalHeight = probe.naturalHeight || 0;
+    applyOverlayTileSize();
+  };
+  probe.onerror = () => {
+    if(currentOverlaySrc !== src) return;
+    overlayNaturalWidth = 0;
+    overlayNaturalHeight = 0;
+    applyOverlayTileSize();
+  };
+  probe.src = src;
+}
 
 function syncOverlayHeight(){
   if(!contentRoot) return;
-  const h = Math.max(contentRoot.scrollHeight, contentRoot.clientHeight);
-  contentRoot.style.setProperty("--content-overlay-height", `${h}px`);
+
+  // Compute extent from visible children to avoid feedback loops where a large
+  // overlay changes scrollHeight and then keeps expanding itself.
+  const visibleChildren = Array.from(contentRoot.children)
+    .filter((el) => getComputedStyle(el).display !== "none");
+
+  let contentExtent = contentRoot.clientHeight;
+  visibleChildren.forEach((el) => {
+    const bottom = el.offsetTop + el.offsetHeight;
+    if(bottom > contentExtent) contentExtent = bottom;
+  });
+
+  // Include container bottom padding so the last card still has image behind it.
+  const padBottom = parseFloat(getComputedStyle(contentRoot).paddingBottom || "0") || 0;
+  contentRoot.style.setProperty("--content-overlay-height", `${Math.ceil(contentExtent + padBottom)}px`);
+  applyOverlayTileSize();
 }
 
 function showThemeButtonFallback(){
@@ -1196,9 +1265,11 @@ function applyThemeImages(themeName){
     if(src){
       document.documentElement.style.setProperty("--theme-content-overlay", `url('${src}')`);
       document.documentElement.style.setProperty("--theme-overlay-opacity", assets.overlayOpacity || "0.14");
+      setOverlaySource(src);
     } else {
       document.documentElement.style.setProperty("--theme-content-overlay", "none");
       document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
+      setOverlaySource("");
     }
   });
 
@@ -1827,7 +1898,10 @@ window.addEventListener("pagehide", stopCurrentStream);
 /* ---------- Init ---------- */
 initThemePicker();
 syncOverlayHeight();
-window.addEventListener("resize", syncOverlayHeight);
+window.addEventListener("resize", () => {
+  syncOverlayHeight();
+  applyOverlayTileSize();
+});
 if(typeof ResizeObserver !== "undefined"){
   const overlayObserver = new ResizeObserver(() => syncOverlayHeight());
   overlayObserver.observe(contentRoot);
