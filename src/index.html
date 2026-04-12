@@ -2120,8 +2120,6 @@ function stopVideo() {
 }
 
 function showSkeleton(item, loadingText="Loading stream...", retryable=false){
-  const token = ++playRequestToken;
-
   if(lastLoadingItem && lastLoadingItem !== item) restoreSidebarItem(lastLoadingItem);
 
   // If something is already pending/playing, stop it so clicking again acts
@@ -2129,6 +2127,8 @@ function showSkeleton(item, loadingText="Loading stream...", retryable=false){
   if(activeSlot !== null || currentlyPlayingItem || isPlayingFolder || pendingOnDemand){
     stopVideo();
   }
+
+  const token = ++playRequestToken;
 
   pendingOnDemand = true;
 
@@ -2336,6 +2336,8 @@ function loadFolder(path){
               .then(d=>{
                 if(requestToken !== playRequestToken){
                   pendingOnDemand = false;
+                  stopOnDemandLoadingUI();
+                  restoreSidebarItem(div);
                   fetch("/api/stop_session", {
                     method:"POST",
                     headers:{"Content-Type":"application/json"},
@@ -2382,6 +2384,8 @@ function loadFolder(path){
             .then(d=>{
               if(requestToken !== playRequestToken){
                 pendingOnDemand = false;
+                stopOnDemandLoadingUI();
+                restoreSidebarItem(div);
                 fetch("/api/stop_session", {
                   method:"POST",
                   headers:{"Content-Type":"application/json"},
