@@ -183,6 +183,7 @@ for i in range(1, MAX_SESSIONS + 1):
 # Session management: { slot_number: {"ip": str, "ffmpeg": Popen} }
 sessions = {}
 ip_queue = []  # FIFO queue of IPs
+MEDIA_DURATION_CACHE = {}
 
 # In-memory channel chat: {channel_id: [message, ...]}
 CHAT_MAX_PER_CHANNEL = 2000
@@ -366,6 +367,103 @@ def safe_path(path):
     return real
 
 
+def get_media_duration_seconds(path):
+    """Return duration in seconds from ffprobe, or None when unavailable."""
+    if not path or not os.path.isfile(path):
+        return None
+
+    cached = MEDIA_DURATION_CACHE.get(path)
+    if isinstance(cached, (int, float)) and cached > 0:
+        return float(cached)
+
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                path,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=6,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    try:
+        duration = float((result.stdout or "").strip())
+    except (TypeError, ValueError):
+        return None
+
+    if duration <= 0:
+        return None
+
+    MEDIA_DURATION_CACHE[path] = duration
+    return duration
+
+
+def get_total_duration_seconds(file_list):
+    """Return total duration in seconds for a list of media files, or None."""
+    if not file_list:
+        return None
+
+    total = 0.0
+    for path in file_list:
+        duration = get_media_duration_seconds(path)
+        if duration is None:
+            return None
+        total += duration
+
+    return total if total > 0 else None
+
+
+def build_shuffle_queue_preview(shuffle_files, current_index, preview_count=None):
+    """Return compact current+upcoming queue preview for shuffled folders."""
+    if not isinstance(shuffle_files, list) or not shuffle_files:
+        return []
+
+    valid_files = [p for p in shuffle_files if isinstance(p, str) and os.path.isfile(p)]
+    if not valid_files:
+        return []
+
+    total = len(valid_files)
+    try:
+        idx = int(current_index)
+    except (TypeError, ValueError):
+        idx = 0
+    idx = max(0, min(total - 1, idx))
+
+    if preview_count is None:
+        window = total
+    else:
+        window = min(max(1, int(preview_count)), total)
+    preview = []
+    for offset in range(window):
+        list_idx = (idx + offset) % total
+        path = valid_files[list_idx]
+        preview.append({
+            "position": list_idx + 1,
+            "total": total,
+            "is_current": offset == 0,
+            "wrapped": (idx + offset) >= total,
+            "source_path": os.path.relpath(path, BASE_DIR),
+            "display_title": build_display_title(path),
+            "current_file": prettify_media_name(
+                os.path.basename(path),
+                parent=os.path.basename(os.path.dirname(path)),
+                episode_index=get_file_index(path),
+            ),
+        })
+    return preview
+
+
 def clean_title_fragment(text):
     cleaned = text or ""
     if TITLE_RULES.get("strip_bracketed", True):
@@ -471,7 +569,7 @@ def get_slot_for_ip(ip):
         stop_session(old_slot)
     return old_slot
 
-def start_ffmpeg(file_list, slot, ip):
+def start_ffmpeg(file_list, slot, ip, seek_seconds=0, duration_seconds=None, session_meta=None):
     if not file_list:
         print("⚠️ No files provided to stream!")
         return None
@@ -484,37 +582,79 @@ def start_ffmpeg(file_list, slot, ip):
     cleanup_folder(slot)
 
     folder = os.path.join(ON_DEMAND_DIR, str(slot))
-    concat_file = os.path.join(folder, "playlist.txt")
-    with open(concat_file, "w") as f:
-        for path in file_list:
-            f.write(f"file '{os.path.abspath(path)}'\n")
-
     playlist_path = os.path.join(folder, "output.m3u8")
     segment_pattern = os.path.join(folder, "seg_%03d.ts")
+    seek_seconds = max(0, float(seek_seconds or 0))
 
     # Keep the full on-demand playlist/segments for the active session so the
     # viewer can seek backward through already-generated content. When the user
     # switches streams, stop_session()/cleanup_folder() clears everything.
-    proc = subprocess.Popen([
-        "ffmpeg", "-nostdin", "-re",
-        "-f", "concat", "-safe", "0",
-        "-i", concat_file,
+    ffmpeg_cmd = ["ffmpeg", "-nostdin"]
+
+    if len(file_list) == 1:
+        if seek_seconds > 0:
+            ffmpeg_cmd.extend(["-ss", f"{seek_seconds:.3f}"])
+        ffmpeg_cmd.extend(["-i", os.path.abspath(file_list[0])])
+    else:
+        concat_file = os.path.join(folder, "playlist.txt")
+        with open(concat_file, "w") as f:
+            for path in file_list:
+                f.write(f"file '{os.path.abspath(path)}'\n")
+        ffmpeg_cmd.extend([
+            "-f", "concat", "-safe", "0",
+            "-i", concat_file,
+        ])
+        if seek_seconds > 0:
+            ffmpeg_cmd.extend(["-ss", f"{seek_seconds:.3f}"])
+
+    ffmpeg_cmd.extend([
         "-c", "copy",
         "-f", "hls",
         "-hls_time", "2",
         "-hls_list_size", "0",
         "-hls_playlist_type", "event",
-        "-hls_flags", "program_date_time+append_list",
+        "-hls_flags", "program_date_time",
         "-hls_segment_filename", segment_pattern,
-        playlist_path
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        playlist_path,
+    ])
 
-    sessions[slot] = {"ip": ip, "ffmpeg": proc}
+    proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    session_record = {
+        "ip": ip,
+        "ffmpeg": proc,
+        "files": list(file_list),
+        "current_file": file_list[0] if file_list else None,
+        "seek_seconds": seek_seconds,
+        "duration_seconds": duration_seconds,
+    }
+    if isinstance(session_meta, dict):
+        session_record.update(session_meta)
+    sessions[slot] = session_record
 
     if ip not in ip_queue:
         ip_queue.append(ip)
 
     return playlist_path, slot
+
+
+def read_hls_playlist_state(slot):
+    folder = os.path.join(ON_DEMAND_DIR, str(slot))
+    playlist_path = os.path.join(folder, "output.m3u8")
+    try:
+        with open(playlist_path, "r", encoding="utf-8", errors="ignore") as handle:
+            content = handle.read()
+    except OSError:
+        return {
+            "buffered_seconds": 0.0,
+            "has_endlist": False,
+        }
+
+    durations = [float(value) for value in re.findall(r"#EXTINF:([0-9]+(?:\.[0-9]+)?)", content)]
+    return {
+        "buffered_seconds": sum(durations),
+        "has_endlist": "#EXT-X-ENDLIST" in content,
+    }
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     """HTTP server with threading to handle multiple requests concurrently"""
@@ -548,6 +688,38 @@ class Handler(SimpleHTTPRequestHandler):
                 "media_root": os.path.relpath(MEDIA_ROOT, BASE_DIR),
                 "max_sessions": MAX_SESSIONS,
                 "themes": themes_config,
+            }).encode())
+            return
+        if parsed.path == "/api/buffer_status":
+            ip = self.client_address[0]
+            slot = None
+            for s, info in sessions.items():
+                if info.get("ip") == ip:
+                    slot = s
+                    break
+            if slot is None:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "buffered_seconds": 0, "total_seconds": 0,
+                    "base_offset": 0, "is_complete": True,
+                }).encode())
+                return
+            playlist_state = read_hls_playlist_state(slot)
+            buffered_seconds = playlist_state["buffered_seconds"]
+            proc = sessions[slot].get("ffmpeg")
+            is_complete = (proc is None or proc.poll() is not None) and playlist_state["has_endlist"]
+            base_offset = float(sessions[slot].get("seek_seconds") or 0)
+            total_seconds = float(sessions[slot].get("duration_seconds") or 0)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "buffered_seconds": buffered_seconds,
+                "total_seconds": total_seconds,
+                "base_offset": base_offset,
+                "is_complete": is_complete,
             }).encode())
             return
         if parsed.path == "/api/patchnotes":
@@ -669,6 +841,225 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(400)
             return
 
+        if self.path == "/api/seek_file":
+            ip = self.client_address[0]
+            slot = None
+            for candidate_slot, info in sessions.items():
+                if info.get("ip") == ip:
+                    slot = candidate_slot
+                    break
+
+            if slot is None:
+                self.send_error(409)
+                return
+
+            session_info = sessions.get(slot, {})
+            source_path = body.get("path")
+            seek_seconds_raw = body.get("seek_seconds", 0)
+            try:
+                seek_seconds = max(0, float(seek_seconds_raw))
+            except (TypeError, ValueError):
+                self.send_error(400)
+                return
+
+            files = []
+            real = None
+            if source_path:
+                real = safe_path(source_path)
+                if not real or not os.path.isfile(real):
+                    self.send_error(400)
+                    return
+                files = [real]
+            else:
+                current_file = session_info.get("current_file")
+                if isinstance(current_file, str) and os.path.isfile(current_file):
+                    files = [current_file]
+
+            if not files:
+                self.send_error(400)
+                return
+
+            duration_seconds = session_info.get("duration_seconds")
+            if duration_seconds is None:
+                duration_seconds = get_total_duration_seconds(files) if len(files) > 1 else get_media_duration_seconds(files[0])
+
+            session_meta = {
+                "shuffle_files": session_info.get("shuffle_files"),
+                "shuffle_index": session_info.get("shuffle_index", 0),
+            }
+            playlist_path, slot = start_ffmpeg(
+                files,
+                slot,
+                ip,
+                seek_seconds=seek_seconds,
+                duration_seconds=duration_seconds,
+                session_meta=session_meta,
+            )
+            if not playlist_path:
+                self.send_error(500)
+                return
+
+            first_file = files[0]
+            display_title = build_display_title(first_file)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            queue_preview = []
+            if isinstance(session_meta.get("shuffle_files"), list):
+                queue_preview = build_shuffle_queue_preview(
+                    session_meta.get("shuffle_files"),
+                    session_meta.get("shuffle_index", 0),
+                )
+            self.wfile.write(json.dumps({
+                "playlist": f"/on_demand/{slot}/output.m3u8",
+                "slot": slot,
+                "seek_seconds": seek_seconds,
+                "display_title": display_title,
+                "source_path": os.path.relpath(first_file, BASE_DIR),
+                "duration_seconds": duration_seconds,
+                "current_file": prettify_media_name(os.path.basename(first_file), parent=os.path.basename(os.path.dirname(first_file)), episode_index=get_file_index(first_file)),
+                "episode_index": int(session_meta.get("shuffle_index", 0)) + 1 if isinstance(session_meta.get("shuffle_files"), list) and session_meta.get("shuffle_files") else 1,
+                "episode_total": len(session_meta.get("shuffle_files") or files),
+                "queue_preview": queue_preview,
+            }).encode())
+            return
+
+        if self.path == "/api/next_episode":
+            ip = self.client_address[0]
+            slot = None
+            for candidate_slot, info in sessions.items():
+                if info.get("ip") == ip:
+                    slot = candidate_slot
+                    break
+
+            if slot is None:
+                self.send_error(409)
+                return
+
+            session_info = sessions.get(slot, {})
+            shuffle_files = session_info.get("shuffle_files")
+            if not isinstance(shuffle_files, list) or not shuffle_files:
+                self.send_error(400)
+                return
+
+            valid_files = [p for p in shuffle_files if os.path.isfile(p)]
+            if not valid_files:
+                self.send_error(404)
+                return
+
+            current_idx = int(session_info.get("shuffle_index", 0) or 0)
+            next_idx = (current_idx + 1) % len(valid_files)
+            next_file = valid_files[next_idx]
+            duration_seconds = get_media_duration_seconds(next_file)
+
+            playlist_path, slot = start_ffmpeg(
+                [next_file],
+                slot,
+                ip,
+                seek_seconds=0,
+                duration_seconds=duration_seconds,
+                session_meta={
+                    "shuffle_files": valid_files,
+                    "shuffle_index": next_idx,
+                },
+            )
+            if not playlist_path:
+                self.send_error(500)
+                return
+
+            display_title = build_display_title(next_file)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            queue_preview = build_shuffle_queue_preview(valid_files, next_idx)
+            self.wfile.write(json.dumps({
+                "playlist": f"/on_demand/{slot}/output.m3u8",
+                "slot": slot,
+                "display_title": display_title,
+                "source_path": os.path.relpath(next_file, BASE_DIR),
+                "duration_seconds": duration_seconds,
+                "current_file": prettify_media_name(os.path.basename(next_file), parent=os.path.basename(os.path.dirname(next_file)), episode_index=get_file_index(next_file)),
+                "episode_index": next_idx + 1,
+                "episode_total": len(valid_files),
+                "wrapped": next_idx == 0 and len(valid_files) > 1,
+                "queue_preview": queue_preview,
+            }).encode())
+            return
+
+        if self.path == "/api/play_queue_episode":
+            ip = self.client_address[0]
+            slot = None
+            for candidate_slot, info in sessions.items():
+                if info.get("ip") == ip:
+                    slot = candidate_slot
+                    break
+
+            if slot is None:
+                self.send_error(409)
+                return
+
+            session_info = sessions.get(slot, {})
+            shuffle_files = session_info.get("shuffle_files")
+            if not isinstance(shuffle_files, list) or not shuffle_files:
+                self.send_error(400)
+                return
+
+            valid_files = [p for p in shuffle_files if os.path.isfile(p)]
+            if not valid_files:
+                self.send_error(404)
+                return
+
+            queue_position_raw = body.get("queue_position")
+            try:
+                queue_position = int(queue_position_raw)
+            except (TypeError, ValueError):
+                self.send_error(400)
+                return
+
+            if queue_position < 1 or queue_position > len(valid_files):
+                self.send_error(400)
+                return
+
+            selected_idx = queue_position - 1
+            selected_file = valid_files[selected_idx]
+            duration_seconds = get_media_duration_seconds(selected_file)
+
+            playlist_path, slot = start_ffmpeg(
+                [selected_file],
+                slot,
+                ip,
+                seek_seconds=0,
+                duration_seconds=duration_seconds,
+                session_meta={
+                    "shuffle_files": valid_files,
+                    "shuffle_index": selected_idx,
+                },
+            )
+            if not playlist_path:
+                self.send_error(500)
+                return
+
+            display_title = build_display_title(selected_file)
+            queue_preview = build_shuffle_queue_preview(valid_files, selected_idx)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "playlist": f"/on_demand/{slot}/output.m3u8",
+                "slot": slot,
+                "display_title": display_title,
+                "source_path": os.path.relpath(selected_file, BASE_DIR),
+                "duration_seconds": duration_seconds,
+                "current_file": prettify_media_name(os.path.basename(selected_file), parent=os.path.basename(os.path.dirname(selected_file)), episode_index=get_file_index(selected_file)),
+                "episode_index": selected_idx + 1,
+                "episode_total": len(valid_files),
+                "queue_preview": queue_preview,
+            }).encode())
+            return
+
         if self.path == "/api/chat/send":
             channel = str(body.get("channel", "")).strip()
             username = str(body.get("username", "")).strip() or "Anonymous"
@@ -733,18 +1124,42 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         ip = self.client_address[0]
-        playlist_path, slot = start_ffmpeg(files, get_slot_for_ip(ip), ip)
+        shuffle_meta = None
+        stream_files = files
+        if self.path == "/api/play_folder":
+            stream_files = [files[0]]
+            shuffle_meta = {
+                "shuffle_files": files,
+                "shuffle_index": 0,
+            }
+
+        duration_seconds = get_media_duration_seconds(stream_files[0])
+        playlist_path, slot = start_ffmpeg(
+            stream_files,
+            get_slot_for_ip(ip),
+            ip,
+            duration_seconds=duration_seconds,
+            session_meta=shuffle_meta,
+        )
 
         display_title = build_display_title(files[0])
 
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
+        queue_preview = []
+        if self.path == "/api/play_folder":
+            queue_preview = build_shuffle_queue_preview(files, 0)
         self.wfile.write(json.dumps({
             "playlist": f"/on_demand/{slot}/output.m3u8",
             "slot": slot,
             "display_title": display_title,
-            "current_file": prettify_media_name(os.path.basename(files[0]), parent=os.path.basename(os.path.dirname(files[0])), episode_index=get_file_index(files[0]))
+            "source_path": os.path.relpath(files[0], BASE_DIR),
+            "duration_seconds": duration_seconds,
+            "current_file": prettify_media_name(os.path.basename(files[0]), parent=os.path.basename(os.path.dirname(files[0])), episode_index=get_file_index(files[0])),
+            "episode_index": 1,
+            "episode_total": len(files) if self.path == "/api/play_folder" else 1,
+            "queue_preview": queue_preview,
         }).encode())
 
 if __name__ == "__main__":

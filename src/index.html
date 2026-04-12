@@ -119,13 +119,26 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
   flex-direction:column;
   align-items:center;
   justify-content:flex-start;
-  padding:40px 28px;
+  padding:40px 28px 120px;
   overflow-y:auto;
   isolation:isolate;
 }
 .content.playback-mode {
-  justify-content:center;
+  justify-content:flex-start;
+  padding-top:clamp(10px, 3vh, 34px);
+  padding-bottom:520px;
 }
+.content.folder-prompt-mode {
+  justify-content:center;
+  padding-top:40px;
+  padding-bottom:120px;
+}
+.content.home-mode {
+  justify-content:flex-start;
+  padding-top:0px;
+  padding-bottom:140px;
+}
+
 .content::before {
   content:"";
   position:fixed;
@@ -154,6 +167,10 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
   aspect-ratio:16 / 9;
   align-items:center;
   justify-content:center;
+  flex-shrink:0;
+}
+.content.playback-mode .media-stage {
+  margin-top:clamp(96px, 14vh, 176px);
 }
 video {
   position:absolute;
@@ -178,12 +195,15 @@ video.hide-timeline::-webkit-media-controls-time-remaining-display { display:non
   width:100%;
   padding-bottom:40px;
 }
+.content.home-mode .home-text {
+  padding-top:clamp(16vh, 22vh, 150px);
+}
 .home-text > * {
   width:100%;
   box-sizing:border-box;
 }
 .home-text h2 {
-  font-size:48px;
+  font-size:52px;
   font-weight:900;
   letter-spacing:-1px;
   margin:0;
@@ -319,9 +339,193 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   box-shadow:0 0 10px color-mix(in srgb, var(--accent-strong) 65%, transparent 35%);
   transition:width 140ms linear;
 }
+.on-demand-seekbar {
+  width:min(92%, 1400px);
+  margin-top:0;
+  padding:10px 12px;
+  border-radius:12px;
+  background:color-mix(in srgb, var(--bg-card) 88%, #000 12%);
+  border:1px solid var(--border-card);
+  box-shadow:0 10px 24px rgba(0,0,0,0.2);
+  display:none;
+}
+.content.playback-mode .on-demand-seekbar {
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  top:var(--on-demand-seekbar-top, 0px);
+  z-index:2;
+}
+.on-demand-seekbar-top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+  font-size:12px;
+  color:var(--text-muted);
+}
+.on-demand-seekbar-label {
+  color:var(--text-main);
+  font-weight:600;
+}
+.on-demand-seekbar-tools {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.on-demand-next-btn {
+  border:1px solid var(--border-input);
+  background:var(--bg-button);
+  color:var(--text-main);
+  border-radius:9px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.on-demand-next-btn:hover:not(:disabled) {
+  background:var(--bg-button-hover);
+}
+.on-demand-next-btn:disabled {
+  cursor:progress;
+  opacity:0.7;
+}
+.on-demand-episode-meta {
+  font-size:11px;
+  color:var(--text-muted);
+}
+#onDemandSeekRange {
+  width:100%;
+  cursor:pointer;
+  -webkit-appearance:none;
+  appearance:none;
+  background:transparent;
+  height:18px;
+}
+#onDemandSeekRange:disabled {
+  cursor:progress;
+  opacity:0.65;
+}
+#onDemandSeekRange::-webkit-slider-runnable-track {
+  height:4px;
+  border-radius:2px;
+  background:linear-gradient(to right,
+    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
+    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
+    rgba(255,255,255,0.13) var(--buffered-pct,0%) 100%
+  );
+}
+#onDemandSeekRange::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
+  margin-top:-4.5px;
+  cursor:pointer;
+}
+#onDemandSeekRange::-moz-range-track {
+  height:4px;
+  border-radius:2px;
+  background:linear-gradient(to right,
+    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
+    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
+    rgba(255,255,255,0.13) var(--buffered-pct,0%) 100%
+  );
+}
+#onDemandSeekRange::-moz-range-thumb {
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  border:none;
+  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
+  cursor:pointer;
+}
+.on-demand-seekbar-times {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:6px;
+  font-size:12px;
+  color:var(--text-muted);
+}
+.on-demand-queue {
+  margin-top:8px;
+  border-top:1px dashed color-mix(in srgb, var(--border-card) 75%, transparent 25%);
+  padding-top:8px;
+  display:none;
+}
+.on-demand-queue-title {
+  font-size:11px;
+  color:var(--text-muted);
+  margin:0 0 6px;
+  letter-spacing:0.02em;
+  text-transform:uppercase;
+}
+.on-demand-queue-list {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  max-height:190px;
+  overflow-y:auto;
+  padding-right:2px;
+  scrollbar-gutter:stable;
+}
+.on-demand-queue-list::-webkit-scrollbar {
+  width:8px;
+}
+.on-demand-queue-list::-webkit-scrollbar-track {
+  background:color-mix(in srgb, var(--bg-input) 75%, transparent 25%);
+  border-radius:999px;
+}
+.on-demand-queue-list::-webkit-scrollbar-thumb {
+  background:color-mix(in srgb, var(--border-input) 82%, var(--text-muted) 18%);
+  border-radius:999px;
+}
+.on-demand-queue-list::-webkit-scrollbar-thumb:hover {
+  background:color-mix(in srgb, var(--border-input) 70%, var(--text-main) 30%);
+}
+.on-demand-queue-item {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  color:var(--text-main);
+  padding:4px 6px;
+  border-radius:8px;
+  background:color-mix(in srgb, var(--bg-input) 70%, transparent 30%);
+  border:1px solid transparent;
+  width:100%;
+  text-align:left;
+  cursor:pointer;
+}
+.on-demand-queue-item:hover:not(:disabled) {
+  background:color-mix(in srgb, var(--item-hover-bg) 68%, transparent 32%);
+  border-color:color-mix(in srgb, var(--item-hover-border) 65%, transparent 35%);
+}
+.on-demand-queue-item:disabled {
+  cursor:progress;
+  opacity:0.72;
+}
+.on-demand-queue-item.current {
+  border:1px solid color-mix(in srgb, var(--accent-strong) 45%, transparent 55%);
+  background:color-mix(in srgb, var(--item-playing-bg) 72%, transparent 28%);
+}
+.on-demand-queue-item-index {
+  font-family:monospace;
+  color:var(--text-muted);
+  min-width:50px;
+  text-align:right;
+}
+.on-demand-queue-item-label {
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 #nowPlaying {
   width:min(92%, 1400px);
-  margin-top:12px;
+  margin-top:0;
   font-size:16px;
   text-align:center;
   color:var(--accent-strong);
@@ -331,6 +535,13 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   justify-content:center;
   align-items:center;
   gap:6px;
+}
+.content.playback-mode #nowPlaying {
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  top:var(--now-playing-top, 0px);
+  z-index:2;
 }
 .chat-stage {
   width:min(92%, 1400px);
@@ -886,7 +1097,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   <div class="list" id="list"></div>
 </div>
 
-<div class="content">
+<div class="content home-mode">
   <div class="home-text" id="homeText">
     <h2>Welcome to MAXISTREAMS!</h2>
     <p>Your personal streaming hub. Browse channels, discover new content, and enjoy instant playback.</p>
@@ -920,9 +1131,28 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
         <div id="onDemandLoaderFill" class="on-demand-loader-fill"></div>
       </div>
     </div>
-    <video id="video" controls autoplay muted playsinline style="display:none;"></video>
+    <video id="video" controls autoplay playsinline style="display:none;"></video>
   </div>
   <div id="nowPlaying"></div>
+  <div id="onDemandSeekbar" class="on-demand-seekbar" aria-live="polite">
+    <div class="on-demand-seekbar-top">
+      <span class="on-demand-seekbar-label">Full Episode Seek</span>
+      <div class="on-demand-seekbar-tools">
+        <span id="onDemandEpisodeMeta" class="on-demand-episode-meta"></span>
+        <span id="onDemandSeekHint">Click anywhere to jump and buffer</span>
+        <button id="onDemandNextBtn" class="on-demand-next-btn" type="button" style="display:none;">Next Episode</button>
+      </div>
+    </div>
+    <input id="onDemandSeekRange" type="range" min="0" max="0" step="1" value="0" />
+    <div class="on-demand-seekbar-times">
+      <span id="onDemandSeekCurrent">0:00</span>
+      <span id="onDemandSeekTotal">0:00</span>
+    </div>
+    <div id="onDemandQueue" class="on-demand-queue">
+      <p class="on-demand-queue-title">Shuffled Queue</p>
+      <div id="onDemandQueueList" class="on-demand-queue-list"></div>
+    </div>
+  </div>
   <div id="chatStage" class="chat-stage" aria-live="polite">
     <div class="chat-header">
       <span id="chatTitle">Live Chat</span>
@@ -985,6 +1215,15 @@ const onDemandLoader = document.getElementById("onDemandLoader");
 const onDemandLoaderText = document.getElementById("onDemandLoaderText");
 const onDemandLoaderMeta = document.getElementById("onDemandLoaderMeta");
 const onDemandLoaderFill = document.getElementById("onDemandLoaderFill");
+const onDemandSeekbar = document.getElementById("onDemandSeekbar");
+const onDemandSeekRange = document.getElementById("onDemandSeekRange");
+const onDemandSeekCurrent = document.getElementById("onDemandSeekCurrent");
+const onDemandSeekTotal = document.getElementById("onDemandSeekTotal");
+const onDemandSeekHint = document.getElementById("onDemandSeekHint");
+const onDemandEpisodeMeta = document.getElementById("onDemandEpisodeMeta");
+const onDemandNextBtn = document.getElementById("onDemandNextBtn");
+const onDemandQueue = document.getElementById("onDemandQueue");
+const onDemandQueueList = document.getElementById("onDemandQueueList");
 const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
@@ -1433,6 +1672,39 @@ let chatCollapsed = false;
 let onDemandProgressVisual = 0;
 let onDemandProgressTarget = 0;
 let onDemandProgressTimer = null;
+let currentOnDemandPath = "";
+let pendingSeekRequest = false;
+let lastStablePlaybackTime = 0;
+let onDemandDurationSeconds = 0;
+let onDemandScrubbing = false;
+let onDemandBaseOffsetSeconds = 0;
+let onDemandEpisodeIndex = 1;
+let onDemandEpisodeTotal = 1;
+let pendingNextEpisode = false;
+let onDemandQueuePreview = [];
+let lastQueueCurrentPosition = -1;
+let onDemandBufferedSeconds = 0;
+let onDemandBufferPollInterval = null;
+let onDemandPendingSeekSeconds = null;
+let currentOnDemandPreviewText = "";
+let onDemandPreviewRestoreTimer = null;
+let onDemandLocalSeekFallbackTimer = null;
+let onDemandLocalSeekInProgress = false;
+let onDemandDesiredSeekSeconds = null;
+let onDemandDesiredPreferServer = false;
+
+function flushOnDemandSeekIntent(){
+  if(onDemandDesiredSeekSeconds === null) return;
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+  if(pendingOnDemand || pendingSeekRequest) return;
+
+  const target = onDemandDesiredSeekSeconds;
+  const preferServer = onDemandDesiredPreferServer;
+  onDemandDesiredSeekSeconds = null;
+  onDemandDesiredPreferServer = false;
+  requestOnDemandSeek(target, preferServer);
+}
 
 function startOnDemandLoadingUI(label="Preparing on-demand stream..."){
   if(!onDemandLoader) return;
@@ -1590,12 +1862,57 @@ function closeChannelChat(){
   }
 }
 
+function positionPlaybackUiUnderStream(){
+  if(!contentRoot || !mediaStage) return;
+  if(!contentRoot.classList.contains("playback-mode")) return;
+  if(getComputedStyle(mediaStage).display === "none") return;
+
+  const nowTop = Math.max(12, Math.round(mediaStage.offsetTop + mediaStage.offsetHeight + 10));
+  contentRoot.style.setProperty("--now-playing-top", `${nowTop}px`);
+
+  const nowHeight = nowPlaying ? Math.max(24, nowPlaying.offsetHeight || 0) : 24;
+  const seekTop = nowTop + nowHeight + 8;
+  contentRoot.style.setProperty("--on-demand-seekbar-top", `${seekTop}px`);
+}
+
+function tryApplyPendingOnDemandSeek(){
+  if(onDemandPendingSeekSeconds === null) return false;
+  const pendingAbs = Number(onDemandPendingSeekSeconds);
+  if(!Number.isFinite(pendingAbs)){
+    onDemandPendingSeekSeconds = null;
+    return false;
+  }
+
+  const localTarget = pendingAbs - onDemandBaseOffsetSeconds;
+  if(localTarget < 0) return false;
+
+  const seekable = video.seekable;
+  const seekableEnd = seekable && seekable.length ? seekable.end(seekable.length - 1) : 0;
+  if(localTarget > seekableEnd + 0.75) return false;
+
+  video.currentTime = localTarget;
+  onDemandPendingSeekSeconds = null;
+  onDemandScrubbing = false;
+  if(onDemandLocalSeekFallbackTimer){
+    clearTimeout(onDemandLocalSeekFallbackTimer);
+    onDemandLocalSeekFallbackTimer = null;
+  }
+  updateOnDemandSeekbar(pendingAbs);
+  if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+  setTimeout(() => { onDemandLocalSeekInProgress = false; }, 500);
+  return true;
+}
+
 function positionChatUnderStream(){
   if(!chatStage || !mediaStage || !contentRoot) return;
   if(getComputedStyle(chatStage).display === "none") return;
   if(!contentRoot.classList.contains("playback-mode")) return;
 
-  const top = Math.max(12, Math.round(mediaStage.offsetTop + mediaStage.offsetHeight + 10));
+  let top = Math.max(12, Math.round(mediaStage.offsetTop + mediaStage.offsetHeight + 10));
+  if(onDemandSeekbar && getComputedStyle(onDemandSeekbar).display !== "none"){
+    const seekBottom = Math.round(onDemandSeekbar.offsetTop + onDemandSeekbar.offsetHeight + 10);
+    top = Math.max(top, seekBottom);
+  }
   chatStage.style.setProperty("--chat-top", `${top}px`);
 }
 
@@ -1941,6 +2258,452 @@ function setStatus(text){
   statusText.textContent = text;
 }
 
+function setOnDemandPreviewText(text){
+  currentOnDemandPreviewText = String(text || "").trim();
+  if(currentOnDemandPreviewText && (activeSlot !== null || currentlyPlayingChannel)){
+    setStatus(currentOnDemandPreviewText);
+  }
+}
+
+function setTemporaryOnDemandPreview(text, durationMs=2200){
+  if(onDemandPreviewRestoreTimer){
+    clearTimeout(onDemandPreviewRestoreTimer);
+    onDemandPreviewRestoreTimer = null;
+  }
+  setStatus(text);
+  onDemandPreviewRestoreTimer = setTimeout(() => {
+    onDemandPreviewRestoreTimer = null;
+    if(currentOnDemandPreviewText && (activeSlot !== null || currentlyPlayingChannel)){
+      setStatus(currentOnDemandPreviewText);
+      return;
+    }
+    applyListFilter();
+  }, durationMs);
+}
+
+function formatClock(totalSeconds){
+  const safe = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  if(hours > 0){
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function setOnDemandSeekbarVisible(visible){
+  if(!onDemandSeekbar) return;
+  onDemandSeekbar.style.display = visible ? "block" : "none";
+  requestAnimationFrame(() => {
+    positionPlaybackUiUnderStream();
+    positionChatUnderStream();
+  });
+}
+
+function setOnDemandSeekbarDisabled(disabled){
+  if(!onDemandSeekRange) return;
+  onDemandSeekRange.disabled = Boolean(disabled);
+}
+
+function updateOnDemandEpisodeUI(){
+  if(onDemandEpisodeMeta){
+    if(onDemandEpisodeTotal > 1){
+      onDemandEpisodeMeta.textContent = `Episode ${onDemandEpisodeIndex}/${onDemandEpisodeTotal}`;
+    } else {
+      onDemandEpisodeMeta.textContent = "";
+    }
+  }
+  if(onDemandNextBtn){
+    const showNext = onDemandEpisodeTotal > 1 && mode === "browse";
+    onDemandNextBtn.style.display = showNext ? "" : "none";
+    onDemandNextBtn.disabled = pendingNextEpisode || pendingOnDemand || pendingSeekRequest;
+  }
+}
+
+function setOnDemandEpisodeState(index=1, total=1){
+  const safeTotal = Math.max(1, Number(total) || 1);
+  const safeIndex = Math.min(safeTotal, Math.max(1, Number(index) || 1));
+  onDemandEpisodeIndex = safeIndex;
+  onDemandEpisodeTotal = safeTotal;
+  updateOnDemandEpisodeUI();
+}
+
+function setPendingNextEpisode(pending){
+  pendingNextEpisode = Boolean(pending);
+  updateOnDemandEpisodeUI();
+}
+
+function setOnDemandQueuePreview(preview){
+  onDemandQueuePreview = Array.isArray(preview) ? preview : [];
+  if(!onDemandQueue || !onDemandQueueList) return;
+
+  const queueLabel = (entry) => {
+    const raw = String(entry?.display_title || entry?.current_file || "Episode").trim();
+    if(!raw) return "Episode";
+    const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
+    if(parts.length > 1) return parts.slice(1).join(" / ");
+    return raw;
+  };
+
+  if(!onDemandQueuePreview.length){
+    onDemandQueue.style.display = "none";
+    contentRoot?.classList.remove("queue-open");
+    onDemandQueueList.innerHTML = "";
+    requestAnimationFrame(() => {
+      positionPlaybackUiUnderStream();
+      positionChatUnderStream();
+    });
+    return;
+  }
+
+  onDemandQueue.style.display = "block";
+  contentRoot?.classList.add("queue-open");
+  onDemandQueueList.innerHTML = "";
+  let currentRow = null;
+  let currentPos = -1;
+  onDemandQueuePreview.forEach((entry) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `on-demand-queue-item${entry.is_current ? " current" : ""}`;
+    row.disabled = pendingOnDemand || pendingSeekRequest || pendingNextEpisode;
+    row.onclick = () => goToOnDemandQueueEpisode(entry.position);
+    const idx = document.createElement("span");
+    idx.className = "on-demand-queue-item-index";
+    idx.textContent = `${entry.position}/${entry.total}`;
+    const label = document.createElement("span");
+    label.className = "on-demand-queue-item-label";
+    label.textContent = queueLabel(entry);
+    label.title = entry.display_title || label.textContent;
+    row.appendChild(idx);
+    row.appendChild(label);
+    onDemandQueueList.appendChild(row);
+    if(entry.is_current){
+      currentRow = row;
+      currentPos = Number(entry.position) || -1;
+    }
+  });
+
+  if(currentRow && currentPos !== lastQueueCurrentPosition){
+    lastQueueCurrentPosition = currentPos;
+    requestAnimationFrame(() => {
+      currentRow.scrollIntoView({ block: "nearest" });
+      positionPlaybackUiUnderStream();
+      positionChatUnderStream();
+    });
+  } else {
+    requestAnimationFrame(() => {
+      positionPlaybackUiUnderStream();
+      positionChatUnderStream();
+    });
+  }
+}
+
+function updateOnDemandQueueDisabledState(){
+  if(!onDemandQueueList) return;
+  const disabled = pendingOnDemand || pendingSeekRequest || pendingNextEpisode;
+  onDemandQueueList.querySelectorAll(".on-demand-queue-item").forEach((row) => {
+    row.disabled = disabled;
+  });
+}
+
+function updateOnDemandSeekbar(currentSeconds=null){
+  if(!onDemandSeekRange || !onDemandSeekCurrent || !onDemandSeekTotal) return;
+
+  if(onDemandDurationSeconds <= 0){
+    onDemandSeekRange.max = "0";
+    onDemandSeekRange.value = "0";
+    onDemandSeekCurrent.textContent = "0:00";
+    onDemandSeekTotal.textContent = "0:00";
+    return;
+  }
+
+  const target = currentSeconds === null ? Number(video.currentTime) || 0 : Number(currentSeconds) || 0;
+  const clamped = Math.max(0, Math.min(onDemandDurationSeconds, target));
+  onDemandSeekRange.max = String(Math.floor(onDemandDurationSeconds));
+  if(!onDemandScrubbing) onDemandSeekRange.value = String(Math.floor(clamped));
+  onDemandSeekCurrent.textContent = formatClock(clamped);
+  onDemandSeekTotal.textContent = formatClock(onDemandDurationSeconds);
+  updateSeekbarBufferTrack();
+}
+
+function setOnDemandDuration(durationSeconds){
+  const numeric = Number(durationSeconds);
+  onDemandDurationSeconds = Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+  setOnDemandSeekbarVisible(onDemandDurationSeconds > 0 && mode === "browse");
+  updateOnDemandSeekbar();
+}
+
+function updateSeekbarBufferTrack(){
+  if(!onDemandSeekRange || !onDemandDurationSeconds) return;
+  const total = onDemandDurationSeconds;
+  let playedAbs = onDemandBaseOffsetSeconds + (isNaN(video.currentTime) ? 0 : video.currentTime);
+  if(onDemandScrubbing || pendingOnDemand || pendingSeekRequest){
+    const sliderAbs = Number(onDemandSeekRange.value);
+    if(Number.isFinite(sliderAbs)) playedAbs = sliderAbs;
+  }
+  const bufferEndAbs = Math.min(total, onDemandBaseOffsetSeconds + onDemandBufferedSeconds);
+  const playedPct = Math.min(100, (playedAbs / total) * 100).toFixed(2);
+  const bufPct   = Math.min(100, (bufferEndAbs / total) * 100).toFixed(2);
+  onDemandSeekRange.style.setProperty("--played-pct", playedPct + "%");
+  onDemandSeekRange.style.setProperty("--buffered-pct", bufPct + "%");
+}
+
+function stopBufferPoll(){
+  if(onDemandBufferPollInterval){
+    clearInterval(onDemandBufferPollInterval);
+    onDemandBufferPollInterval = null;
+  }
+}
+
+function startBufferPoll(){
+  stopBufferPoll();
+  onDemandBufferedSeconds = 0;
+  updateSeekbarBufferTrack();
+  onDemandBufferPollInterval = setInterval(async () => {
+    if(activeSlot === null){ stopBufferPoll(); return; }
+    try {
+      const r = await fetch("/api/buffer_status");
+      if(!r.ok) return;
+      const d = await r.json();
+      onDemandBufferedSeconds = Number(d.buffered_seconds) || 0;
+      updateSeekbarBufferTrack();
+      tryApplyPendingOnDemandSeek();
+      if(d.is_complete){
+        stopBufferPoll();
+        // Clamp to total so bar shows full when done
+        onDemandBufferedSeconds = Math.max(onDemandBufferedSeconds, Number(d.total_seconds) || 0);
+        updateSeekbarBufferTrack();
+        tryApplyPendingOnDemandSeek();
+        if(onDemandSeekHint) onDemandSeekHint.textContent = "Fully buffered — seek anywhere instantly";
+      }
+    } catch(_){}
+  }, 1500);
+}
+
+function requestOnDemandSeek(targetSeconds, preferServer=false){
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+
+  const boundedTarget = Math.max(0, Number(targetSeconds) || 0);
+  const seekSeconds = onDemandDurationSeconds > 0
+    ? Math.min(onDemandDurationSeconds, boundedTarget)
+    : boundedTarget;
+
+  if(pendingOnDemand || pendingSeekRequest){
+    onDemandDesiredSeekSeconds = seekSeconds;
+    onDemandDesiredPreferServer = Boolean(preferServer);
+    if(onDemandSeekHint) onDemandSeekHint.textContent = `Queued jump to ${formatClock(seekSeconds)}...`;
+    updateOnDemandSeekbar(seekSeconds);
+    return;
+  }
+
+  // Deterministic rule:
+  // - seek within current seekable range => local seek
+  // - seek outside seekable range => server seek restart
+  const localTarget = seekSeconds - onDemandBaseOffsetSeconds;
+  const seekable = video.seekable;
+  const seekableEnd = seekable && seekable.length ? seekable.end(seekable.length - 1) : 0;
+  const seekableAbsoluteEnd = onDemandBaseOffsetSeconds + seekableEnd;
+  const backendFullyBuffered = onDemandDurationSeconds > 0 && onDemandBufferedSeconds >= (onDemandDurationSeconds - 1.5);
+  const canLocalSeek = !preferServer && localTarget >= 0 && localTarget <= (seekableEnd + 1.25);
+
+  if(canLocalSeek){
+    onDemandPendingSeekSeconds = null;
+    onDemandLocalSeekInProgress = true;
+    video.currentTime = localTarget;
+    onDemandScrubbing = false;
+    updateOnDemandSeekbar(seekSeconds);
+    if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+    setTimeout(() => { onDemandLocalSeekInProgress = false; }, 500);
+    requestAnimationFrame(flushOnDemandSeekIntent);
+    return;
+  }
+
+  // Backend can report fully buffered slightly before the browser/HLS seekable
+  // range catches up on the initial pass. For forward seeks only, give local
+  // seekability a brief chance to catch up before forcing a hard server jump.
+  if(!preferServer && backendFullyBuffered && localTarget >= 0){
+    const tailGap = onDemandDurationSeconds - seekableAbsoluteEnd;
+    const nearEpisodeEnd = seekSeconds >= (onDemandDurationSeconds - 6);
+    const clampedSeekSeconds = (nearEpisodeEnd && tailGap > 0 && tailGap <= 8)
+      ? Math.max(onDemandBaseOffsetSeconds, Math.min(onDemandDurationSeconds, seekableAbsoluteEnd - 0.35))
+      : seekSeconds;
+    const clampedLocalTarget = Math.max(0, clampedSeekSeconds - onDemandBaseOffsetSeconds);
+
+    if(nearEpisodeEnd && tailGap > 0 && tailGap <= 8){
+      onDemandPendingSeekSeconds = null;
+      onDemandLocalSeekInProgress = true;
+      onDemandScrubbing = false;
+      if(hls && typeof hls.startLoad === "function"){
+        try {
+          hls.startLoad(clampedLocalTarget);
+        } catch (_) {}
+      }
+      try {
+        video.currentTime = clampedLocalTarget;
+      } catch (_) {}
+      updateOnDemandSeekbar(clampedSeekSeconds);
+      if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+      setTimeout(() => {
+        onDemandLocalSeekInProgress = false;
+        requestAnimationFrame(flushOnDemandSeekIntent);
+      }, 400);
+      return;
+    }
+
+    onDemandPendingSeekSeconds = null;
+    onDemandLocalSeekInProgress = true;
+    onDemandScrubbing = false;
+    updateOnDemandSeekbar(clampedSeekSeconds);
+    if(onDemandSeekHint) onDemandSeekHint.textContent = `Jumping to ${formatClock(clampedSeekSeconds)}...`;
+    if(onDemandLocalSeekFallbackTimer){
+      clearInterval(onDemandLocalSeekFallbackTimer);
+    }
+    const startedAt = Date.now();
+    const tryDirectLocalSeek = () => {
+      if(hls && typeof hls.startLoad === "function"){
+        try {
+          hls.startLoad(clampedLocalTarget);
+        } catch (_) {}
+      }
+      try {
+        video.currentTime = clampedLocalTarget;
+      } catch (_) {}
+    };
+    const tryUntilReady = () => {
+      const currentAbs = onDemandBaseOffsetSeconds + (Number(video.currentTime) || 0);
+      if(Math.abs(currentAbs - clampedSeekSeconds) <= 2.5){
+        clearInterval(onDemandLocalSeekFallbackTimer);
+        onDemandLocalSeekFallbackTimer = null;
+        onDemandLocalSeekInProgress = false;
+        if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+        requestAnimationFrame(flushOnDemandSeekIntent);
+        return;
+      }
+      tryDirectLocalSeek();
+      if(Date.now() - startedAt >= 1800){
+        clearInterval(onDemandLocalSeekFallbackTimer);
+        onDemandLocalSeekFallbackTimer = null;
+        onDemandLocalSeekInProgress = false;
+        requestOnDemandSeek(clampedSeekSeconds, true);
+      }
+    };
+    tryDirectLocalSeek();
+    tryUntilReady();
+    onDemandLocalSeekFallbackTimer = setInterval(tryUntilReady, 100);
+    return;
+  }
+
+  // Outside local range (far ahead or behind base): force server-side seek.
+  if(onDemandLocalSeekFallbackTimer){
+    clearTimeout(onDemandLocalSeekFallbackTimer);
+    onDemandLocalSeekFallbackTimer = null;
+  }
+  onDemandPendingSeekSeconds = null;
+
+  const requestToken = ++playRequestToken;
+  pendingOnDemand = true;
+  pendingSeekRequest = true;
+  updateOnDemandQueueDisabledState();
+  setOnDemandSeekbarDisabled(true);
+  updateOnDemandEpisodeUI();
+
+  loadingImage.style.display = "block";
+  video.style.visibility = "hidden";
+  video.style.opacity = "0";
+  startOnDemandLoadingUI(`Jumping to ${formatClock(seekSeconds)}...`);
+  if(onDemandSeekHint) onDemandSeekHint.textContent = `Jumping to ${formatClock(seekSeconds)}...`;
+  updateOnDemandSeekbar(seekSeconds);
+  setStatus(`⏩ Jumping to ${formatClock(seekSeconds)}...`);
+
+  fetch("/api/seek_file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(currentOnDemandPath
+      ? { path: currentOnDemandPath, seek_seconds: seekSeconds }
+      : { seek_seconds: seekSeconds }),
+  })
+    .then((r) => {
+      if(!r.ok) throw new Error("seek_file failed");
+      return r.json();
+    })
+    .then((d) => {
+      if(requestToken !== playRequestToken){
+        pendingOnDemand = false;
+        pendingSeekRequest = false;
+        setOnDemandSeekbarDisabled(false);
+        updateOnDemandEpisodeUI();
+        updateOnDemandQueueDisabledState();
+        requestAnimationFrame(flushOnDemandSeekIntent);
+        stopOnDemandLoadingUI();
+        fetch("/api/stop_session", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:"{}",
+          keepalive:true
+        }).catch(()=>{});
+        return;
+      }
+
+      activeSlot = d.slot;
+      currentOnDemandPath = d.source_path || currentOnDemandPath;
+      onDemandBaseOffsetSeconds = seekSeconds;
+      if(typeof d.duration_seconds === "number") setOnDemandDuration(d.duration_seconds);
+
+      waitForSegments(d.playlist, 2, () => {
+        if(requestToken !== playRequestToken) return;
+        pendingOnDemand = false;
+        pendingSeekRequest = false;
+        onDemandScrubbing = false;
+        setOnDemandSeekbarDisabled(false);
+        updateOnDemandEpisodeUI();
+        updateOnDemandQueueDisabledState();
+        requestAnimationFrame(flushOnDemandSeekIntent);
+        if(typeof d.episode_index === "number" || typeof d.episode_total === "number"){
+          setOnDemandEpisodeState(d.episode_index, d.episode_total);
+        }
+        if(Array.isArray(d.queue_preview)) setOnDemandQueuePreview(d.queue_preview);
+        updateOnDemandEpisodeUI();
+        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        playHLS(d.playlist, true, title, false, currentlyPlayingItem, false, d.slot);
+      }, requestToken, {
+        timeoutMs: 30000,
+        onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 2, elapsedMs),
+        onTimeout: () => {
+          pendingOnDemand = false;
+          pendingSeekRequest = false;
+          setOnDemandSeekbarDisabled(false);
+          updateOnDemandEpisodeUI();
+          updateOnDemandQueueDisabledState();
+          requestAnimationFrame(flushOnDemandSeekIntent);
+          stopOnDemandLoadingUI();
+          loadingImage.style.display = "none";
+          video.style.visibility = "visible";
+          video.style.opacity = "1";
+          if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+          updateOnDemandSeekbar();
+          setStatus("⚠️ Jump timed out. Try again.");
+        },
+      });
+    })
+    .catch(() => {
+      pendingOnDemand = false;
+      pendingSeekRequest = false;
+      setOnDemandSeekbarDisabled(false);
+      updateOnDemandEpisodeUI();
+      updateOnDemandQueueDisabledState();
+      requestAnimationFrame(flushOnDemandSeekIntent);
+      stopOnDemandLoadingUI();
+      loadingImage.style.display = "none";
+      video.style.visibility = "visible";
+      video.style.opacity = "1";
+      if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+      updateOnDemandSeekbar();
+      setStatus("⚠️ Could not jump to that time.");
+    });
+}
+
 function formatEpisodeTitle(name, type="file"){
   if(!name) return "";
 
@@ -1982,19 +2745,200 @@ function formatDisplayPath(value, type="file"){
 }
 
 function setSelectionPreview(text="Hover or select something to see the full title"){
-  selectionPreview.textContent = formatDisplayPath(text, "file") || "Hover or select something to see the full title";
+  const raw = String(text || "").trim();
+  if(!raw){
+    selectionPreview.textContent = "Hover or select something to see the full title";
+    return;
+  }
+  if(raw.endsWith("/")){
+    selectionPreview.textContent = raw;
+    return;
+  }
+  selectionPreview.textContent = formatDisplayPath(raw, "file") || "Hover or select something to see the full title";
+}
+
+function goToNextOnDemandEpisode(){
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+  if(pendingOnDemand || pendingSeekRequest || pendingNextEpisode) return;
+
+  const requestToken = ++playRequestToken;
+  pendingOnDemand = true;
+  setPendingNextEpisode(true);
+  setOnDemandSeekbarDisabled(true);
+  updateOnDemandQueueDisabledState();
+
+  loadingImage.style.display = "block";
+  video.style.visibility = "hidden";
+  video.style.opacity = "0";
+  startOnDemandLoadingUI("Loading next episode...");
+  if(onDemandSeekHint) onDemandSeekHint.textContent = "Loading next episode...";
+
+  fetch("/api/next_episode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  })
+    .then((r) => {
+      if(!r.ok) throw new Error("next_episode failed");
+      return r.json();
+    })
+    .then((d) => {
+      if(requestToken !== playRequestToken){
+        pendingOnDemand = false;
+        setPendingNextEpisode(false);
+        setOnDemandSeekbarDisabled(false);
+        stopOnDemandLoadingUI();
+        return;
+      }
+
+      activeSlot = d.slot;
+      currentOnDemandPath = d.source_path || currentOnDemandPath;
+      onDemandBaseOffsetSeconds = 0;
+      setOnDemandDuration(d.duration_seconds);
+      setOnDemandEpisodeState(d.episode_index, d.episode_total);
+      setOnDemandQueuePreview(d.queue_preview);
+
+      waitForSegments(d.playlist, 2, () => {
+        if(requestToken !== playRequestToken) return;
+        pendingOnDemand = false;
+        setPendingNextEpisode(false);
+        setOnDemandSeekbarDisabled(false);
+        updateOnDemandQueueDisabledState();
+        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
+      }, requestToken, {
+        timeoutMs: 30000,
+        onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 2, elapsedMs),
+        onTimeout: () => {
+          pendingOnDemand = false;
+          setPendingNextEpisode(false);
+          setOnDemandSeekbarDisabled(false);
+          updateOnDemandQueueDisabledState();
+          stopOnDemandLoadingUI();
+          loadingImage.style.display = "none";
+          video.style.visibility = "visible";
+          video.style.opacity = "1";
+          if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+          setStatus("⚠️ Could not load next episode.");
+        },
+      });
+    })
+    .catch(() => {
+      pendingOnDemand = false;
+      setPendingNextEpisode(false);
+      setOnDemandSeekbarDisabled(false);
+      updateOnDemandQueueDisabledState();
+      stopOnDemandLoadingUI();
+      loadingImage.style.display = "none";
+      video.style.visibility = "visible";
+      video.style.opacity = "1";
+      if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+      setStatus("⚠️ Could not load next episode.");
+    });
+}
+
+function goToOnDemandQueueEpisode(queuePosition){
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+  if(pendingOnDemand || pendingSeekRequest || pendingNextEpisode) return;
+
+  const position = Number(queuePosition) || 0;
+  if(position <= 0) return;
+
+  const requestToken = ++playRequestToken;
+  pendingOnDemand = true;
+  setPendingNextEpisode(true);
+  setOnDemandSeekbarDisabled(true);
+  updateOnDemandQueueDisabledState();
+  setOnDemandQueuePreview(onDemandQueuePreview);
+
+  loadingImage.style.display = "block";
+  video.style.visibility = "hidden";
+  video.style.opacity = "0";
+  startOnDemandLoadingUI("Loading selected episode...");
+  if(onDemandSeekHint) onDemandSeekHint.textContent = "Loading selected episode...";
+
+  fetch("/api/play_queue_episode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ queue_position: position }),
+  })
+    .then((r) => {
+      if(!r.ok) throw new Error("play_queue_episode failed");
+      return r.json();
+    })
+    .then((d) => {
+      if(requestToken !== playRequestToken){
+        pendingOnDemand = false;
+        setPendingNextEpisode(false);
+        setOnDemandSeekbarDisabled(false);
+        stopOnDemandLoadingUI();
+        return;
+      }
+
+      activeSlot = d.slot;
+      currentOnDemandPath = d.source_path || currentOnDemandPath;
+      onDemandBaseOffsetSeconds = 0;
+      setOnDemandDuration(d.duration_seconds);
+      setOnDemandEpisodeState(d.episode_index, d.episode_total);
+      setOnDemandQueuePreview(d.queue_preview);
+
+      waitForSegments(d.playlist, 2, () => {
+        if(requestToken !== playRequestToken) return;
+        pendingOnDemand = false;
+        setPendingNextEpisode(false);
+        setOnDemandSeekbarDisabled(false);
+        updateOnDemandQueueDisabledState();
+        setOnDemandQueuePreview(d.queue_preview);
+        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
+      }, requestToken, {
+        timeoutMs: 30000,
+        onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 2, elapsedMs),
+        onTimeout: () => {
+          pendingOnDemand = false;
+          setPendingNextEpisode(false);
+          setOnDemandSeekbarDisabled(false);
+          updateOnDemandQueueDisabledState();
+          setOnDemandQueuePreview(onDemandQueuePreview);
+          stopOnDemandLoadingUI();
+          loadingImage.style.display = "none";
+          video.style.visibility = "visible";
+          video.style.opacity = "1";
+          if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+          setStatus("⚠️ Could not load selected episode.");
+        },
+      });
+    })
+    .catch(() => {
+      pendingOnDemand = false;
+      setPendingNextEpisode(false);
+      setOnDemandSeekbarDisabled(false);
+      updateOnDemandQueueDisabledState();
+      setOnDemandQueuePreview(onDemandQueuePreview);
+      stopOnDemandLoadingUI();
+      loadingImage.style.display = "none";
+      video.style.visibility = "visible";
+      video.style.opacity = "1";
+      if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+      setStatus("⚠️ Could not load selected episode.");
+    });
 }
 
 function setNowPlayingTitle(title){
   const formattedTitle = formatDisplayPath(title, "file");
   if(!formattedTitle){
     nowPlaying.textContent = "";
+    requestAnimationFrame(positionPlaybackUiUnderStream);
     return;
   }
 
   const parts = formattedTitle.split("/").map(part => part.trim()).filter(Boolean);
   if(parts.length <= 1){
     nowPlaying.textContent = formattedTitle;
+    setOnDemandPreviewText(`Playing ${formattedTitle}`);
+    requestAnimationFrame(positionPlaybackUiUnderStream);
     return;
   }
 
@@ -2002,6 +2946,9 @@ function setNowPlayingTitle(title){
     const chip = `<span class="now-chip">${part}</span>`;
     return index < parts.length - 1 ? `${chip}<span class="now-sep">/</span>` : chip;
   }).join("");
+
+  setOnDemandPreviewText(`Playing ${formattedTitle}`);
+  requestAnimationFrame(positionPlaybackUiUnderStream);
 }
 
 function setSelectedBrowseItem(item){
@@ -2031,7 +2978,11 @@ function applyListFilter(){
   const label = mode === "channels"
     ? "📺 Channels"
     : `📁 ${currentPath === mediaRoot ? "Library" : currentPath.split("/").pop()}`;
-  setStatus(`${label} · ${visibleCount} item${visibleCount === 1 ? "" : "s"}`);
+  if(currentOnDemandPreviewText && (activeSlot !== null || currentlyPlayingChannel)){
+    setStatus(currentOnDemandPreviewText);
+  } else {
+    setStatus(`${label} · ${visibleCount} item${visibleCount === 1 ? "" : "s"}`);
+  }
 }
 
 function refreshCurrentView(){
@@ -2047,9 +2998,16 @@ function stopAndShowHome(){
   searchInput.value = "";
   applyListFilter();
   stopVideo();
+  setSelectedBrowseItem(null);
+  Array.from(list.querySelectorAll(".item")).forEach((item) => {
+    item.classList.remove("selected");
+  });
+  contentRoot?.classList.add("home-mode");
   contentRoot?.classList.remove("playback-mode");
+  contentRoot?.classList.remove("folder-prompt-mode");
   homeText.innerHTML = originalHomeHTML;
   homeText.style.display = "block";
+  currentOnDemandPreviewText = "";
   setStatus("Ready to stream");
   setSelectionPreview();
   applyThemeImages(themeSelect.value);
@@ -2059,8 +3017,11 @@ function stopAndShowHome(){
 
 function playChannel(channel, sidebarItem=null){
   stopVideo();
+  contentRoot?.classList.remove("home-mode");
+  currentOnDemandPath = "";
   homeText.style.display = "none";
   setStatus(`📺 Loading ${channel.name}...`);
+  setOnDemandPreviewText(`Playing ${channel.name}`);
   setSelectionPreview(channel.name);
   openChannelChat(channel.id, channel.name);
 
@@ -2119,14 +3080,100 @@ searchInput.addEventListener("keydown", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  const tag = (document.activeElement?.tagName || "").toUpperCase();
+  const typing = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
+
   if(e.key === "/" && document.activeElement !== searchInput){
     e.preventDefault();
     searchInput.focus();
     searchInput.select();
   } else if(e.key === "Escape" && document.activeElement !== searchInput){
     stopAndShowHome();
+  } else if((e.key === "f" || e.key === "F") && !typing){
+    e.preventDefault();
+    if(document.fullscreenElement){
+      document.exitFullscreen().catch(() => {});
+    } else if(mediaStage && mediaStage.style.display !== "none"){
+      mediaStage.requestFullscreen?.().catch(() => {});
+    }
+  } else if((e.key === "m" || e.key === "M") && !typing){
+    e.preventDefault();
+    if(mediaStage && mediaStage.style.display !== "none"){
+      video.muted = !video.muted;
+      setStatus(video.muted ? "🔇 Muted" : "🔊 Unmuted");
+      setTemporaryOnDemandPreview(video.muted ? "🔇 Muted" : "🔊 Unmuted", 2200);
+    }
+  } else if((e.key === " " || e.code === "Space") && !typing){
+    if(mediaStage && mediaStage.style.display !== "none"){
+      e.preventDefault();
+      if(video.paused){
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    }
   }
 });
+
+video.addEventListener("timeupdate", () => {
+  if(mode !== "browse") return;
+  if(video.seeking) return;
+  lastStablePlaybackTime = Number(video.currentTime) || 0;
+  tryApplyPendingOnDemandSeek();
+  if(onDemandDesiredSeekSeconds !== null && !pendingOnDemand && !pendingSeekRequest){
+    onDemandDesiredSeekSeconds = null;
+  }
+  if(onDemandDesiredSeekSeconds !== null || pendingOnDemand || pendingSeekRequest){
+    updateSeekbarBufferTrack();
+    return;
+  }
+  updateOnDemandSeekbar(onDemandBaseOffsetSeconds + lastStablePlaybackTime);
+});
+
+video.addEventListener("seeking", () => {
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+  if(!currentOnDemandPath || pendingOnDemand || pendingSeekRequest) return;
+
+  const target = Number(video.currentTime) || 0;
+  const seekable = video.seekable;
+  const seekableEnd = seekable && seekable.length ? seekable.end(seekable.length - 1) : 0;
+  const jumpedForward = target - lastStablePlaybackTime;
+  const beyondGenerated = target > seekableEnd + 6;
+
+  if(onDemandDurationSeconds > 0 && onDemandSeekbar && onDemandSeekbar.style.display === "block") return;
+
+  if(jumpedForward > 12 && beyondGenerated){
+    requestOnDemandSeek(target);
+  }
+});
+
+if(onDemandSeekRange){
+  onDemandSeekRange.addEventListener("pointerdown", () => {
+    onDemandScrubbing = true;
+  });
+
+  onDemandSeekRange.addEventListener("pointerup", () => {
+    onDemandScrubbing = false;
+  });
+
+  onDemandSeekRange.addEventListener("input", () => {
+    const target = Number(onDemandSeekRange.value) || 0;
+    onDemandSeekCurrent.textContent = formatClock(target);
+  });
+
+  onDemandSeekRange.addEventListener("change", () => {
+    if(onDemandDurationSeconds <= 0) return;
+    const target = Number(onDemandSeekRange.value) || 0;
+    onDemandScrubbing = false;
+    onDemandSeekRange.blur();
+    requestOnDemandSeek(target);
+  });
+}
+
+if(onDemandNextBtn){
+  onDemandNextBtn.addEventListener("click", goToNextOnDemandEpisode);
+}
 
 /* ---------- Helpers ---------- */
 function resetPlayer() {
@@ -2140,8 +3187,24 @@ function resetPlayer() {
   mediaStage.style.display="none";
   loadingImage.style.display="none";
   stopOnDemandLoadingUI();
+  stopBufferPoll();
+  if(onDemandLocalSeekFallbackTimer){
+    clearTimeout(onDemandLocalSeekFallbackTimer);
+    onDemandLocalSeekFallbackTimer = null;
+  }
+  onDemandDesiredSeekSeconds = null;
+  onDemandDesiredPreferServer = false;
+  if(onDemandPreviewRestoreTimer){
+    clearTimeout(onDemandPreviewRestoreTimer);
+    onDemandPreviewRestoreTimer = null;
+  }
+  currentOnDemandPreviewText = "";
+  onDemandBufferedSeconds = 0;
   nowPlaying.innerHTML = "";
   contentRoot?.classList.remove("playback-mode");
+  contentRoot?.classList.remove("folder-prompt-mode");
+  contentRoot?.classList.remove("queue-open");
+  contentRoot?.classList.remove("folder-playback");
 
   if(currentlyPlayingItem){
     currentlyPlayingItem.classList.remove("playing");
@@ -2149,6 +3212,21 @@ function resetPlayer() {
   }
   isPlayingFolder = false;
   activeSlot = null;
+  currentOnDemandPath = "";
+  pendingSeekRequest = false;
+  onDemandPendingSeekSeconds = null;
+  lastStablePlaybackTime = 0;
+  onDemandDurationSeconds = 0;
+  onDemandScrubbing = false;
+  onDemandBaseOffsetSeconds = 0;
+  setOnDemandEpisodeState(1, 1);
+  setOnDemandQueuePreview([]);
+  lastQueueCurrentPosition = -1;
+  setPendingNextEpisode(false);
+  setOnDemandSeekbarDisabled(false);
+  if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
+  setOnDemandSeekbarVisible(false);
+  updateOnDemandSeekbar(0);
 }
 
 function stopCurrentStream(){
@@ -2194,6 +3272,7 @@ function showSkeleton(item, loadingText="Loading stream...", retryable=false){
   pendingOnDemand = true;
 
   lastLoadingItem = item;
+  contentRoot?.classList.remove("folder-prompt-mode");
   contentRoot?.classList.add("playback-mode");
   mediaStage.style.display="flex";
   loadingImage.style.display="block";
@@ -2225,12 +3304,17 @@ function restoreSidebarItem(item){
 }
 
 function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false, slot=null){
+  if(hls){ hls.destroy(); hls = null; }
+  video.removeAttribute("src");
+
   if(slot) {
     activeSlot = slot;
     pendingOnDemand = false;
+    onDemandPendingSeekSeconds = null;
   }
 
   contentRoot?.classList.add("playback-mode");
+  contentRoot?.classList.toggle("folder-playback", Boolean(folder));
   mediaStage.style.display="flex";
   video.style.display="block";
   video.style.visibility="hidden";
@@ -2238,9 +3322,15 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(hideTimeline) video.classList.add("hide-timeline");
 
   if(Hls.isSupported()){
-    hls = new Hls();
+    hls = new Hls(isChannel ? {} : { autoStartLoad: false, startPosition: 0 });
     hls.loadSource(url);
     hls.attachMedia(video);
+    if(!isChannel){
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.startLoad(0);
+      });
+      startBufferPoll();
+    }
   } else {
     video.src = url;
   }
@@ -2249,12 +3339,19 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
 
   video.oncanplay = () => {
     onDemandProgressTarget = 100;
+    pendingSeekRequest = false;
+    stopOnDemandLoadingUI();
     loadingImage.style.display="none";
     stopOnDemandLoadingUI();
     video.style.visibility="visible";
     video.style.opacity="1";
     homeText.style.display="none";
+    positionPlaybackUiUnderStream();
     positionChatUnderStream();
+    if(title && isChannel){
+      setOnDemandPreviewText(`Playing ${title}`);
+      setSelectionPreview(title);
+    }
     if(title && !isChannel) setNowPlayingTitle(title);
 
     if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
@@ -2291,9 +3388,11 @@ function setMode(m){
   applyThemeImages(themeSelect.value);
   list.innerHTML = "";
   if(m === "browse"){
+    contentRoot?.classList.remove("home-mode");
     list.innerHTML = '<div class="item">Loading folders...</div>';
     setStatus("📁 Loading folders...");
   } else {
+    contentRoot?.classList.add("home-mode");
     setStatus("📺 Loading channels...");
   }
   homeText.style.display = (m==="channels") ? "block" : "none";
@@ -2349,11 +3448,18 @@ function loadFolder(path){
 
       if(path!==mediaRoot){
         const up=document.createElement("div");
+        const parentPath = path.split("/").slice(0,-1).join("/");
+        const parentPreviewBase = formatDisplayPath(parentPath, "folder") || "Library";
+        const parentPreview = `${parentPreviewBase}/`;
         up.className="item folder";
         up.textContent="..";
+        up.title = parentPreview;
+        up.dataset.previewText = parentPreview;
+        up.dataset.filterText = `.. ${parentPreview}`.trim();
+        up.onmouseenter = () => setSelectionPreview(parentPreview);
         up.onclick=()=>{
           searchInput.value = "";
-          loadFolder(path.split("/").slice(0,-1).join("/"));
+          loadFolder(parentPath);
         };
         list.appendChild(up);
       }
@@ -2374,7 +3480,7 @@ function loadFolder(path){
           div.onclick=()=>{
             setSelectedBrowseItem(div);
             stopVideo();
-            contentRoot?.classList.add("playback-mode");
+            contentRoot?.classList.add("folder-prompt-mode");
             div.classList.add("selected");
             homeText.innerHTML = `
               <h2>📁 ${i.name}</h2>
@@ -2409,10 +3515,17 @@ function loadFolder(path){
                 }
                 activeSlot = d.slot;
                 pendingOnDemand = false;
+                currentOnDemandPath = d.source_path || "";
+                onDemandBaseOffsetSeconds = 0;
+                setOnDemandDuration(d.duration_seconds);
+                setOnDemandEpisodeState(d.episode_index, d.episode_total);
+                setOnDemandQueuePreview(d.queue_preview);
                 waitForSegments(d.playlist,3,()=>{
                   if(requestToken !== playRequestToken) return;
+                  stopOnDemandLoadingUI();
+                  loadingImage.style.display="none";
                   const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
-                  playHLS(d.playlist,false,playTitle,true,div,false,d.slot);
+                  playHLS(d.playlist,true,playTitle,true,div,false,d.slot);
                 }, requestToken, {
                   timeoutMs: 45000,
                   onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
@@ -2457,10 +3570,15 @@ function loadFolder(path){
               }
               activeSlot = d.slot;
               pendingOnDemand = false;
+              currentOnDemandPath = d.source_path || i.path;
+              onDemandBaseOffsetSeconds = 0;
+              setOnDemandDuration(d.duration_seconds);
+              setOnDemandEpisodeState(d.episode_index, d.episode_total);
+              setOnDemandQueuePreview(d.queue_preview);
               waitForSegments(d.playlist,3,()=>{
                 if(requestToken !== playRequestToken) return;
                 const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
-                playHLS(d.playlist,false,playTitle,false,div,false,d.slot);
+                playHLS(d.playlist,true,playTitle,false,div,false,d.slot);
               }, requestToken, {
                 timeoutMs: 45000,
                 onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
@@ -2527,6 +3645,7 @@ initThemePicker();
 syncOverlayHeight();
 window.addEventListener("resize", () => {
   syncOverlayHeight();
+  positionPlaybackUiUnderStream();
   positionChatUnderStream();
 });
 loadConfig().finally(() => {
