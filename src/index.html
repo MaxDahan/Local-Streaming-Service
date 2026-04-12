@@ -117,19 +117,25 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
-  padding:24px 28px;
+  justify-content:flex-start;
+  padding:40px 28px;
   overflow-y:auto;
   isolation:isolate;
+}
+.content.playback-mode {
+  justify-content:center;
 }
 .content::before {
   content:"";
   position:absolute;
-  inset:0;
+  left:0;
+  right:0;
+  top:0;
+  height:var(--content-overlay-height, 100%);
   background-image:var(--theme-content-overlay);
-  background-size:cover;
-  background-position:center;
-  background-repeat:no-repeat;
+  background-size:100% 100vh;
+  background-position:top center;
+  background-repeat:repeat-y;
   opacity:var(--theme-overlay-opacity);
   pointer-events:none;
   z-index:0;
@@ -161,17 +167,104 @@ video {
 video.hide-timeline::-webkit-media-controls-timeline,
 video.hide-timeline::-webkit-media-controls-current-time-display,
 video.hide-timeline::-webkit-media-controls-time-remaining-display { display:none !important; }
-.home-text { font-size:20px; text-align:center; max-width:700px; }
-.home-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
-.home-action {
-  padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
-  background:var(--accent-grad); color:var(--accent-text); font-weight:bold;
+.home-text { 
+  text-align:center; 
+  max-width:600px; 
+  display:flex; 
+  flex-direction:column; 
+  align-items:center;
+  gap:24px;
+  width:100%;
+  padding-bottom:40px;
 }
-.home-action.secondary { background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-input); }
-.home-tip { font-size:13px; color:var(--text-muted); margin-top:12px; }
+.home-text > * {
+  width:100%;
+  box-sizing:border-box;
+}
+.home-text h2 {
+  font-size:48px;
+  font-weight:900;
+  letter-spacing:-1px;
+  margin:0;
+  background:linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text-main) 82%, var(--accent-strong) 18%),
+    color-mix(in srgb, var(--text-main) 68%, var(--link) 32%)
+  );
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  line-height:1.1;
+  text-shadow:0 2px 10px rgba(0,0,0,0.24);
+}
+.home-text > p:first-of-type {
+  font-size:18px;
+  color:var(--text-muted);
+  max-width:600px;
+  line-height:1.6;
+  margin:0;
+  font-weight:500;
+}
+.home-actions { 
+  display:flex; 
+  gap:16px; 
+  justify-content:center; 
+  flex-wrap:wrap; 
+  margin:12px 0 0 0;
+}
+.home-action {
+  padding:14px 28px; 
+  border:none; 
+  border-radius:12px; 
+  cursor:pointer;
+  background:var(--accent-grad); 
+  color:var(--accent-text); 
+  font-weight:bold;
+  font-size:16px;
+  transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:0 4px 12px rgba(255, 150, 60, 0.2);
+}
+.home-action:hover {
+  transform:translateY(-2px);
+  filter:brightness(1.1);
+  box-shadow:0 8px 20px rgba(255, 150, 60, 0.35);
+}
+.home-action.secondary { 
+  background:var(--bg-card); 
+  color:var(--link); 
+  border:2px solid var(--link);
+  box-shadow:0 4px 12px rgba(124, 199, 255, 0.15);
+}
+.home-action.secondary:hover {
+  background:color-mix(in srgb, var(--bg-card) 70%, var(--link) 30%);
+  box-shadow:0 8px 20px rgba(124, 199, 255, 0.3);
+}
+.home-tip { 
+  font-size:13px; 
+  color:var(--text-muted); 
+  margin:12px 0 0 0;
+  font-weight:500;
+}
 kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-bottom-width:2px; padding:2px 6px; border-radius:6px; font-size:12px; }
-#playFolderBtn { font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:var(--accent-strong); border:none; border-radius:8px; color:var(--accent-text); }
-#playFolderBtn:hover { filter:brightness(1.08); transform:scale(1.05); transition:all 0.2s; }
+#playFolderBtn {
+  font-size:15px;
+  letter-spacing:0.02em;
+  font-weight:700;
+  padding:11px 18px;
+  margin-top:16px;
+  cursor:pointer;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--accent-strong) 88%, #fff 12%), color-mix(in srgb, var(--accent-strong) 70%, #111 30%));
+  border:1px solid color-mix(in srgb, var(--accent-strong) 70%, #fff 30%);
+  border-radius:10px;
+  color:var(--accent-text);
+  box-shadow:0 8px 20px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.25);
+  transition:transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+#playFolderBtn:hover {
+  filter:brightness(1.08);
+  transform:scale(1.05);
+  box-shadow:0 12px 26px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.28);
+}
 #loadingImage {
   display:none;
   position:absolute;
@@ -210,50 +303,83 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 .loadingText { color:var(--warn); font-weight:bold; }
 .github-card {
-  margin-top:18px;
-  padding:14px 18px;
-  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 88%, #000 12%), var(--item-bg));
-  border:1px solid var(--border-input);
-  border-radius:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  margin-top:32px;
+  padding:20px 24px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 90%, var(--accent-strong) 10%), var(--item-bg));
+  border:2px solid color-mix(in srgb, var(--border-input) 70%, var(--accent-strong) 30%);
+  border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+  transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing:border-box;
+}
+.github-card:hover {
+  transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(255, 150, 60, 0.2);
+  border-color:var(--accent-strong);
 }
 .github-card a {
   color:var(--link);
   text-decoration:none;
   font-weight:bold;
+  font-size:15px;
+  display:inline-block;
+  transition:color 0.2s;
 }
 .github-card a:hover {
   color:var(--link-hover);
-  text-decoration:underline;
 }
 .github-label {
   display:block;
-  font-size:14px;
+  font-size:13px;
   color:var(--text-muted);
-  margin-bottom:6px;
+  margin-bottom:8px;
+  font-weight:600;
 }
 
 .patch-notes-section {
-  margin-top:20px;
-  padding:16px 18px;
-  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 88%, #111 12%), var(--item-bg));
-  border:1px solid var(--border-input);
-  border-radius:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  margin-top:32px;
+  padding:24px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 85%, #1a3a2a 15%), var(--item-bg));
+  border:2px solid color-mix(in srgb, var(--border-input) 60%, var(--item-playing-border) 40%);
+  border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+  box-sizing:border-box;
 }
 
 .patch-notes-section h3 {
-  margin:0 0 12px 0;
-  font-size:16px;
+  margin:0 0 18px 0;
+  font-size:18px;
   color:var(--text-main);
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 
 .patch-notes-content {
   font-size:13px;
-  line-height:1.6;
-  max-height:300px;
+  line-height:1.8;
+  max-height:350px;
   overflow-y:auto;
   color:var(--text-muted);
+  padding-right:8px;
+}
+
+.patch-notes-content::-webkit-scrollbar {
+  width:6px;
+}
+
+.patch-notes-content::-webkit-scrollbar-track {
+  background:transparent;
+}
+
+.patch-notes-content::-webkit-scrollbar-thumb {
+  background:var(--border-card);
+  border-radius:3px;
+}
+
+.patch-notes-content::-webkit-scrollbar-thumb:hover {
+  background:var(--border-input);
 }
 
 .patch-notes-content h1,
@@ -262,28 +388,30 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 .patch-notes-content h4,
 .patch-notes-content h5,
 .patch-notes-content h6 {
-  margin:12px 0 6px 0;
+  margin:16px 0 8px 0;
   color:var(--text-main);
-  font-size:inherit;
+  font-weight:700;
+  line-height:1.3;
 }
 
-.patch-notes-content h1 { font-size:14px; font-weight:bold; }
-.patch-notes-content h2 { font-size:13px; font-weight:bold; }
-.patch-notes-content h3 { font-size:12px; font-weight:bold; }
+.patch-notes-content h1 { font-size:15px; }
+.patch-notes-content h2 { font-size:14px; }
+.patch-notes-content h3 { font-size:13px; }
 
 .patch-notes-content p {
-  margin:6px 0;
+  margin:8px 0;
   color:var(--text-muted);
 }
 
 .patch-notes-content ul {
-  margin:6px 0 6px 20px;
+  margin:10px 0 10px 24px;
   padding:0;
 }
 
 .patch-notes-content li {
-  margin:4px 0;
+  margin:6px 0;
   color:var(--text-muted);
+  list-style:disc;
 }
 
 .patch-notes-content strong {
@@ -294,20 +422,24 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 .patch-notes-content em {
   color:var(--link);
   font-style:italic;
+  opacity:0.95;
 }
 
 .patch-notes-content code {
-  background:rgba(255,255,255,0.05);
-  padding:2px 4px;
-  border-radius:3px;
+  background:color-mix(in srgb, var(--bg-input) 80%, var(--link) 20%);
+  padding:3px 6px;
+  border-radius:4px;
   color:var(--status-text);
-  font-family:monospace;
+  font-family:'Courier New', monospace;
   font-size:12px;
+  border:1px solid color-mix(in srgb, var(--border-input) 70%, var(--link) 30%);
 }
 
 .patch-notes-content a {
   color:var(--link);
   text-decoration:none;
+  transition:color 0.2s;
+  font-weight:500;
 }
 
 .patch-notes-content a:hover {
@@ -316,12 +448,14 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 
 .patch-notes-content hr {
-  margin:12px 0;
+  margin:16px 0;
   border:none;
-  border-top:1px solid var(--border-card);
+  border-top:1px solid color-mix(in srgb, var(--border-card) 50%, transparent 50%);
+  opacity:0.5;
 }
 
 .theme-dock {
+  display:block;
   position:fixed;
   right:18px;
   bottom:18px;
@@ -397,12 +531,14 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 .theme-panel {
   display:none;
   margin-top:8px;
-  width:250px;
+  width:230px;
   background:var(--bg-sidebar);
   border:1px solid var(--border-input);
   border-radius:12px;
-  padding:10px;
+  padding:12px;
   box-shadow:0 10px 25px rgba(0,0,0,0.25);
+  max-height:calc(100vh - 100px);
+  overflow-y:auto;
 }
 .theme-panel.open { display:block; }
 .theme-panel h4 {
@@ -451,15 +587,15 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 <div class="content">
   <div class="home-text" id="homeText">
     <h2>Welcome to MAXISTREAMS!</h2>
-    <p>Maximum stream enjoyment. Browse channels or folders, shuffle media, and watch instantly.</p>
+    <p>Your personal streaming hub. Browse channels, discover new content, and enjoy instant playback.</p>
     <div class="home-actions">
       <button class="home-action" onclick="playRandomChannel()">🎲 Random Channel</button>
       <button class="home-action secondary" onclick="setMode('browse')">📂 Browse Library</button>
     </div>
-    <p class="home-tip">Tip: press <kbd>/</kbd> to search and <kbd>Esc</kbd> to stop playback.</p>
+    <p class="home-tip">💡 Tip: Press <kbd>/</kbd> to search • <kbd>Esc</kbd> to stop playback</p>
     <img data-theme-home alt="Theme homepage" style="max-width:100%; margin-top:20px; border-radius:12px; display:none;" />
     <div class="github-card">
-      <span class="github-label">🔗 Check out the project on GitHub</span>
+      <span class="github-label">🔗 Check out this project on GitHub</span>
       <a href="https://github.com/MaxDahan/Local-Streaming-Service" target="_blank" rel="noopener noreferrer">
         MaxDahan/Local-Streaming-Service
       </a>
@@ -491,20 +627,9 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
     </span>
   </button>
   <div class="theme-panel" id="themePanel">
-    <h4>Local Theme</h4>
+    <h4>Theme</h4>
     <p>This browser only</p>
-    <select id="themeSelect" aria-label="Theme selector">
-      <option value="default">Default</option>
-      <option value="light">Light</option>
-      <option value="ocean">Ocean</option>
-      <option value="volcano">Volcano</option>
-      <option value="heaven">Heaven</option>
-      <option value="space">Space</option>
-      <option value="dinosaur">Dinosaur</option>
-      <option value="beach">Beach</option>
-      <option value="csgo">Counter-Strike GO</option>
-      <option value="pokemon">Pokemon</option>
-    </select>
+    <select id="themeSelect" aria-label="Theme selector"></select>
   </div>
 </div>
 
@@ -512,6 +637,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 const list = document.getElementById("list");
 const video = document.getElementById("video");
 const homeText = document.getElementById("homeText");
+const contentRoot = document.querySelector(".content");
 const mediaStage = document.getElementById("mediaStage");
 const loadingImage = document.getElementById("loadingImage");
 const nowPlaying = document.getElementById("nowPlaying");
@@ -520,8 +646,8 @@ const statusText = document.getElementById("statusText");
 const selectionPreview = document.getElementById("selectionPreview");
 const themeToggle = document.getElementById("themeToggle");
 const themePanel = document.getElementById("themePanel");
-const themeSelect = document.getElementById("themeSelect");
 const themeDock = document.getElementById("themeDock");
+const themeSelect = document.getElementById("themeSelect");
 const themeButtonImage = document.getElementById("themeButtonImage");
 const themeButtonFallback = document.getElementById("themeButtonFallback");
 
@@ -903,7 +1029,14 @@ let playRequestToken = 0;
 let cachedChannels = [];
 let themeImageLoadToken = 0;
 
+function syncOverlayHeight(){
+  if(!contentRoot) return;
+  const h = Math.max(contentRoot.scrollHeight, contentRoot.clientHeight);
+  contentRoot.style.setProperty("--content-overlay-height", `${h}px`);
+}
+
 function showThemeButtonFallback(){
+  if(!themeButtonImage || !themeButtonFallback || !themeToggle) return;
   themeButtonImage.removeAttribute("src");
   themeButtonImage.style.display = "none";
   themeButtonFallback.style.display = "";
@@ -991,9 +1124,9 @@ function applyTheme(themeName, persist=true){
     document.documentElement.style.setProperty(key, value);
   });
   themeSelect.value = safeName;
-  // Switch the button immediately so it feels responsive while new image loads.
   showThemeButtonFallback();
   applyThemeImages(themeSelect.value);
+  syncOverlayHeight();
   if(persist){
     try {
       localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
@@ -1071,16 +1204,14 @@ function applyThemeImages(themeName){
 
   findFirstExistingImage(buttonCandidates, "", (src) => {
     if(imageToken !== themeImageLoadToken) return;
+    if(!themeButtonImage || !themeButtonFallback || !themeToggle) return;
     if(src){
       themeButtonImage.src = src;
       themeButtonImage.style.display = "block";
       themeButtonFallback.style.display = "none";
       themeToggle.classList.add("has-theme-image");
     } else {
-      themeButtonImage.removeAttribute("src");
-      themeButtonImage.style.display = "none";
-      themeButtonFallback.style.display = "";
-      themeToggle.classList.remove("has-theme-image");
+      showThemeButtonFallback();
     }
   });
 }
@@ -1098,19 +1229,21 @@ function initThemePicker(){
     applyTheme(saved, false);
   }
 
-  themeToggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    themePanel.classList.toggle("open");
-  });
+  if(themeToggle && themePanel && themeDock){
+    themeToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      themePanel.classList.toggle("open");
+    });
+
+    document.addEventListener("click", (e) => {
+      if(!themeDock.contains(e.target)){
+        themePanel.classList.remove("open");
+      }
+    });
+  }
 
   themeSelect.addEventListener("change", () => {
     applyTheme(themeSelect.value);
-  });
-
-  document.addEventListener("click", (e) => {
-    if(!themeDock.contains(e.target)){
-      themePanel.classList.remove("open");
-    }
   });
 }
 
@@ -1121,12 +1254,14 @@ function loadPatchNotes(){
       const content = document.getElementById("patchNotesContent");
       if(content && data.html){
         content.innerHTML = data.html;
+        syncOverlayHeight();
       }
     })
     .catch(() => {
       const content = document.getElementById("patchNotesContent");
       if(content){
         content.innerHTML = "<p>Could not load patch notes</p>";
+        syncOverlayHeight();
       }
     });
 }
@@ -1273,11 +1408,14 @@ function stopAndShowHome(){
   searchInput.value = "";
   applyListFilter();
   stopVideo();
+  contentRoot?.classList.remove("playback-mode");
   homeText.innerHTML = originalHomeHTML;
   homeText.style.display = "block";
   setStatus("Ready to stream");
   setSelectionPreview();
   applyThemeImages(themeSelect.value);
+  loadPatchNotes();
+  syncOverlayHeight();
 }
 
 function playChannel(channel, sidebarItem=null){
@@ -1362,6 +1500,7 @@ function resetPlayer() {
   mediaStage.style.display="none";
   loadingImage.style.display="none";
   nowPlaying.innerHTML = "";
+  contentRoot?.classList.remove("playback-mode");
 
   if(currentlyPlayingItem){
     currentlyPlayingItem.classList.remove("playing");
@@ -1410,6 +1549,7 @@ function showSkeleton(item){
   }
 
   lastLoadingItem = item;
+  contentRoot?.classList.add("playback-mode");
   mediaStage.style.display="flex";
   loadingImage.style.display="block";
   video.style.display="block";
@@ -1436,6 +1576,7 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
     pendingOnDemand = false;
   }
 
+  contentRoot?.classList.add("playback-mode");
   mediaStage.style.display="flex";
   video.style.display="block";
   video.style.visibility="hidden";
@@ -1507,6 +1648,7 @@ function setMode(m){
     currentPath = mediaRoot;
     loadFolder(currentPath);
   }
+  syncOverlayHeight();
 }
 
 function goHome(){
@@ -1575,11 +1717,12 @@ function loadFolder(path){
           div.onclick=()=>{
             setSelectedBrowseItem(div);
             stopVideo();
+            contentRoot?.classList.add("playback-mode");
             div.classList.add("selected");
             homeText.innerHTML = `
               <h2>📁 ${i.name}</h2>
               <p>Shuffle and play all videos in <strong>${i.name}</strong></p>
-              <button id="playFolderBtn">▶️ Play Folder</button>
+              <button id="playFolderBtn">Play Folder</button>
             `;
             homeText.style.display="block";
 
@@ -1683,9 +1826,17 @@ window.addEventListener("pagehide", stopCurrentStream);
 
 /* ---------- Init ---------- */
 initThemePicker();
+syncOverlayHeight();
+window.addEventListener("resize", syncOverlayHeight);
+if(typeof ResizeObserver !== "undefined"){
+  const overlayObserver = new ResizeObserver(() => syncOverlayHeight());
+  overlayObserver.observe(contentRoot);
+  overlayObserver.observe(homeText);
+}
 loadConfig().finally(() => {
   setMode("channels");
   loadPatchNotes();
+  syncOverlayHeight();
 });
 </script>
 
