@@ -3,6 +3,8 @@ import os
 import re
 import json
 import hashlib
+import signal
+import atexit
 import subprocess
 import random
 import time
@@ -188,6 +190,29 @@ CHAT_MESSAGES = {}
 CHAT_NEXT_ID = 1
 CHAT_LOCK = Lock()
 CHAT_STORAGE_DIR = os.path.join(BASE_DIR, "output", "chat_history", "channels")
+
+# Global cookie clicker counter
+COOKIE_COUNT = 0
+COOKIE_LOCK = Lock()
+COOKIE_STORAGE_PATH = os.path.join(BASE_DIR, "output", "cookie_count.json")
+
+
+def load_cookie_count():
+    global COOKIE_COUNT
+    try:
+        with open(COOKIE_STORAGE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        COOKIE_COUNT = max(0, int(data.get("count", 0)))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        COOKIE_COUNT = 0
+
+
+def save_cookie_count():
+    try:
+        os.makedirs(os.path.dirname(COOKIE_STORAGE_PATH), exist_ok=True)
+        write_json_atomic(COOKIE_STORAGE_PATH, {"count": COOKIE_COUNT})
+    except OSError as e:
+        print(f"⚠️ Failed to save cookie count: {e}")
 
 
 def chat_file_path(channel):
@@ -574,6 +599,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(items).encode())
             return
+        if parsed.path == "/api/cookies":
+            with COOKIE_LOCK:
+                count = COOKIE_COUNT
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"count": count}).encode())
+            return
         if parsed.path == "/api/chat":
             qs = parse_qs(parsed.query)
             channel = str(qs.get("channel", [""])[0]).strip()
@@ -612,6 +645,21 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "stopped"}).encode())
+            return
+
+        if self.path == "/api/cookies/click":
+            global COOKIE_COUNT
+            with COOKIE_LOCK:
+                COOKIE_COUNT += 1
+                count = COOKIE_COUNT
+            try:
+                save_cookie_count()
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"count": count}).encode())
             return
 
         length = int(self.headers.get("Content-Length", 0))
@@ -700,7 +748,18 @@ class Handler(SimpleHTTPRequestHandler):
         }).encode())
 
 if __name__ == "__main__":
+    load_cookie_count()
     load_chat_history()
+
+    def _shutdown_handler(signum, frame):
+        print("\n🛑 Shutting down — saving cookie count...")
+        save_cookie_count()
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _shutdown_handler)
+    signal.signal(signal.SIGINT, _shutdown_handler)
+    atexit.register(save_cookie_count)
+
     os.chdir(BASE_DIR)
     server = ThreadingHTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces
     print("🚀 Server running on http://0.0.0.0:80 (maxistreams.local)")

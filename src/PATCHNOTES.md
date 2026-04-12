@@ -1,5 +1,29 @@
 # MAXISTREAMS Patch Notes
 
+## v1.7.0 - Cookie Clicker, Chat Persistence & Polish
+**Release: April 2026**
+
+### ✨ New Features
+- **Global Cookie Clicker** - Added a shared 🍪 cookie button — every user's click adds to a global counter
+- **Cookie Counter Persistence** - Cookie count survives server restarts, saved to disk on every click and on shutdown
+- **Chat History Persistence** - Per-channel chat messages are now saved to disk and restored on server startup
+- **Patch Notes Redesign** - Patch notes now render left-aligned with clear release headers, category labels, and better typography
+
+### 🖥️ UI Improvements
+- Floating panels (theme, username) now pop upward and are mutually exclusive — opening one closes the other
+- Fixed invisible hit area next to floating buttons that prevented click-away from closing menus
+- Selecting a theme now auto-closes the theme panel
+- Saving a username now auto-closes the username panel
+- Cookie score label now has a pill background and brighter text for easy readability
+- Theme selection panel now correctly appears above the username panel (z-index fix)
+
+### 🐛 Reliability Fixes
+- Fixed theme overlay shifting position when switching between Browse, Channels, Home, and Playback modes — overlay is now viewport-fixed and stays locked
+- Removed obsolete overlay duplication and dynamic height-sync logic (no longer needed after overlay stabilization)
+- Fixed cookie counter resetting to 0 every 4 seconds due to empty POST body being mishandled before the click handler
+
+---
+
 ## v1.6.1 - On-Demand Loading UX Upgrade
 **Release: April 2026**
 

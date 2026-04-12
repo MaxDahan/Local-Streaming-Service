@@ -439,6 +439,54 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   color:var(--accent-text);
   font-weight:700;
 }
+.cookie-dock {
+  position:fixed;
+  right:146px;
+  bottom:18px;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+}
+.cookie-btn {
+  width:52px;
+  height:52px;
+  border-radius:999px;
+  border:1px solid var(--border-input);
+  cursor:pointer;
+  background:linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 78%, #fff 22%), var(--bg-button));
+  font-size:26px;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 8px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition:transform 100ms ease, box-shadow 100ms ease;
+  user-select:none;
+}
+.cookie-btn:hover {
+  transform:translateY(-1px) scale(1.05);
+  box-shadow:0 10px 24px rgba(0,0,0,0.32);
+}
+.cookie-btn:active {
+  transform:scale(0.88);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+}
+.cookie-score {
+  font-size:11px;
+  font-weight:800;
+  color:var(--text-main);
+  letter-spacing:0.03em;
+  text-align:center;
+  min-width:52px;
+  pointer-events:none;
+  background:color-mix(in srgb, var(--bg-card) 90%, #000 10%);
+  border:1px solid var(--border-input);
+  border-radius:8px;
+  padding:2px 6px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+}
 .user-dock {
   position:fixed;
   right:82px;
@@ -458,13 +506,16 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 .user-panel {
   display:none;
-  margin-top:8px;
+  position:absolute;
+  bottom:calc(100% + 8px);
+  right:0;
   width:220px;
   background:var(--bg-sidebar);
   border:1px solid var(--border-input);
   border-radius:12px;
   padding:10px;
   box-shadow:0 10px 25px rgba(0,0,0,0.25);
+  z-index:1;
 }
 .user-panel.open { display:block; }
 .user-panel label {
@@ -776,7 +827,9 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 .theme-panel {
   display:none;
-  margin-top:8px;
+  position:absolute;
+  bottom:calc(100% + 8px);
+  right:0;
   width:230px;
   background:var(--bg-sidebar);
   border:1px solid var(--border-input);
@@ -785,6 +838,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   box-shadow:0 10px 25px rgba(0,0,0,0.25);
   max-height:calc(100vh - 100px);
   overflow-y:auto;
+  z-index:1;
 }
 .theme-panel.open { display:block; }
 .theme-panel h4 {
@@ -810,6 +864,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   :root { --sidebar-width: 260px; }
   .theme-dock { right:12px; bottom:12px; }
   .user-dock { right:76px; bottom:12px; }
+  .cookie-dock { right:140px; bottom:12px; }
 }
 </style>
 </head>
@@ -886,6 +941,11 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   </div>
 </div>
 
+<div class="cookie-dock" id="cookieDock">
+  <button class="cookie-btn" id="cookieBtn" title="Click the cookie!" aria-label="Cookie clicker">🍪</button>
+  <span class="cookie-score" id="cookieScore">...</span>
+</div>
+
 <div class="theme-dock" id="themeDock">
   <button class="theme-toggle" id="themeToggle" title="Choose theme" aria-label="Choose theme">
     <span class="theme-ring" aria-hidden="true"></span>
@@ -947,6 +1007,46 @@ const userToggle = document.getElementById("userToggle");
 const userPanel = document.getElementById("userPanel");
 const usernameInput = document.getElementById("usernameInput");
 const saveUsernameBtn = document.getElementById("saveUsernameBtn");
+const cookieBtn = document.getElementById("cookieBtn");
+const cookieScore = document.getElementById("cookieScore");
+
+let cookieCountValue = 0;
+
+function formatCookieCount(n){
+  if(n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
+  if(n >= 1000) return `${(n/1000).toFixed(1)}K`;
+  return String(n);
+}
+
+function fetchCookieCount(){
+  fetch("/api/cookies")
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if(data && typeof data.count === "number"){
+        cookieCountValue = data.count;
+        if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
+      }
+    })
+    .catch(() => {});
+}
+
+function clickCookie(){
+  cookieCountValue++;
+  if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
+  fetch("/api/cookies/click", { method: "POST" })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if(data && typeof data.count === "number"){
+        cookieCountValue = data.count;
+        if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
+      }
+    })
+    .catch(() => {});
+}
+
+if(cookieBtn) cookieBtn.addEventListener("click", clickCookie);
+setInterval(fetchCookieCount, 4000);
+fetchCookieCount();
 
 const THEME_STORAGE_KEY = "maxistreams.theme";
 const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
@@ -1729,7 +1829,9 @@ function initThemePicker(){
   if(themeToggle && themePanel && themeDock){
     themeToggle.addEventListener("click", (e) => {
       e.stopPropagation();
+      const opening = !themePanel.classList.contains("open");
       themePanel.classList.toggle("open");
+      if(opening && userPanel) userPanel.classList.remove("open");
     });
 
     document.addEventListener("click", (e) => {
@@ -1762,7 +1864,9 @@ function initThemePicker(){
   if(userToggle && userPanel && userDock){
     userToggle.addEventListener("click", (e) => {
       e.stopPropagation();
+      const opening = !userPanel.classList.contains("open");
       userPanel.classList.toggle("open");
+      if(opening && themePanel) themePanel.classList.remove("open");
       if(userPanel.classList.contains("open") && usernameInput){
         usernameInput.focus();
         usernameInput.select();
