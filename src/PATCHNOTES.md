@@ -18,6 +18,7 @@
 - Added proper failure recovery when on-demand requests fail to start
 - Fixed retry flows for individual files so re-click truly restarts loading
 - Fixed retry label restoration so file names return correctly after loading
+- Fixed an on-demand switch race where selecting a second file right after playback could prevent the new loader/progress from appearing
 
 ---
 
