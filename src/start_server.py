@@ -4,8 +4,10 @@ import re
 import json
 import subprocess
 import random
+import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
+from threading import Lock
 from urllib.parse import urlparse, parse_qs
 
 BASE_DIR = os.path.abspath(os.getcwd())
@@ -178,6 +180,12 @@ for i in range(1, MAX_SESSIONS + 1):
 # Session management: { slot_number: {"ip": str, "ffmpeg": Popen} }
 sessions = {}
 ip_queue = []  # FIFO queue of IPs
+
+# In-memory channel chat: {channel_id: [message, ...]}
+CHAT_MAX_PER_CHANNEL = 2000
+CHAT_MESSAGES = {}
+CHAT_NEXT_ID = 1
+CHAT_LOCK = Lock()
 
 
 def build_phrase_pattern(phrase):
@@ -477,6 +485,30 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(items).encode())
             return
+        if parsed.path == "/api/chat":
+            qs = parse_qs(parsed.query)
+            channel = str(qs.get("channel", [""])[0]).strip()
+            try:
+                since_id = int(qs.get("since", ["0"])[0])
+            except (TypeError, ValueError):
+                since_id = 0
+
+            if not channel:
+                self.send_error(400)
+                return
+
+            with CHAT_LOCK:
+                channel_messages = CHAT_MESSAGES.get(channel, [])
+                if since_id > 0:
+                    messages = [m for m in channel_messages if m.get("id", 0) > since_id]
+                else:
+                    messages = channel_messages[-200:]
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"messages": messages}).encode())
+            return
 
         return super().do_GET()
 
@@ -498,6 +530,39 @@ class Handler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
         except json.JSONDecodeError:
             self.send_error(400)
+            return
+
+        if self.path == "/api/chat/send":
+            channel = str(body.get("channel", "")).strip()
+            username = str(body.get("username", "")).strip() or "Anonymous"
+            text = str(body.get("text", "")).strip()
+
+            if not channel or not text:
+                self.send_error(400)
+                return
+
+            username = re.sub(r"\s+", " ", username)[:32]
+            text = re.sub(r"\s+", " ", text)[:500]
+
+            global CHAT_NEXT_ID
+            with CHAT_LOCK:
+                entry = {
+                    "id": CHAT_NEXT_ID,
+                    "channel": channel,
+                    "username": username,
+                    "text": text,
+                    "ts": int(time.time()),
+                }
+                CHAT_NEXT_ID += 1
+                bucket = CHAT_MESSAGES.setdefault(channel, [])
+                bucket.append(entry)
+                if len(bucket) > CHAT_MAX_PER_CHANNEL:
+                    del bucket[:-CHAT_MAX_PER_CHANNEL]
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "message": entry}).encode())
             return
 
         path = body.get("path")

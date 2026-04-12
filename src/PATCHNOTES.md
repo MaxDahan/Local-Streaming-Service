@@ -1,5 +1,33 @@
 # MAXISTREAMS Patch Notes
 
+## v1.6.0 - Live Chat & Stream UX Update
+**Release: April 2026**
+
+### ✨ New Features
+- **Per-Channel Live Chat** - Each channel now has its own live chat under the stream
+- **Username Identity** - Added a floating user button to set and save your chat username
+- **Chat Timestamps** - Messages now include date and 24-hour time in English format
+- **Chat Controls** - Added a `Hide/Show` toggle to quickly collapse chat while watching
+
+### 🖥️ UI Improvements
+- Added a dedicated chat panel beneath the current stream view
+- Improved chat message layout for readability (timestamp, username, message)
+- Enhanced homepage presentation and card styling for a cleaner official look
+- Kept theme customization controls accessible while reducing sidebar clutter
+
+### 🐛 Bug Fixes
+- Fixed patch notes not refreshing when returning home via the logo button
+- Fixed chat input clipping and layout cutoff issues
+- Fixed stream/chat positioning conflicts during playback
+- Improved theme overlay handling during long homepage scrolling
+
+### ⚙️ Chat Backend
+- Added new API endpoints for live chat messaging and polling
+- Added per-channel in-memory chat storage with message limits
+- Enabled real-time chat updates with periodic client polling
+
+---
+
 ## v1.5.0 - Theme System & UI Polish
 **Release: April 2026**
 
