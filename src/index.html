@@ -7,8 +7,14 @@
 <script>
 (() => {
   try {
-    const savedTheme = localStorage.getItem("maxistreams.theme") || "default";
-    const cachedVars = localStorage.getItem("maxistreams.theme.vars");
+    const lastAuthUser = (localStorage.getItem("maxistreams.auth.lastUsername") || "").trim().toLowerCase();
+    // Logged-out refresh should always start at default, so only preload cached
+    // vars when we have a remembered authenticated user.
+    if(!lastAuthUser) return;
+    const scopedThemeKey = `maxistreams.theme.user.${lastAuthUser}`;
+    const scopedVarsKey = `maxistreams.theme.vars.user.${lastAuthUser}`;
+    const savedTheme = localStorage.getItem(scopedThemeKey) || "default";
+    const cachedVars = localStorage.getItem(scopedVarsKey);
     if(!cachedVars) return;
     const parsed = JSON.parse(cachedVars);
     let vars = null;
@@ -31,6 +37,13 @@
         document.documentElement.style.setProperty(key, value);
       }
     });
+    // Prevent default-theme overlay from flashing before theme images load.
+    if(!Object.prototype.hasOwnProperty.call(vars, "--theme-content-overlay")){
+      document.documentElement.style.setProperty("--theme-content-overlay", "none");
+    }
+    if(!Object.prototype.hasOwnProperty.call(vars, "--theme-overlay-opacity")){
+      document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
+    }
   } catch (_) {}
 })();
 </script>
@@ -82,6 +95,26 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
 .mode-buttons { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .mode-buttons button { width:100%; background:var(--bg-button); color:var(--text-main); border:none; padding:9px; cursor:pointer; border-radius:10px; }
 .mode-buttons button.active { background:var(--accent-grad); color:var(--accent-text); font-weight:bold; }
+.auth-pill {
+  margin-top:8px;
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid var(--border-card);
+  background:color-mix(in srgb, var(--bg-card) 82%, transparent 18%);
+  color:var(--text-muted);
+  font-size:11px;
+  line-height:1.35;
+}
+.auth-pill.logged-in {
+  border-color:#2f8f62;
+  background:color-mix(in srgb, #1f5d3d 72%, transparent 28%);
+  color:#dff7ea;
+}
+.auth-pill.logged-out {
+  border-color:#a04a4a;
+  background:color-mix(in srgb, #5e2222 68%, transparent 32%);
+  color:#ffdede;
+}
 .search-box { margin-top:10px; }
 .search-box input {
   width:100%; box-sizing:border-box; padding:9px 10px; border-radius:10px;
@@ -185,6 +218,9 @@ video {
 video.hide-timeline::-webkit-media-controls-timeline,
 video.hide-timeline::-webkit-media-controls-current-time-display,
 video.hide-timeline::-webkit-media-controls-time-remaining-display { display:none !important; }
+video.live-channel::-webkit-media-controls-play-button,
+video.live-channel::-webkit-media-controls-start-playback-button,
+video.live-channel::-webkit-media-controls-overlay-play-button { display:none !important; }
 .home-text { 
   text-align:center; 
   max-width:600px; 
@@ -286,6 +322,42 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   transform:scale(1.05);
   box-shadow:0 12px 26px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.28);
 }
+.folder-play-actions {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:16px;
+}
+.folder-play-hint {
+  margin:10px 0 0;
+  text-align:center;
+  color:var(--text-muted);
+  font-size:12px;
+  line-height:1.35;
+}
+.play-folder-btn {
+  font-size:14px;
+  letter-spacing:0.02em;
+  font-weight:700;
+  padding:10px 14px;
+  cursor:pointer;
+  border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--accent-strong) 65%, #fff 35%);
+  color:var(--accent-text);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--accent-strong) 88%, #fff 12%), color-mix(in srgb, var(--accent-strong) 70%, #111 30%));
+  box-shadow:0 8px 20px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.25);
+  transition:transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+.play-folder-btn.secondary {
+  background:linear-gradient(135deg, color-mix(in srgb, var(--bg-button) 85%, #fff 15%), color-mix(in srgb, var(--bg-button) 70%, #000 30%));
+  border-color:var(--border-input);
+  color:var(--text-main);
+}
+.play-folder-btn:hover {
+  filter:brightness(1.08);
+  transform:scale(1.03);
+}
 #loadingImage {
   display:none;
   position:absolute;
@@ -373,6 +445,18 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   display:flex;
   align-items:center;
   gap:10px;
+}
+.on-demand-autoplay {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  color:var(--text-muted);
+  white-space:nowrap;
+  user-select:none;
+}
+.on-demand-autoplay input {
+  accent-color:color-mix(in srgb, var(--accent-strong) 80%, #fff 20%);
 }
 .on-demand-next-btn {
   border:1px solid var(--border-input);
@@ -729,6 +813,26 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   z-index:1;
 }
 .user-panel.open { display:block; }
+.user-panel .auth-panel-identity {
+  margin:0 0 8px;
+  padding:6px 8px;
+  border-radius:9px;
+  border:1px solid var(--border-card);
+  background:color-mix(in srgb, var(--bg-card) 84%, transparent 16%);
+  font-size:11px;
+  color:var(--text-main);
+  line-height:1.35;
+}
+.user-panel .auth-panel-identity.logged-in {
+  border-color:#2f8f62;
+  background:color-mix(in srgb, #1f5d3d 72%, transparent 28%);
+  color:#dff7ea;
+}
+.user-panel .auth-panel-identity.logged-out {
+  border-color:#a04a4a;
+  background:color-mix(in srgb, #5e2222 68%, transparent 32%);
+  color:#ffdede;
+}
 .user-panel label {
   display:block;
   font-size:12px;
@@ -754,6 +858,80 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   background:var(--accent-grad);
   color:var(--accent-text);
   font-weight:700;
+}
+.user-panel .auth-note {
+  margin:6px 0 8px;
+  font-size:11px;
+  line-height:1.35;
+  color:var(--text-muted);
+}
+.user-panel .password-tools {
+  margin-top:8px;
+  border:1px solid var(--border-input);
+  border-radius:10px;
+  background:color-mix(in srgb, var(--bg-input) 78%, transparent 22%);
+  overflow:hidden;
+}
+.user-panel .password-tools summary {
+  cursor:pointer;
+  padding:8px 10px;
+  font-size:12px;
+  color:var(--text-main);
+  font-weight:600;
+  user-select:none;
+}
+.user-panel .password-tools[open] summary {
+  border-bottom:1px solid var(--border-input);
+}
+.user-panel .password-tools-body {
+  padding:8px 10px 10px;
+}
+.user-panel .forgot-password-link {
+  display:inline-block;
+  margin-top:8px;
+  font-size:11px;
+  color:var(--link);
+  text-decoration:none;
+}
+.user-panel .forgot-password-link:hover {
+  color:var(--link-hover);
+  text-decoration:underline;
+}
+.user-panel .user-actions {
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+  margin-top:8px;
+}
+.user-panel button.secondary {
+  background:var(--bg-button);
+  color:var(--text-main);
+  border:1px solid var(--border-input);
+}
+.user-panel .auth-status {
+  margin:8px 0 0;
+  font-size:11px;
+  color:var(--text-muted);
+  line-height:1.3;
+}
+.user-panel .auth-remember {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:8px;
+  font-size:12px;
+  color:var(--text-muted);
+  user-select:none;
+}
+.user-panel .auth-remember input {
+  width:auto;
+  margin:0;
+  accent-color:color-mix(in srgb, var(--accent-strong) 80%, #fff 20%);
+}
+.user-panel .remember-mode-label {
+  font-size:11px;
+  color:var(--text-muted);
+  opacity:0.9;
 }
 .now-chip {
   display:inline-block;
@@ -1088,6 +1266,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
     <button id="channelsBtn" class="active" onclick="setMode('channels')">Channels</button>
     <button id="browseBtn" onclick="setMode('browse')">Browse</button>
   </div>
+  <div class="auth-pill logged-out" id="authTopStatus">Logged out</div>
   <div class="search-box">
     <input id="searchInput" type="text" placeholder="Search channels or folders..." />
   </div>
@@ -1140,6 +1319,10 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <div class="on-demand-seekbar-tools">
         <span id="onDemandEpisodeMeta" class="on-demand-episode-meta"></span>
         <span id="onDemandSeekHint">Click anywhere to jump and buffer</span>
+        <label class="on-demand-autoplay" title="Automatically play the next episode">
+          <input id="onDemandAutoplayToggle" type="checkbox" checked />
+          <span>Autoplay Next</span>
+        </label>
         <button id="onDemandNextBtn" class="on-demand-next-btn" type="button" style="display:none;">Next Episode</button>
       </div>
     </div>
@@ -1149,7 +1332,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <span id="onDemandSeekTotal">0:00</span>
     </div>
     <div id="onDemandQueue" class="on-demand-queue">
-      <p class="on-demand-queue-title">Shuffled Queue</p>
+      <p id="onDemandQueueTitle" class="on-demand-queue-title">Shuffled Queue</p>
       <div id="onDemandQueueList" class="on-demand-queue-list"></div>
     </div>
   </div>
@@ -1196,11 +1379,35 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 </div>
 
 <div class="user-dock" id="userDock">
-  <button class="user-toggle" id="userToggle" title="Set username" aria-label="Set username">ME</button>
+  <button class="user-toggle" id="userToggle" title="Account" aria-label="Account">ME</button>
   <div class="user-panel" id="userPanel">
-    <label for="usernameInput">Chat Username</label>
-    <input id="usernameInput" type="text" maxlength="32" placeholder="Anonymous" />
-    <button id="saveUsernameBtn" type="button">Save Username</button>
+    <p id="authPanelIdentity" class="auth-panel-identity logged-out">Logged out</p>
+    <label for="usernameInput">Username</label>
+    <input id="usernameInput" type="text" maxlength="32" placeholder="username" />
+    <label for="passwordInput">Password</label>
+    <input id="passwordInput" type="password" maxlength="64" placeholder="password" />
+    <p class="auth-note">Do not use a real secure password here.</p>
+    <details id="passwordTools" class="password-tools">
+      <summary>Password Help & Reset</summary>
+      <div class="password-tools-body">
+        <label for="newPasswordInput">New Password (for change)</label>
+        <input id="newPasswordInput" type="password" maxlength="64" placeholder="new password" />
+        <button id="changePasswordBtn" type="button" class="secondary">Change Password</button>
+        <a id="forgotPasswordLink" class="forgot-password-link" href="#">Forgot password? Email support</a>
+      </div>
+    </details>
+    <label class="auth-remember" title="Keep account logged in on this browser">
+      <input id="rememberMeToggle" type="checkbox" checked />
+      <span>Remember Me</span>
+      <span id="rememberModeLabel" class="remember-mode-label"></span>
+    </label>
+    <div class="user-actions">
+      <button id="createAccountBtn" type="button">Create Account</button>
+      <button id="loginBtn" type="button">Login</button>
+      <button id="renameAccountBtn" type="button" class="secondary">Rename (1/day)</button>
+      <button id="logoutBtn" type="button" class="secondary">Logout</button>
+    </div>
+    <p id="authStatus" class="auth-status">Not logged in</p>
   </div>
 </div>
 
@@ -1221,8 +1428,10 @@ const onDemandSeekCurrent = document.getElementById("onDemandSeekCurrent");
 const onDemandSeekTotal = document.getElementById("onDemandSeekTotal");
 const onDemandSeekHint = document.getElementById("onDemandSeekHint");
 const onDemandEpisodeMeta = document.getElementById("onDemandEpisodeMeta");
+const onDemandAutoplayToggle = document.getElementById("onDemandAutoplayToggle");
 const onDemandNextBtn = document.getElementById("onDemandNextBtn");
 const onDemandQueue = document.getElementById("onDemandQueue");
+const onDemandQueueTitle = document.getElementById("onDemandQueueTitle");
 const onDemandQueueList = document.getElementById("onDemandQueueList");
 const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
@@ -1245,7 +1454,20 @@ const userDock = document.getElementById("userDock");
 const userToggle = document.getElementById("userToggle");
 const userPanel = document.getElementById("userPanel");
 const usernameInput = document.getElementById("usernameInput");
-const saveUsernameBtn = document.getElementById("saveUsernameBtn");
+const passwordInput = document.getElementById("passwordInput");
+const newPasswordInput = document.getElementById("newPasswordInput");
+const passwordTools = document.getElementById("passwordTools");
+const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+const rememberMeToggle = document.getElementById("rememberMeToggle");
+const rememberModeLabel = document.getElementById("rememberModeLabel");
+const createAccountBtn = document.getElementById("createAccountBtn");
+const loginBtn = document.getElementById("loginBtn");
+const changePasswordBtn = document.getElementById("changePasswordBtn");
+const renameAccountBtn = document.getElementById("renameAccountBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const authStatus = document.getElementById("authStatus");
+const authTopStatus = document.getElementById("authTopStatus");
+const authPanelIdentity = document.getElementById("authPanelIdentity");
 const cookieBtn = document.getElementById("cookieBtn");
 const cookieScore = document.getElementById("cookieScore");
 
@@ -1289,7 +1511,14 @@ fetchCookieCount();
 
 const THEME_STORAGE_KEY = "maxistreams.theme";
 const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
+const THEME_USER_STORAGE_PREFIX = "maxistreams.theme.user.";
+const THEME_USER_VARS_STORAGE_PREFIX = "maxistreams.theme.vars.user.";
 const CHAT_USERNAME_KEY = "maxistreams.chat.username";
+const AUTH_TOKEN_STORAGE_KEY = "maxistreams.auth.token";
+const AUTH_TOKEN_SESSION_STORAGE_KEY = "maxistreams.auth.token.session";
+const AUTH_REMEMBER_STORAGE_KEY = "maxistreams.auth.rememberMe";
+const AUTH_LAST_USERNAME_STORAGE_KEY = "maxistreams.auth.lastUsername";
+const AUTOPLAY_NEXT_STORAGE_KEY = "maxistreams.onDemand.autoplayNext";
 const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
 const DEFAULT_HOME_IMAGE = "";
 const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
@@ -1641,6 +1870,43 @@ const THEME_PRESETS = {
     "--warn": "#ffb67a",
     "--kbd-bg": "#2c332f",
     "--kbd-border": "#5a6758"
+  },
+  pokemon: {
+    "--bg-body": "linear-gradient(135deg, #090f26, #111c3d 48%, #1a2d5a)",
+    "--bg-sidebar": "rgba(8,16,39,0.95)",
+    "--border-sidebar": "#2e4578",
+    "--text-main": "#eef4ff",
+    "--text-muted": "#a9bbdc",
+    "--bg-content": "radial-gradient(circle at top, #233f79, #14234b 58%, #0a132e 100%)",
+    "--bg-card": "#14254a",
+    "--border-card": "#35548e",
+    "--bg-input": "#101f41",
+    "--border-input": "#34558f",
+    "--bg-button": "#1b2f5a",
+    "--bg-button-hover": "#274178",
+    "--accent-grad": "linear-gradient(135deg, #ffe36a, #f7bc2c)",
+    "--accent-text": "#23355a",
+    "--accent-strong": "#ffd74a",
+    "--status-bg": "#1a315f",
+    "--status-text": "#ffe9a5",
+    "--status-border": "#4165a3",
+    "--item-bg": "#1d3768",
+    "--item-hover-bg": "#274783",
+    "--item-hover-border": "#4d71ac",
+    "--item-selected-bg": "#3c2f1a",
+    "--item-selected-border": "#ffd74a",
+    "--item-selected-text": "#fff3ca",
+    "--item-playing-bg": "#1f5d4e",
+    "--item-playing-border": "#5db89b",
+    "--item-playing-text": "#e6fff8",
+    "--chip-bg": "#1f3a72",
+    "--chip-border": "#4a6eab",
+    "--chip-text": "#eef5ff",
+    "--link": "#ffd86d",
+    "--link-hover": "#ffebb0",
+    "--warn": "#ff9a78",
+    "--kbd-bg": "#13264b",
+    "--kbd-border": "#395b96"
   }
 };
 
@@ -1657,6 +1923,8 @@ const originalHomeHTML = homeText.innerHTML;
 let lastLoadingItem = null;
 let currentlyPlayingItem = null;
 let currentlyPlayingChannel = null;
+let currentChannelId = "";
+let currentChannelLabel = "";
 let selectedBrowseItem = null;
 let isPlayingFolder = false;
 let activeSlot = null;
@@ -1682,6 +1950,8 @@ let onDemandEpisodeIndex = 1;
 let onDemandEpisodeTotal = 1;
 let pendingNextEpisode = false;
 let onDemandQueuePreview = [];
+let onDemandPlayMode = "single";
+let onDemandAutoplayEnabled = true;
 let lastQueueCurrentPosition = -1;
 let onDemandBufferedSeconds = 0;
 let onDemandBufferPollInterval = null;
@@ -1692,6 +1962,123 @@ let onDemandLocalSeekFallbackTimer = null;
 let onDemandLocalSeekInProgress = false;
 let onDemandDesiredSeekSeconds = null;
 let onDemandDesiredPreferServer = false;
+let authToken = "";
+let authUsername = "";
+let authBusy = false;
+let bootThemeOwner = "";
+
+try {
+  bootThemeOwner = (localStorage.getItem(AUTH_LAST_USERNAME_STORAGE_KEY) || "").trim().toLowerCase();
+} catch (_) {
+  bootThemeOwner = "";
+}
+
+function setAuthBusy(isBusy){
+  authBusy = Boolean(isBusy);
+  [createAccountBtn, loginBtn, changePasswordBtn, renameAccountBtn, logoutBtn].forEach((btn) => {
+    if(btn) btn.disabled = authBusy;
+  });
+}
+
+function getStoredAuthToken(){
+  const remember = getRememberPreference();
+  if(remember){
+    try {
+      const localToken = (localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim();
+      if(localToken) return localToken;
+    } catch (_) {}
+    try {
+      return (sessionStorage.getItem(AUTH_TOKEN_SESSION_STORAGE_KEY) || "").trim();
+    } catch (_) {}
+    return "";
+  }
+
+  try {
+    const sessionToken = (sessionStorage.getItem(AUTH_TOKEN_SESSION_STORAGE_KEY) || "").trim();
+    if(sessionToken) return sessionToken;
+  } catch (_) {}
+  try {
+    const localToken = (localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim();
+    if(localToken){
+      // Migrate stale local token to session when remember-me is off.
+      try {
+        sessionStorage.setItem(AUTH_TOKEN_SESSION_STORAGE_KEY, localToken);
+        localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      } catch (_) {}
+      return localToken;
+    }
+  } catch (_) {}
+  return "";
+}
+
+function getRememberPreference(){
+  try {
+    const savedRemember = localStorage.getItem(AUTH_REMEMBER_STORAGE_KEY);
+    return !(savedRemember === "0" || savedRemember === "false");
+  } catch (_) {
+    return true;
+  }
+}
+
+function refreshRememberModeLabel(){
+  if(!rememberModeLabel) return;
+  const rememberOn = rememberMeToggle ? Boolean(rememberMeToggle.checked) : true;
+  rememberModeLabel.textContent = rememberOn ? "(persistent)" : "(session only)";
+}
+
+function clearStoredAuthToken(){
+  try { localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY); } catch (_) {}
+  try { sessionStorage.removeItem(AUTH_TOKEN_SESSION_STORAGE_KEY); } catch (_) {}
+}
+
+function persistAuthToken(token){
+  const tok = String(token || "").trim();
+  if(!tok){
+    clearStoredAuthToken();
+    return;
+  }
+  const remember = rememberMeToggle ? Boolean(rememberMeToggle.checked) : true;
+  try {
+    if(remember){
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, tok);
+      sessionStorage.removeItem(AUTH_TOKEN_SESSION_STORAGE_KEY);
+      localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, "1");
+    } else {
+      sessionStorage.setItem(AUTH_TOKEN_SESSION_STORAGE_KEY, tok);
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, "0");
+    }
+  } catch (_) {}
+}
+
+if(rememberMeToggle){
+  rememberMeToggle.checked = getRememberPreference();
+  refreshRememberModeLabel();
+}
+
+try {
+  const savedAutoplay = localStorage.getItem(AUTOPLAY_NEXT_STORAGE_KEY);
+  if(savedAutoplay === "0" || savedAutoplay === "false") onDemandAutoplayEnabled = false;
+} catch (_) {}
+if(onDemandAutoplayToggle){
+  onDemandAutoplayToggle.checked = onDemandAutoplayEnabled;
+  onDemandAutoplayToggle.addEventListener("change", () => {
+    onDemandAutoplayEnabled = Boolean(onDemandAutoplayToggle.checked);
+    try {
+      localStorage.setItem(AUTOPLAY_NEXT_STORAGE_KEY, onDemandAutoplayEnabled ? "1" : "0");
+    } catch (_) {}
+  });
+}
+
+function setOnDemandPlayMode(mode="single"){
+  const normalized = mode === "chronological" ? "chronological" : (mode === "shuffle" ? "shuffle" : "single");
+  onDemandPlayMode = normalized;
+  if(onDemandQueueTitle){
+    if(normalized === "chronological") onDemandQueueTitle.textContent = "Chronological Queue";
+    else if(normalized === "shuffle") onDemandQueueTitle.textContent = "Shuffled Queue";
+    else onDemandQueueTitle.textContent = "Queue";
+  }
+}
 
 function flushOnDemandSeekIntent(){
   if(onDemandDesiredSeekSeconds === null) return;
@@ -1770,6 +2157,7 @@ function escapeHtml(value){
 }
 
 function getChatUsername(){
+  if(authUsername) return authUsername;
   try {
     const raw = (localStorage.getItem(CHAT_USERNAME_KEY) || "").trim();
     return raw || "Anonymous";
@@ -1780,12 +2168,149 @@ function getChatUsername(){
 
 function setChatUsername(name){
   const clean = String(name || "").trim().replace(/\s+/g, " ").slice(0, 32) || "Anonymous";
-  try {
-    localStorage.setItem(CHAT_USERNAME_KEY, clean);
-  } catch (_) {}
+  if(!authUsername){
+    try {
+      localStorage.setItem(CHAT_USERNAME_KEY, clean);
+    } catch (_) {}
+  }
   if(usernameInput) usernameInput.value = clean;
   if(chatIdentity) chatIdentity.textContent = `as ${clean}`;
   if(userToggle) userToggle.textContent = clean.slice(0, 2).toUpperCase();
+}
+
+function setAuthStatus(text){
+  if(authStatus) authStatus.textContent = text;
+}
+
+function setAuthTopStatus(text){
+  if(authTopStatus) authTopStatus.textContent = text;
+}
+
+function setAuthPanelIdentity(text){
+  if(authPanelIdentity) authPanelIdentity.textContent = text;
+}
+
+function requireLoginForFeature(featureLabel){
+  const label = String(featureLabel || "this feature");
+  const message = `Login required to use ${label}.`;
+  setStatus(`🔒 ${message}`);
+  setAuthStatus(message);
+  if(userPanel) userPanel.classList.add("open");
+}
+
+function setAuthStateStyles(isLoggedIn){
+  const addClass = isLoggedIn ? "logged-in" : "logged-out";
+  const removeClass = isLoggedIn ? "logged-out" : "logged-in";
+  if(authTopStatus){
+    authTopStatus.classList.add(addClass);
+    authTopStatus.classList.remove(removeClass);
+  }
+  if(authPanelIdentity){
+    authPanelIdentity.classList.add(addClass);
+    authPanelIdentity.classList.remove(removeClass);
+  }
+}
+
+function buildForgotPasswordMailto(username=""){
+  const cleanUser = String(username || "").trim() || "Anonymous";
+  const subject = `User ${cleanUser} password reset request`;
+  const body = [
+    "Hi Maxime,",
+    "",
+    `I need help resetting/recovering the password for user: ${cleanUser}`,
+    "",
+    "Thanks."
+  ].join("\n");
+  return `mailto:maxime.dahan@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function refreshForgotPasswordLink(){
+  if(!forgotPasswordLink) return;
+  const username = (usernameInput && usernameInput.value.trim()) || authUsername || "";
+  forgotPasswordLink.href = buildForgotPasswordMailto(username);
+}
+
+function setAuthState(token="", username=""){
+  const previousAuthUsername = authUsername;
+  authToken = String(token || "").trim();
+  authUsername = String(username || "").trim();
+  persistAuthToken(authToken);
+
+  if(authUsername){
+    try {
+      bootThemeOwner = normalizeThemeOwner(authUsername);
+      localStorage.setItem(AUTH_LAST_USERNAME_STORAGE_KEY, bootThemeOwner);
+    } catch (_) {}
+    setChatUsername(authUsername);
+    setAuthStateStyles(true);
+    setAuthTopStatus(`Logged in as ${authUsername}`);
+    setAuthPanelIdentity(`Logged in as ${authUsername}`);
+    if(normalizeThemeOwner(previousAuthUsername) !== normalizeThemeOwner(authUsername)){
+      applyStoredThemeForOwner(authUsername, true);
+    }
+  } else {
+    try {
+      bootThemeOwner = "";
+      localStorage.removeItem(AUTH_LAST_USERNAME_STORAGE_KEY);
+    } catch (_) {}
+    setChatUsername(getChatUsername());
+    setAuthStateStyles(false);
+    setAuthTopStatus("Logged out");
+    setAuthPanelIdentity("Logged out");
+    if(previousAuthUsername){
+      applyTheme(configuredDefaultTheme, false);
+    }
+  }
+
+  refreshOpenFolderChronoPrompt();
+  if(currentChannelId){
+    openChannelChat(currentChannelId, currentChannelLabel || currentChannelId);
+  } else if(!authUsername) {
+    closeChannelChat();
+  }
+
+  // Bottom status line is for transient action/error messages only.
+  setAuthStatus("");
+  refreshForgotPasswordLink();
+}
+
+function authPost(path, payload){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  return fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+    signal: controller.signal,
+  }).then(async (r) => {
+    let data = {};
+    try { data = await r.json(); } catch (_) {}
+    return { ok: r.ok, status: r.status, data };
+  }).catch((err) => {
+    return {
+      ok: false,
+      status: 0,
+      data: { error: err && err.name === "AbortError" ? "Request timed out" : "Network error" },
+    };
+  }).finally(() => clearTimeout(timeout));
+}
+
+function refreshAuthSession(){
+  const token = getStoredAuthToken();
+  if(!token){
+    setAuthState("", "");
+    return Promise.resolve();
+  }
+  return fetch(`/api/auth/me?token=${encodeURIComponent(token)}`)
+    .then((r) => r.ok ? r.json() : { authenticated: false })
+    .then((data) => {
+      if(data && data.authenticated && data.username){
+        setAuthState(token, data.username);
+      } else {
+        setAuthState("", "");
+      }
+    })
+    .catch(() => setAuthState("", ""));
 }
 
 function renderChatMessages(messages, append=false){
@@ -1821,9 +2346,24 @@ function renderChatMessages(messages, append=false){
 
 function fetchChatMessages(initial=false){
   if(!chatChannel) return;
+  if(!authToken){
+    if(chatMessages) chatMessages.innerHTML = '<div class="chat-empty">Login required to use chat.</div>';
+    if(chatPollTimer){
+      clearInterval(chatPollTimer);
+      chatPollTimer = null;
+    }
+    return;
+  }
   const since = initial ? 0 : chatLastMessageId;
-  fetch(`/api/chat?channel=${encodeURIComponent(chatChannel)}&since=${since}`)
-    .then((r) => (r.ok ? r.json() : { messages: [] }))
+  fetch(`/api/chat?channel=${encodeURIComponent(chatChannel)}&since=${since}&token=${encodeURIComponent(authToken)}`)
+    .then(async (r) => {
+      if(r.status === 401){
+        let data = {};
+        try { data = await r.json(); } catch (_) {}
+        throw new Error(data?.error || "Login required to use chat.");
+      }
+      return r.ok ? r.json() : { messages: [] };
+    })
     .then((data) => {
       const messages = Array.isArray(data.messages) ? data.messages : [];
       if(initial){
@@ -1833,7 +2373,13 @@ function fetchChatMessages(initial=false){
         renderChatMessages(messages, true);
       }
     })
-    .catch(() => {});
+    .catch((err) => {
+      const msg = String(err?.message || "").trim();
+      if(msg){
+        if(chatMessages) chatMessages.innerHTML = `<div class="chat-empty">${escapeHtml(msg)}</div>`;
+        requireLoginForFeature("chat");
+      }
+    });
 }
 
 function openChannelChat(channelId, label){
@@ -1844,6 +2390,26 @@ function openChannelChat(channelId, label){
   chatStage.style.display = "block";
   setChatCollapsed(chatCollapsed);
   requestAnimationFrame(positionChatUnderStream);
+
+  if(!authToken){
+    if(chatMessages) chatMessages.innerHTML = '<div class="chat-empty">Login required to use chat.</div>';
+    if(chatInput) {
+      chatInput.disabled = true;
+      chatInput.placeholder = "Login required to chat";
+    }
+    if(chatSendBtn) chatSendBtn.disabled = true;
+    if(chatPollTimer){
+      clearInterval(chatPollTimer);
+      chatPollTimer = null;
+    }
+    return;
+  }
+
+  if(chatInput) {
+    chatInput.disabled = false;
+    chatInput.placeholder = "Type a message...";
+  }
+  if(chatSendBtn) chatSendBtn.disabled = false;
   fetchChatMessages(true);
   if(chatPollTimer) clearInterval(chatPollTimer);
   chatPollTimer = setInterval(() => fetchChatMessages(false), 2500);
@@ -1860,6 +2426,11 @@ function closeChannelChat(){
     chatStage.style.display = "none";
     chatStage.style.removeProperty("--chat-top");
   }
+  if(chatInput) {
+    chatInput.disabled = false;
+    chatInput.placeholder = "Type a message...";
+  }
+  if(chatSendBtn) chatSendBtn.disabled = false;
 }
 
 function positionPlaybackUiUnderStream(){
@@ -1918,6 +2489,10 @@ function positionChatUnderStream(){
 
 function sendChatMessage(){
   if(!chatChannel || !chatInput) return;
+  if(!authToken){
+    if(chatMessages) chatMessages.innerHTML = '<div class="chat-empty">Login required to use chat.</div>';
+    return;
+  }
   const text = chatInput.value.trim();
   if(!text) return;
 
@@ -1927,11 +2502,19 @@ function sendChatMessage(){
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       channel: chatChannel,
+      token: authToken,
       username: getChatUsername(),
       text,
     }),
   })
-    .then((r) => (r.ok ? r.json() : null))
+    .then(async (r) => {
+      if(r.status === 401){
+        let data = {};
+        try { data = await r.json(); } catch (_) {}
+        throw new Error(data?.error || "Login required to use chat.");
+      }
+      return r.ok ? r.json() : null;
+    })
     .then((payload) => {
       if(payload && payload.message){
         renderChatMessages([payload.message], true);
@@ -1939,8 +2522,72 @@ function sendChatMessage(){
         fetchChatMessages(false);
       }
     })
-    .catch(() => {
+    .catch((err) => {
+      const msg = String(err?.message || "").trim();
+      if(msg) requireLoginForFeature("chat");
       fetchChatMessages(false);
+    });
+}
+
+function refreshOpenFolderChronoPrompt(){
+  const chronoBtn = document.getElementById("playFolderChronoBtn");
+  const chronoPos = document.getElementById("playFolderChronoPos");
+  const chronoHint = document.getElementById("playFolderChronoHint");
+  if(!chronoBtn) return;
+
+  const folderPath = String(chronoBtn.dataset.folderPath || "").trim();
+  if(!folderPath) return;
+
+  chronoBtn.textContent = "📚 Chronological Resume";
+  chronoBtn.title = "Loading your resume checkpoint";
+  if(chronoPos) chronoPos.textContent = "Current chronological position: loading...";
+  if(chronoHint) chronoHint.textContent = "Checking your chronological checkpoint...";
+
+  if(!authToken){
+    chronoBtn.disabled = true;
+    chronoBtn.title = "Login required for chronological checkpoints";
+    if(chronoPos) chronoPos.textContent = "Current chronological position: login required";
+    if(chronoHint) chronoHint.textContent = "Login to use chronological resume/checkpoints.";
+    return;
+  }
+
+  chronoBtn.disabled = false;
+
+  fetch("/api/folder_resume_status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: folderPath, token: authToken }),
+  })
+    .then((r) => {
+      if(r.status === 401) throw new Error("Login required for chronological checkpoints.");
+      if(!r.ok) throw new Error("folder_resume_status failed");
+      return r.json();
+    })
+    .then((resume) => {
+      if(!chronoBtn.isConnected) return;
+      const index = Math.max(1, Number(resume?.next_index) || 1);
+      const total = Math.max(1, Number(resume?.total) || 1);
+      const rawTitle = String(resume?.display_title || resume?.current_file || "Next episode").trim();
+      const formatted = formatDisplayPath(rawTitle, "file") || "Next episode";
+      chronoBtn.textContent = `📚 Resume ${index}/${total}`;
+      chronoBtn.title = `Will play next: ${formatted}`;
+      if(chronoPos) chronoPos.textContent = `Current chronological position: ${index}/${total}`;
+      if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+    })
+    .catch(() => {
+      if(!chronoBtn.isConnected) return;
+      chronoBtn.textContent = "📚 Chronological Resume";
+      if(!authToken){
+        chronoBtn.disabled = true;
+        chronoBtn.title = "Login required for chronological checkpoints";
+        if(chronoPos) chronoPos.textContent = "Current chronological position: login required";
+        if(chronoHint) chronoHint.textContent = "Login to use chronological resume/checkpoints.";
+      } else {
+        chronoBtn.disabled = false;
+        chronoBtn.title = "Resume in chronological order";
+        if(chronoPos) chronoPos.textContent = "Current chronological position: unavailable";
+        if(chronoHint) chronoHint.textContent = "Could not load checkpoint right now.";
+      }
     });
 }
 
@@ -2028,10 +2675,70 @@ function normalizeThemeName(themeName){
   return themeName === "dark" ? "default" : themeName;
 }
 
+function normalizeThemeOwner(owner=""){
+  return String(owner || "").trim().toLowerCase();
+}
+
+function getThemeStorageKeys(owner=""){
+  const normalizedOwner = normalizeThemeOwner(owner);
+  if(!normalizedOwner){
+    return {
+      themeKey: THEME_STORAGE_KEY,
+      varsKey: THEME_VARS_STORAGE_KEY,
+    };
+  }
+  return {
+    themeKey: `${THEME_USER_STORAGE_PREFIX}${normalizedOwner}`,
+    varsKey: `${THEME_USER_VARS_STORAGE_PREFIX}${normalizedOwner}`,
+  };
+}
+
+function getStoredThemeForOwner(owner=""){
+  const normalizedOwner = normalizeThemeOwner(owner);
+  if(!normalizedOwner) return "";
+  try {
+    const keys = getThemeStorageKeys(owner);
+    return normalizeThemeName(localStorage.getItem(keys.themeKey) || "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function applyStoredThemeForOwner(owner="", fallbackToCurrent=false){
+  let saved = getStoredThemeForOwner(owner);
+  if(saved){
+    if(configuredThemes.length && !configuredThemes.includes(saved) && !(saved in THEME_PRESETS)){
+      saved = configuredDefaultTheme;
+    }
+    applyTheme(saved, false);
+    return;
+  }
+
+  if(!fallbackToCurrent) return;
+  const current = normalizeThemeName((themeSelect && themeSelect.value) || configuredDefaultTheme);
+  if(current) applyTheme(current, true);
+}
+
+function getThemeOwnerForLoad(){
+  return authUsername || bootThemeOwner || "";
+}
+
 function applyTheme(themeName, persist=true){
   const mappedTheme = normalizeThemeName(themeName);
-  const safeName = mappedTheme in THEME_PRESETS ? mappedTheme : configuredDefaultTheme;
-  const preset = THEME_PRESETS[safeName] || THEME_PRESETS.default;
+  const isConfiguredTheme = configuredThemes.includes(mappedTheme);
+  const safeName = (mappedTheme in THEME_PRESETS || isConfiguredTheme) ? mappedTheme : configuredDefaultTheme;
+  let preset = THEME_PRESETS[safeName];
+  if(!preset){
+    // During early startup, manifest themes may not be hydrated yet.
+    // Use default colors but prevent default overlay image from flashing.
+    preset = {
+      ...THEME_PRESETS.default,
+    };
+    if(safeName !== "default"){
+      delete preset["--theme-content-overlay"];
+      delete preset["--theme-overlay-opacity"];
+    }
+  }
   document.documentElement.style.setProperty("--theme-content-overlay", "none");
   document.documentElement.style.setProperty("--theme-overlay-opacity", "0");
   Object.entries(preset).forEach(([key, value]) => {
@@ -2043,8 +2750,9 @@ function applyTheme(themeName, persist=true){
   syncOverlayHeight();
   if(persist){
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, themeSelect.value);
-      localStorage.setItem(THEME_VARS_STORAGE_KEY, JSON.stringify({ theme: themeSelect.value, vars: preset }));
+      const keys = getThemeStorageKeys(authUsername);
+      localStorage.setItem(keys.themeKey, themeSelect.value);
+      localStorage.setItem(keys.varsKey, JSON.stringify({ theme: themeSelect.value, vars: preset }));
     } catch (_) {}
   }
 }
@@ -2132,10 +2840,7 @@ function applyThemeImages(themeName){
 
 function initThemePicker(){
   // Apply saved theme immediately so first paint matches user preference.
-  let saved = configuredDefaultTheme;
-  try {
-    saved = localStorage.getItem(THEME_STORAGE_KEY) || configuredDefaultTheme;
-  } catch (_) {}
+  let saved = getStoredThemeForOwner(getThemeOwnerForLoad()) || configuredDefaultTheme;
   saved = normalizeThemeName(saved);
   // If this theme comes from a manifest (not inline preset), do not force
   // a fallback to default here; wait for loadConfig()/hydrateThemeConfigs().
@@ -2164,6 +2869,7 @@ function initThemePicker(){
   });
 
   setChatUsername(getChatUsername());
+  refreshAuthSession();
   if(chatSendBtn){
     chatSendBtn.addEventListener("click", sendChatMessage);
   }
@@ -2195,10 +2901,149 @@ function initThemePicker(){
       }
     });
   }
-  if(saveUsernameBtn){
-    saveUsernameBtn.addEventListener("click", () => {
-      setChatUsername(usernameInput ? usernameInput.value : "");
-      if(userPanel) userPanel.classList.remove("open");
+  if(passwordInput){
+    passwordInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && loginBtn){
+        e.preventDefault();
+        loginBtn.click();
+      }
+    });
+  }
+  if(usernameInput){
+    usernameInput.addEventListener("input", refreshForgotPasswordLink);
+  }
+  if(rememberMeToggle){
+    rememberMeToggle.addEventListener("change", () => {
+      try {
+        localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, rememberMeToggle.checked ? "1" : "0");
+      } catch (_) {}
+      refreshRememberModeLabel();
+      if(authToken){
+        persistAuthToken(authToken);
+      }
+    });
+  }
+  refreshForgotPasswordLink();
+  if(createAccountBtn){
+    createAccountBtn.addEventListener("click", () => {
+      if(authBusy) return;
+      const username = usernameInput ? usernameInput.value.trim() : "";
+      const password = passwordInput ? passwordInput.value : "";
+      setAuthStatus("Creating account...");
+      setAuthBusy(true);
+      authPost("/api/auth/register", { username, password }).then(({ ok, data }) => {
+        if(!ok){
+          setAuthStatus(data?.error || "Could not create account");
+          return;
+        }
+        setAuthState(data.token || "", data.username || username);
+        if(passwordInput) passwordInput.value = "";
+      }).finally(() => setAuthBusy(false));
+    });
+  }
+  if(loginBtn){
+    loginBtn.addEventListener("click", () => {
+      if(authBusy) return;
+      const username = usernameInput ? usernameInput.value.trim() : "";
+      const password = passwordInput ? passwordInput.value : "";
+      setAuthStatus("Logging in...");
+      setAuthBusy(true);
+      authPost("/api/auth/login", { username, password }).then(({ ok, data }) => {
+        if(!ok){
+          setAuthStatus(data?.error || "Login failed");
+          return;
+        }
+        setAuthState(data.token || "", data.username || username);
+        if(passwordInput) passwordInput.value = "";
+      }).finally(() => setAuthBusy(false));
+    });
+  }
+  if(changePasswordBtn){
+    changePasswordBtn.addEventListener("click", () => {
+      if(authBusy) return;
+      if(!authToken){
+        setAuthStatus("Login first to change password");
+        return;
+      }
+      const currentPassword = passwordInput ? passwordInput.value : "";
+      const newPassword = newPasswordInput ? newPasswordInput.value : "";
+      if(!newPassword){
+        if(passwordTools) passwordTools.open = true;
+        setAuthStatus("Enter a new password");
+        return;
+      }
+      setAuthStatus("Changing password...");
+      setAuthBusy(true);
+      authPost("/api/auth/change_password", {
+        token: authToken,
+        current_password: currentPassword,
+        new_password: newPassword,
+      }).then(({ ok, data }) => {
+        if(!ok){
+          setAuthStatus(data?.error || "Could not change password");
+          return;
+        }
+        if(passwordInput) passwordInput.value = "";
+        if(newPasswordInput) newPasswordInput.value = "";
+        setAuthStatus("Password updated");
+      }).finally(() => setAuthBusy(false));
+    });
+  }
+  if(logoutBtn){
+    logoutBtn.addEventListener("click", () => {
+      if(authBusy) return;
+      const token = authToken;
+      setAuthState("", "");
+      if(passwordInput) passwordInput.value = "";
+      if(newPasswordInput) newPasswordInput.value = "";
+      setAuthBusy(true);
+      if(token){
+        authPost("/api/auth/logout", { token }).catch(() => {}).finally(() => setAuthBusy(false));
+      } else {
+        setAuthBusy(false);
+      }
+    });
+  }
+  if(renameAccountBtn){
+    renameAccountBtn.addEventListener("click", () => {
+      if(authBusy) return;
+      if(!authToken){
+        setAuthStatus("Login first to rename");
+        return;
+      }
+      const newUsername = usernameInput ? usernameInput.value.trim() : "";
+      const password = passwordInput ? passwordInput.value : "";
+      if(!newUsername){
+        setAuthStatus("Enter a new username");
+        return;
+      }
+      if(!password){
+        setAuthStatus("Enter your current password to rename");
+        return;
+      }
+      setAuthStatus("Renaming...");
+      setAuthBusy(true);
+      authPost("/api/auth/rename", { token: authToken, new_username: newUsername, password }).then(({ ok, data }) => {
+        if(!ok){
+          if(data?.retry_after_seconds){
+            const totalSeconds = Math.max(0, Number(data.retry_after_seconds) || 0);
+            const totalMinutes = Math.ceil(totalSeconds / 60);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if(hours > 0){
+              if(minutes > 0) setAuthStatus(`Rename available in ~${hours}h ${minutes}m`);
+              else setAuthStatus(`Rename available in ~${hours}h`);
+            } else {
+              setAuthStatus(`Rename available in ~${Math.max(1, minutes)}m`);
+            }
+          } else {
+            setAuthStatus(data?.error || "Rename failed");
+          }
+          return;
+        }
+        setAuthState(authToken, data.username || newUsername);
+        if(passwordInput) passwordInput.value = "";
+      }).finally(() => setAuthBusy(false));
     });
   }
 }
@@ -2237,10 +3082,7 @@ function loadConfig(){
 
       setThemeOptions(configuredThemes);
       return hydrateThemeConfigs(configuredThemes).then(() => {
-        let saved = configuredDefaultTheme;
-        try {
-          saved = localStorage.getItem(THEME_STORAGE_KEY) || configuredDefaultTheme;
-        } catch (_) {}
+        let saved = getStoredThemeForOwner(getThemeOwnerForLoad()) || configuredDefaultTheme;
         saved = normalizeThemeName(saved);
         if(!configuredThemes.includes(saved)) saved = configuredDefaultTheme;
         applyTheme(saved);
@@ -2650,6 +3492,7 @@ function requestOnDemandSeek(targetSeconds, preferServer=false){
       currentOnDemandPath = d.source_path || currentOnDemandPath;
       onDemandBaseOffsetSeconds = seekSeconds;
       if(typeof d.duration_seconds === "number") setOnDemandDuration(d.duration_seconds);
+      setOnDemandPlayMode(d.play_mode || onDemandPlayMode || "single");
 
       waitForSegments(d.playlist, 2, () => {
         if(requestToken !== playRequestToken) return;
@@ -2796,6 +3639,7 @@ function goToNextOnDemandEpisode(){
       currentOnDemandPath = d.source_path || currentOnDemandPath;
       onDemandBaseOffsetSeconds = 0;
       setOnDemandDuration(d.duration_seconds);
+      setOnDemandPlayMode(d.play_mode || onDemandPlayMode || "shuffle");
       setOnDemandEpisodeState(d.episode_index, d.episode_total);
       setOnDemandQueuePreview(d.queue_preview);
 
@@ -2881,6 +3725,7 @@ function goToOnDemandQueueEpisode(queuePosition){
       currentOnDemandPath = d.source_path || currentOnDemandPath;
       onDemandBaseOffsetSeconds = 0;
       setOnDemandDuration(d.duration_seconds);
+      setOnDemandPlayMode(d.play_mode || onDemandPlayMode || "shuffle");
       setOnDemandEpisodeState(d.episode_index, d.episode_total);
       setOnDemandQueuePreview(d.queue_preview);
 
@@ -3019,6 +3864,8 @@ function playChannel(channel, sidebarItem=null){
   stopVideo();
   contentRoot?.classList.remove("home-mode");
   currentOnDemandPath = "";
+  currentChannelId = String(channel?.id || "");
+  currentChannelLabel = String(channel?.name || "");
   homeText.style.display = "none";
   setStatus(`📺 Loading ${channel.name}...`);
   setOnDemandPreviewText(`Playing ${channel.name}`);
@@ -3148,6 +3995,15 @@ video.addEventListener("seeking", () => {
   }
 });
 
+video.addEventListener("ended", () => {
+  if(mode !== "browse") return;
+  if(activeSlot === null) return;
+  if(!onDemandAutoplayEnabled) return;
+  if(onDemandEpisodeTotal <= 1) return;
+  if(pendingOnDemand || pendingSeekRequest || pendingNextEpisode) return;
+  goToNextOnDemandEpisode();
+});
+
 if(onDemandSeekRange){
   onDemandSeekRange.addEventListener("pointerdown", () => {
     onDemandScrubbing = true;
@@ -3184,6 +4040,7 @@ function resetPlayer() {
   video.style.visibility="hidden";
   video.style.opacity="0";
   video.classList.remove("hide-timeline");
+  video.classList.remove("live-channel");
   mediaStage.style.display="none";
   loadingImage.style.display="none";
   stopOnDemandLoadingUI();
@@ -3219,6 +4076,7 @@ function resetPlayer() {
   onDemandDurationSeconds = 0;
   onDemandScrubbing = false;
   onDemandBaseOffsetSeconds = 0;
+  setOnDemandPlayMode("single");
   setOnDemandEpisodeState(1, 1);
   setOnDemandQueuePreview([]);
   lastQueueCurrentPosition = -1;
@@ -3247,6 +4105,8 @@ function stopVideo() {
   stopCurrentStream();
   resetPlayer();
   closeChannelChat();
+  currentChannelId = "";
+  currentChannelLabel = "";
   homeText.style.display="none";
 
   if(lastLoadingItem) restoreSidebarItem(lastLoadingItem);
@@ -3320,6 +4180,8 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   video.style.visibility="hidden";
   video.style.opacity="0";
   if(hideTimeline) video.classList.add("hide-timeline");
+  else video.classList.remove("hide-timeline");
+  video.classList.toggle("live-channel", Boolean(isChannel));
 
   if(Hls.isSupported()){
     hls = new Hls(isChannel ? {} : { autoStartLoad: false, startPosition: 0 });
@@ -3484,19 +4346,37 @@ function loadFolder(path){
             div.classList.add("selected");
             homeText.innerHTML = `
               <h2>📁 ${i.name}</h2>
-              <p>Shuffle and play all videos in <strong>${i.name}</strong></p>
-              <button id="playFolderBtn">Play Folder</button>
+              <p>Choose how to play videos in <strong>${i.name}</strong></p>
+              <div class="folder-play-actions">
+                <button id="playFolderShuffleBtn" class="play-folder-btn">🔀 Shuffle Play</button>
+                <button id="playFolderChronoBtn" class="play-folder-btn secondary">📚 Chronological Resume</button>
+              </div>
+              <p id="playFolderChronoPos" class="folder-play-hint">Current chronological position: loading...</p>
+              <p id="playFolderChronoHint" class="folder-play-hint">Checking your chronological checkpoint...</p>
             `;
             homeText.style.display="block";
 
-            document.getElementById("playFolderBtn").onclick=()=>{
+            const chronoBtnEl = document.getElementById("playFolderChronoBtn");
+            if(chronoBtnEl) chronoBtnEl.dataset.folderPath = i.path;
+            refreshOpenFolderChronoPrompt();
+
+            const startFolderPlayback = (playMode)=>{
+              if(playMode === "chronological" && !authToken){
+                requireLoginForFeature("chronological checkpoints");
+                return;
+              }
               const requestToken = showSkeleton(div);
               fetch("/api/play_folder",{
                 method:"POST",
                 headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({path:i.path})
+                body: JSON.stringify({path:i.path, play_mode: playMode, token: authToken})
               })
-              .then((r)=>{
+              .then(async (r)=>{
+                if(r.status === 401){
+                  let data = {};
+                  try { data = await r.json(); } catch (_) {}
+                  throw new Error(data?.error || "Login required for chronological checkpoints.");
+                }
                 if(!r.ok) throw new Error("play_folder failed");
                 return r.json();
               })
@@ -3518,6 +4398,7 @@ function loadFolder(path){
                 currentOnDemandPath = d.source_path || "";
                 onDemandBaseOffsetSeconds = 0;
                 setOnDemandDuration(d.duration_seconds);
+                setOnDemandPlayMode(d.play_mode || playMode || "shuffle");
                 setOnDemandEpisodeState(d.episode_index, d.episode_total);
                 setOnDemandQueuePreview(d.queue_preview);
                 waitForSegments(d.playlist,3,()=>{
@@ -3532,10 +4413,20 @@ function loadFolder(path){
                   onTimeout: () => failOnDemandLoad(div, "⚠️ Stream load timed out. Try again."),
                 });
               })
-              .catch(()=>{
+              .catch((err)=>{
+                const msg = String(err?.message || "").trim();
+                if(msg.toLowerCase().includes("login required")){
+                  failOnDemandLoad(div, `⚠️ ${msg}`);
+                  requireLoginForFeature("chronological checkpoints");
+                  return;
+                }
                 failOnDemandLoad(div, "⚠️ Could not start folder stream. Try again.");
               });
             };
+            const shuffleBtn = document.getElementById("playFolderShuffleBtn");
+            const chronoBtn = document.getElementById("playFolderChronoBtn");
+            if(shuffleBtn) shuffleBtn.onclick = () => startFolderPlayback("shuffle");
+            if(chronoBtn) chronoBtn.onclick = () => startFolderPlayback("chronological");
           };
           div.ondblclick=()=>{
             searchInput.value = "";
@@ -3573,6 +4464,7 @@ function loadFolder(path){
               currentOnDemandPath = d.source_path || i.path;
               onDemandBaseOffsetSeconds = 0;
               setOnDemandDuration(d.duration_seconds);
+              setOnDemandPlayMode(d.play_mode || "single");
               setOnDemandEpisodeState(d.episode_index, d.episode_total);
               setOnDemandQueuePreview(d.queue_preview);
               waitForSegments(d.playlist,3,()=>{

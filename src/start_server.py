@@ -8,6 +8,7 @@ import atexit
 import subprocess
 import random
 import time
+import secrets
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from threading import Lock
@@ -196,6 +197,15 @@ CHAT_STORAGE_DIR = os.path.join(BASE_DIR, "output", "chat_history", "channels")
 COOKIE_COUNT = 0
 COOKIE_LOCK = Lock()
 COOKIE_STORAGE_PATH = os.path.join(BASE_DIR, "output", "cookie_count.json")
+FOLDER_RESUME_LOCK = Lock()
+FOLDER_RESUME_PATH = os.path.join(BASE_DIR, "output", "folder_resume.json")
+FOLDER_RESUME_MAP = {}
+AUTH_LOCK = Lock()
+USERS_STORAGE_PATH = os.path.join(BASE_DIR, "output", "users.json")
+AUTH_DB = {"users": {}, "sessions": {}}
+RENAME_COOLDOWN_SECONDS = 24 * 60 * 60
+AUTH_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+AUTH_MAX_SESSIONS_PER_USER = 6
 
 
 def load_cookie_count():
@@ -214,6 +224,241 @@ def save_cookie_count():
         write_json_atomic(COOKIE_STORAGE_PATH, {"count": COOKIE_COUNT})
     except OSError as e:
         print(f"⚠️ Failed to save cookie count: {e}")
+
+
+def normalize_folder_key(path):
+    if not path:
+        return ""
+    real = os.path.realpath(path)
+    if real.startswith(BASE_DIR):
+        return os.path.relpath(real, BASE_DIR)
+    return real
+
+
+def normalize_resume_identity(identity):
+    raw = str(identity or "").strip().lower()
+    return raw if raw else "guest"
+
+
+def make_resume_map_key(folder_key, identity):
+    return f"{normalize_resume_identity(identity)}::{folder_key}"
+
+
+def load_folder_resume_map():
+    global FOLDER_RESUME_MAP
+    try:
+        with open(FOLDER_RESUME_PATH, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    cleaned = {}
+    for key, value in payload.items():
+        folder_key = str(key or "").strip()
+        if not folder_key:
+            continue
+        try:
+            idx = int(value)
+        except (TypeError, ValueError):
+            continue
+        if idx < 0:
+            idx = 0
+        cleaned[folder_key] = idx
+
+    with FOLDER_RESUME_LOCK:
+        FOLDER_RESUME_MAP = cleaned
+
+
+def save_folder_resume_map():
+    with FOLDER_RESUME_LOCK:
+        snapshot = dict(FOLDER_RESUME_MAP)
+    try:
+        os.makedirs(os.path.dirname(FOLDER_RESUME_PATH), exist_ok=True)
+        write_json_atomic(FOLDER_RESUME_PATH, snapshot)
+    except OSError as e:
+        print(f"⚠️ Failed to save folder resume map: {e}")
+
+
+def get_folder_resume_index(folder_key, identity="guest"):
+    if not folder_key:
+        return 0
+    key = make_resume_map_key(folder_key, identity)
+    with FOLDER_RESUME_LOCK:
+        return int(FOLDER_RESUME_MAP.get(key, 0) or 0)
+
+
+def set_folder_resume_index(folder_key, index, identity="guest"):
+    if not folder_key:
+        return
+    key = make_resume_map_key(folder_key, identity)
+    safe_index = max(0, int(index or 0))
+    with FOLDER_RESUME_LOCK:
+        FOLDER_RESUME_MAP[key] = safe_index
+    save_folder_resume_map()
+
+
+def normalize_username(username):
+    value = re.sub(r"\s+", " ", str(username or "").strip())
+    if len(value) < 3 or len(value) > 32:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,32}", value):
+        return None
+    return value
+
+
+def prune_auth_sessions_locked(now_ts=None):
+    """Prune stale/invalid auth sessions while AUTH_LOCK is held."""
+    now = int(now_ts or time.time())
+    users = AUTH_DB.setdefault("users", {})
+    sessions_map = AUTH_DB.setdefault("sessions", {})
+
+    # First pass: remove broken, orphaned, or expired sessions.
+    for token, info in list(sessions_map.items()):
+        tok = str(token or "").strip()
+        if len(tok) < 16 or not isinstance(info, dict):
+            sessions_map.pop(token, None)
+            continue
+        user_key = str(info.get("user_key") or "").strip().lower()
+        if user_key not in users:
+            sessions_map.pop(token, None)
+            continue
+        try:
+            last_seen_ts = int(info.get("last_seen_ts") or info.get("created_ts") or 0)
+        except (TypeError, ValueError):
+            last_seen_ts = 0
+        if not last_seen_ts or (now - last_seen_ts) > AUTH_SESSION_TTL_SECONDS:
+            sessions_map.pop(token, None)
+
+    # Second pass: cap session count per user by newest activity.
+    by_user = {}
+    for token, info in sessions_map.items():
+        if not isinstance(info, dict):
+            continue
+        user_key = str(info.get("user_key") or "").strip().lower()
+        if not user_key:
+            continue
+        try:
+            sort_ts = int(info.get("last_seen_ts") or info.get("created_ts") or 0)
+        except (TypeError, ValueError):
+            sort_ts = 0
+        by_user.setdefault(user_key, []).append((token, sort_ts))
+
+    for user_key, entries in by_user.items():
+        if len(entries) <= AUTH_MAX_SESSIONS_PER_USER:
+            continue
+        entries.sort(key=lambda item: item[1], reverse=True)
+        for token, _ in entries[AUTH_MAX_SESSIONS_PER_USER:]:
+            sessions_map.pop(token, None)
+
+
+def load_auth_db():
+    global AUTH_DB
+    try:
+        with open(USERS_STORAGE_PATH, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    users = payload.get("users") if isinstance(payload, dict) else {}
+    sessions_map = payload.get("sessions") if isinstance(payload, dict) else {}
+    if not isinstance(users, dict):
+        users = {}
+    if not isinstance(sessions_map, dict):
+        sessions_map = {}
+
+    clean_users = {}
+    for key, info in users.items():
+        k = str(key or "").strip().lower()
+        if not k or not isinstance(info, dict):
+            continue
+        username = normalize_username(info.get("username") or key)
+        password = str(info.get("password") or "")
+        if not username or len(password) < 3:
+            continue
+        created_ts = int(info.get("created_ts") or int(time.time()))
+        last_rename_ts = int(info.get("last_rename_ts") or 0)
+        clean_users[k] = {
+            "username": username,
+            "password": password,
+            "created_ts": created_ts,
+            "last_rename_ts": last_rename_ts,
+        }
+
+    clean_sessions = {}
+    for token, info in sessions_map.items():
+        tok = str(token or "").strip()
+        if len(tok) < 16 or not isinstance(info, dict):
+            continue
+        user_key = str(info.get("user_key") or "").strip().lower()
+        if user_key not in clean_users:
+            continue
+        clean_sessions[tok] = {
+            "user_key": user_key,
+            "created_ts": int(info.get("created_ts") or int(time.time())),
+            "last_seen_ts": int(info.get("last_seen_ts") or int(time.time())),
+        }
+
+    with AUTH_LOCK:
+        AUTH_DB = {"users": clean_users, "sessions": clean_sessions}
+        prune_auth_sessions_locked()
+
+
+def save_auth_db():
+    with AUTH_LOCK:
+        prune_auth_sessions_locked()
+        snapshot = {
+            "users": dict(AUTH_DB.get("users", {})),
+            "sessions": dict(AUTH_DB.get("sessions", {})),
+        }
+    try:
+        os.makedirs(os.path.dirname(USERS_STORAGE_PATH), exist_ok=True)
+        write_json_atomic(USERS_STORAGE_PATH, snapshot)
+    except OSError as e:
+        print(f"⚠️ Failed to save auth db: {e}")
+
+
+def auth_get_user_by_token(token):
+    tok = str(token or "").strip()
+    if not tok:
+        return None, None
+    with AUTH_LOCK:
+        prune_auth_sessions_locked()
+        session_info = AUTH_DB.get("sessions", {}).get(tok)
+        if not isinstance(session_info, dict):
+            return None, None
+        user_key = str(session_info.get("user_key") or "").strip().lower()
+        user_info = AUTH_DB.get("users", {}).get(user_key)
+        if not isinstance(user_info, dict):
+            return None, None
+        session_info["last_seen_ts"] = int(time.time())
+    return user_key, user_info
+
+
+def auth_create_session(user_key):
+    token = secrets.token_hex(24)
+    now = int(time.time())
+    with AUTH_LOCK:
+        prune_auth_sessions_locked(now)
+        AUTH_DB.setdefault("sessions", {})[token] = {
+            "user_key": user_key,
+            "created_ts": now,
+            "last_seen_ts": now,
+        }
+        prune_auth_sessions_locked(now)
+    save_auth_db()
+    return token
+
+
+def auth_remove_session(token):
+    tok = str(token or "").strip()
+    if not tok:
+        return
+    with AUTH_LOCK:
+        AUTH_DB.get("sessions", {}).pop(tok, None)
+    save_auth_db()
 
 
 def chat_file_path(channel):
@@ -741,6 +986,21 @@ class Handler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"html": "<p>No patch notes available</p>"}).encode())
             return
+        if parsed.path == "/api/auth/me":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            if user_key and isinstance(user_info, dict):
+                self.wfile.write(json.dumps({
+                    "authenticated": True,
+                    "username": user_info.get("username", "Anonymous"),
+                }).encode())
+            else:
+                self.wfile.write(json.dumps({"authenticated": False}).encode())
+            return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -782,6 +1042,7 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/chat":
             qs = parse_qs(parsed.query)
             channel = str(qs.get("channel", [""])[0]).strip()
+            token = str(qs.get("token", [""])[0]).strip()
             try:
                 since_id = int(qs.get("since", ["0"])[0])
             except (TypeError, ValueError):
@@ -789,6 +1050,14 @@ class Handler(SimpleHTTPRequestHandler):
 
             if not channel:
                 self.send_error(400)
+                return
+
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required for chat"}).encode())
                 return
 
             with CHAT_LOCK:
@@ -836,9 +1105,193 @@ class Handler(SimpleHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         try:
-            body = json.loads(self.rfile.read(length))
+            raw_body = self.rfile.read(length) if length > 0 else b"{}"
+            body = json.loads(raw_body)
         except json.JSONDecodeError:
             self.send_error(400)
+            return
+
+        if self.path == "/api/auth/register":
+            username = normalize_username(body.get("username"))
+            password = str(body.get("password") or "")
+            if not username or len(password) < 3:
+                self.send_error(400)
+                return
+            user_key = username.lower()
+            with AUTH_LOCK:
+                users = AUTH_DB.setdefault("users", {})
+                if user_key in users:
+                    self.send_response(409)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Username already exists"}).encode())
+                    return
+                users[user_key] = {
+                    "username": username,
+                    "password": password,
+                    "created_ts": int(time.time()),
+                    "last_rename_ts": 0,
+                }
+            save_auth_db()
+            token = auth_create_session(user_key)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "ok": True,
+                "token": token,
+                "username": username,
+            }).encode())
+            return
+
+        if self.path == "/api/auth/login":
+            username = normalize_username(body.get("username"))
+            password = str(body.get("password") or "")
+            if not username or len(password) < 3:
+                self.send_error(400)
+                return
+            user_key = username.lower()
+            with AUTH_LOCK:
+                user_info = AUTH_DB.get("users", {}).get(user_key)
+            if not isinstance(user_info, dict) or str(user_info.get("password") or "") != password:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid username or password"}).encode())
+                return
+            token = auth_create_session(user_key)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "ok": True,
+                "token": token,
+                "username": user_info.get("username", username),
+            }).encode())
+            return
+
+        if self.path == "/api/auth/logout":
+            token = str(body.get("token") or "").strip()
+            auth_remove_session(token)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/auth/rename":
+            token = str(body.get("token") or "").strip()
+            new_username = normalize_username(body.get("new_username"))
+            password = str(body.get("password") or "")
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                return
+            if not new_username:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Please enter a valid new username (3-32 chars, letters/numbers/._-)"}).encode())
+                return
+            if len(password) < 3:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Please enter your current password"}).encode())
+                return
+            if str(user_info.get("password") or "") != password:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid password"}).encode())
+                return
+
+            now = int(time.time())
+            old_user_key = user_key
+            new_user_key = new_username.lower()
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(old_user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                if new_user_key != old_user_key and new_user_key in users:
+                    self.send_response(409)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Username already exists"}).encode())
+                    return
+                last_rename = int(current.get("last_rename_ts") or 0)
+                if last_rename and (now - last_rename) < RENAME_COOLDOWN_SECONDS:
+                    retry_after = RENAME_COOLDOWN_SECONDS - (now - last_rename)
+                    self.send_response(429)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "error": "Rename is limited to once every 24 hours",
+                        "retry_after_seconds": retry_after,
+                    }).encode())
+                    return
+
+                updated = dict(current)
+                updated["username"] = new_username
+                updated["last_rename_ts"] = now
+                users.pop(old_user_key, None)
+                users[new_user_key] = updated
+                for sess in AUTH_DB.get("sessions", {}).values():
+                    if isinstance(sess, dict) and str(sess.get("user_key") or "").lower() == old_user_key:
+                        sess["user_key"] = new_user_key
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "username": new_username}).encode())
+            return
+
+        if self.path == "/api/auth/change_password":
+            token = str(body.get("token") or "").strip()
+            current_password = str(body.get("current_password") or "")
+            new_password = str(body.get("new_password") or "")
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                return
+            if len(current_password) < 3 or len(new_password) < 3:
+                self.send_error(400)
+                return
+            if str(user_info.get("password") or "") != current_password:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid current password"}).encode())
+                return
+
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                updated = dict(current)
+                updated["password"] = new_password
+                users[user_key] = updated
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
             return
 
         if self.path == "/api/seek_file":
@@ -886,6 +1339,8 @@ class Handler(SimpleHTTPRequestHandler):
             session_meta = {
                 "shuffle_files": session_info.get("shuffle_files"),
                 "shuffle_index": session_info.get("shuffle_index", 0),
+                "play_mode": session_info.get("play_mode", "single"),
+                "folder_key": session_info.get("folder_key", ""),
             }
             playlist_path, slot = start_ffmpeg(
                 files,
@@ -922,6 +1377,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_index": int(session_meta.get("shuffle_index", 0)) + 1 if isinstance(session_meta.get("shuffle_files"), list) and session_meta.get("shuffle_files") else 1,
                 "episode_total": len(session_meta.get("shuffle_files") or files),
                 "queue_preview": queue_preview,
+                "play_mode": str(session_meta.get("play_mode") or "single"),
             }).encode())
             return
 
@@ -942,6 +1398,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not isinstance(shuffle_files, list) or not shuffle_files:
                 self.send_error(400)
                 return
+            play_mode = str(session_info.get("play_mode") or "shuffle")
+            folder_key = str(session_info.get("folder_key") or "")
+            resume_identity = str(session_info.get("resume_identity") or f"ip:{ip}")
 
             valid_files = [p for p in shuffle_files if os.path.isfile(p)]
             if not valid_files:
@@ -952,6 +1411,8 @@ class Handler(SimpleHTTPRequestHandler):
             next_idx = (current_idx + 1) % len(valid_files)
             next_file = valid_files[next_idx]
             duration_seconds = get_media_duration_seconds(next_file)
+            if play_mode == "chronological" and folder_key:
+                set_folder_resume_index(folder_key, next_idx, resume_identity)
 
             playlist_path, slot = start_ffmpeg(
                 [next_file],
@@ -962,6 +1423,9 @@ class Handler(SimpleHTTPRequestHandler):
                 session_meta={
                     "shuffle_files": valid_files,
                     "shuffle_index": next_idx,
+                    "play_mode": play_mode,
+                    "folder_key": folder_key,
+                    "resume_identity": resume_identity,
                 },
             )
             if not playlist_path:
@@ -985,6 +1449,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_total": len(valid_files),
                 "wrapped": next_idx == 0 and len(valid_files) > 1,
                 "queue_preview": queue_preview,
+                "play_mode": play_mode,
             }).encode())
             return
 
@@ -1005,6 +1470,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not isinstance(shuffle_files, list) or not shuffle_files:
                 self.send_error(400)
                 return
+            play_mode = str(session_info.get("play_mode") or "shuffle")
+            folder_key = str(session_info.get("folder_key") or "")
+            resume_identity = str(session_info.get("resume_identity") or f"ip:{ip}")
 
             valid_files = [p for p in shuffle_files if os.path.isfile(p)]
             if not valid_files:
@@ -1025,6 +1493,8 @@ class Handler(SimpleHTTPRequestHandler):
             selected_idx = queue_position - 1
             selected_file = valid_files[selected_idx]
             duration_seconds = get_media_duration_seconds(selected_file)
+            if play_mode == "chronological" and folder_key:
+                set_folder_resume_index(folder_key, selected_idx, resume_identity)
 
             playlist_path, slot = start_ffmpeg(
                 [selected_file],
@@ -1035,6 +1505,9 @@ class Handler(SimpleHTTPRequestHandler):
                 session_meta={
                     "shuffle_files": valid_files,
                     "shuffle_index": selected_idx,
+                    "play_mode": play_mode,
+                    "folder_key": folder_key,
+                    "resume_identity": resume_identity,
                 },
             )
             if not playlist_path:
@@ -1057,17 +1530,81 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_index": selected_idx + 1,
                 "episode_total": len(valid_files),
                 "queue_preview": queue_preview,
+                "play_mode": play_mode,
+            }).encode())
+            return
+
+        if self.path == "/api/folder_resume_status":
+            folder_path = body.get("path")
+            real_folder = safe_path(folder_path)
+            if not real_folder or not os.path.isdir(real_folder):
+                self.send_error(400)
+                return
+
+            files = []
+            for root, _, names in os.walk(real_folder):
+                for n in names:
+                    if n.lower().endswith((".mp4", ".mkv")):
+                        files.append(os.path.join(root, n))
+            files = sorted(files)
+            if not files:
+                self.send_error(404)
+                return
+
+            token = str(body.get("token") or "").strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required for chronological checkpoints"}).encode())
+                return
+
+            resume_identity = f"user:{user_key}"
+            folder_key = normalize_folder_key(real_folder)
+            resume_index = get_folder_resume_index(folder_key, resume_identity)
+            if resume_index >= len(files):
+                resume_index = 0
+
+            next_file = files[resume_index]
+            display_title = build_display_title(next_file)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "next_index": resume_index + 1,
+                "total": len(files),
+                "source_path": os.path.relpath(next_file, BASE_DIR),
+                "display_title": display_title,
+                "current_file": prettify_media_name(
+                    os.path.basename(next_file),
+                    parent=os.path.basename(os.path.dirname(next_file)),
+                    episode_index=get_file_index(next_file),
+                ),
+                "play_mode": "chronological",
             }).encode())
             return
 
         if self.path == "/api/chat/send":
             channel = str(body.get("channel", "")).strip()
             username = str(body.get("username", "")).strip() or "Anonymous"
+            token = str(body.get("token") or "").strip()
             text = str(body.get("text", "")).strip()
 
             if not channel or not text:
                 self.send_error(400)
                 return
+
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required for chat"}).encode())
+                return
+
+            username = str(user_info.get("username") or username)
 
             username = re.sub(r"\s+", " ", username)[:32]
             text = re.sub(r"\s+", " ", text)[:500]
@@ -1114,7 +1651,20 @@ class Handler(SimpleHTTPRequestHandler):
                 for n in names:
                     if n.lower().endswith((".mp4", ".mkv")):
                         files.append(os.path.join(root, n))
-            random.shuffle(files)
+            requested_mode = str(body.get("play_mode") or "shuffle").strip().lower()
+            play_mode = "chronological" if requested_mode == "chronological" else "shuffle"
+            token = str(body.get("token") or "").strip()
+            if play_mode == "chronological":
+                user_key, _ = auth_get_user_by_token(token)
+                if not user_key:
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Login required for chronological checkpoints"}).encode())
+                    return
+            files = sorted(files)
+            if play_mode == "shuffle":
+                random.shuffle(files)
         else:
             self.send_error(404)
             return
@@ -1126,12 +1676,26 @@ class Handler(SimpleHTTPRequestHandler):
         ip = self.client_address[0]
         shuffle_meta = None
         stream_files = files
+        start_index = 0
         if self.path == "/api/play_folder":
-            stream_files = [files[0]]
+            folder_key = normalize_folder_key(real)
+            user_key, _ = auth_get_user_by_token(token)
+            resume_identity = f"user:{user_key}" if user_key else f"ip:{ip}"
+            if play_mode == "chronological":
+                resume_index = get_folder_resume_index(folder_key, resume_identity)
+                if resume_index >= len(files):
+                    resume_index = 0
+                start_index = max(0, resume_index)
+            stream_files = [files[start_index]]
             shuffle_meta = {
                 "shuffle_files": files,
-                "shuffle_index": 0,
+                "shuffle_index": start_index,
+                "play_mode": play_mode,
+                "folder_key": folder_key,
+                "resume_identity": resume_identity,
             }
+            if play_mode == "chronological":
+                set_folder_resume_index(folder_key, start_index, resume_identity)
 
         duration_seconds = get_media_duration_seconds(stream_files[0])
         playlist_path, slot = start_ffmpeg(
@@ -1142,38 +1706,45 @@ class Handler(SimpleHTTPRequestHandler):
             session_meta=shuffle_meta,
         )
 
-        display_title = build_display_title(files[0])
+        display_title = build_display_title(stream_files[0])
 
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         queue_preview = []
         if self.path == "/api/play_folder":
-            queue_preview = build_shuffle_queue_preview(files, 0)
+            queue_preview = build_shuffle_queue_preview(files, start_index)
         self.wfile.write(json.dumps({
             "playlist": f"/on_demand/{slot}/output.m3u8",
             "slot": slot,
             "display_title": display_title,
-            "source_path": os.path.relpath(files[0], BASE_DIR),
+            "source_path": os.path.relpath(stream_files[0], BASE_DIR),
             "duration_seconds": duration_seconds,
-            "current_file": prettify_media_name(os.path.basename(files[0]), parent=os.path.basename(os.path.dirname(files[0])), episode_index=get_file_index(files[0])),
-            "episode_index": 1,
+            "current_file": prettify_media_name(os.path.basename(stream_files[0]), parent=os.path.basename(os.path.dirname(stream_files[0])), episode_index=get_file_index(stream_files[0])),
+            "episode_index": start_index + 1,
             "episode_total": len(files) if self.path == "/api/play_folder" else 1,
             "queue_preview": queue_preview,
+            "play_mode": play_mode if self.path == "/api/play_folder" else "single",
         }).encode())
 
 if __name__ == "__main__":
     load_cookie_count()
     load_chat_history()
+    load_folder_resume_map()
+    load_auth_db()
 
     def _shutdown_handler(signum, frame):
         print("\n🛑 Shutting down — saving cookie count...")
         save_cookie_count()
+        save_folder_resume_map()
+        save_auth_db()
         raise SystemExit(0)
 
     signal.signal(signal.SIGTERM, _shutdown_handler)
     signal.signal(signal.SIGINT, _shutdown_handler)
     atexit.register(save_cookie_count)
+    atexit.register(save_folder_resume_map)
+    atexit.register(save_auth_db)
 
     os.chdir(BASE_DIR)
     server = ThreadingHTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces

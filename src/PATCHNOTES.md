@@ -1,5 +1,49 @@
 # MAXISTREAMS Patch Notes
 
+## v1.8.0 - Accounts, Per-User Resume & Access Controls
+**Release: April 2026**
+
+### ✨ New Features
+- **Account System** - Added account create/login/logout with persistent sessions and remember-me support
+- **Account Management** - Added password change and username rename (with cooldown protection)
+- **Per-User Chronological Checkpoints** - Chronological resume now tracks position per account (instead of shared guest state)
+- **Checkpoint Preview API** - Added endpoint to preview the exact episode/position chronological resume will play next
+
+### 🖥️ UI Improvements
+- Added folder playback prompt with dual modes: `Shuffle Play` and `Chronological Resume`
+- Chronological UI now shows:
+	- current chronological position (`X/Y`)
+	- next episode title (`Next up: ...`)
+- Open folder prompt now refreshes checkpoint state immediately after login/logout
+- Logging into an already playing channel now immediately enables chat (no channel switch needed)
+- Logged-out channel viewers now still see the chat panel with a clear login-required message
+
+### 🔒 Access Control Changes
+- **Chat is now account-only**: reading and sending messages requires login
+- **Chronological checkpoints are now account-only**: preview + chronological playback require login
+- Clear UI guidance is shown when users try to access protected features while logged out
+
+### 🎬 Playback Controls
+- Channel/live streams now hide play/pause controls
+- On-demand playback controls remain unchanged
+
+### 🐛 Reliability Fixes
+- Fixed stale "login required" checkpoint text not refreshing when user logs in while folder prompt is open
+- Fixed chat state requiring a channel switch after login before becoming usable
+
+---
+
+## v1.7.1 - Chronological Resume UX Polish
+**Release: April 2026**
+
+### 🖥️ UI Improvements
+- Reworked chronological button copy for better readability
+- Added dedicated chronological status lines under folder play actions
+- Improved loading/fallback text for checkpoint position and next-episode preview
+
+### 🐛 Fixes
+- Improved resilience when checkpoint preview fails by falling back to clear, non-blocking messaging
+
 ## v1.7.0 - Cookie Clicker, Chat Persistence & Polish
 **Release: April 2026**
 
