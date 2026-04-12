@@ -1,26 +1,32 @@
-# Ignore everything in these folders
+# Runtime/generated folders (keep placeholders only)
 backup/*
 output/*
 channels/*
 on_demand/*
-media/raw/*
-media/converted/*
-src/__pycache__/*
-.vscode/
-backup-channels.json
-output/chat_history/channels/*
 
-# Keep folder placeholders
 !backup/.gitkeep
-!media/.gitkeep
-!media/converted/.gitkeep
-!media/raw/.gitkeep
 !output/.gitkeep
 !channels/.gitkeep
 !on_demand/.gitkeep
 
-# Ignore saved local chat history and context notes
-chat_history/
+# Local media library (never commit actual media)
+media/raw/**
+media/converted/**
 
-# Ignore macOS resource fork files
+!media/.gitkeep
+!media/raw/.gitkeep
+!media/converted/.gitkeep
+
+# Chat/data history and local notes
+output/chat_history/
+chat_history/
+backup-channels.json
+
+# Python/cache/editor noise
+__pycache__/
+*.py[cod]
+.vscode/
+
+# OS artifacts
+.DS_Store
 ._*
