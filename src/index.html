@@ -681,7 +681,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   position:fixed;
   right:18px;
   bottom:18px;
-  z-index:50;
+  z-index:60;
 }
 .theme-toggle {
   position:relative;
@@ -1717,6 +1717,7 @@ function initThemePicker(){
 
   themeSelect.addEventListener("change", () => {
     applyTheme(themeSelect.value);
+    if(themePanel) themePanel.classList.remove("open");
   });
 
   setChatUsername(getChatUsername());
@@ -1750,7 +1751,10 @@ function initThemePicker(){
     });
   }
   if(saveUsernameBtn){
-    saveUsernameBtn.addEventListener("click", () => setChatUsername(usernameInput ? usernameInput.value : ""));
+    saveUsernameBtn.addEventListener("click", () => {
+      setChatUsername(usernameInput ? usernameInput.value : "");
+      if(userPanel) userPanel.classList.remove("open");
+    });
   }
 }
 
