@@ -230,6 +230,28 @@ def save_cookie_count():
         print(f"⚠️ Failed to save cookie count: {e}")
 
 
+def get_cookie_leaderboard(limit=5):
+    entries = []
+    with AUTH_LOCK:
+        users = AUTH_DB.get("users", {})
+        for info in users.values():
+            if not isinstance(info, dict):
+                continue
+            username = str(info.get("username") or "").strip()
+            if not username:
+                continue
+            try:
+                clicks = max(0, int(info.get("cookie_clicks", 0) or 0))
+            except (TypeError, ValueError):
+                clicks = 0
+            if clicks <= 0:
+                continue
+            entries.append({"username": username, "clicks": clicks})
+
+    entries.sort(key=lambda item: (-item["clicks"], item["username"].lower()))
+    return entries[:max(1, int(limit or 5))]
+
+
 def normalize_folder_key(path):
     if not path:
         return ""
@@ -415,6 +437,7 @@ def load_auth_db():
             "password": password,
             "created_ts": created_ts,
             "last_rename_ts": last_rename_ts,
+            "cookie_clicks": max(0, int(info.get("cookie_clicks", 0) or 0)),
         }
         theme_payload = normalize_theme_payload(info.get("theme"), info.get("theme_vars"))
         if not theme_payload and isinstance(info.get("theme_pref"), dict):
@@ -1090,12 +1113,27 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(items).encode())
             return
         if parsed.path == "/api/cookies":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
             with COOKIE_LOCK:
                 count = COOKIE_COUNT
+            user_clicks = 0
+            if user_key and isinstance(user_info, dict):
+                try:
+                    user_clicks = max(0, int(user_info.get("cookie_clicks", 0) or 0))
+                except (TypeError, ValueError):
+                    user_clicks = 0
+            leaderboard = get_cookie_leaderboard(5)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"count": count}).encode())
+            self.wfile.write(json.dumps({
+                "count": count,
+                "leaderboard": leaderboard,
+                "your_clicks": user_clicks,
+                "authenticated": bool(user_key),
+            }).encode())
             return
         if parsed.path == "/api/chat":
             qs = parse_qs(parsed.query)
@@ -1146,8 +1184,34 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "stopped"}).encode())
             return
 
-        if self.path == "/api/cookies/click":
+        if self.path.startswith("/api/cookies/click"):
             global COOKIE_COUNT
+            parsed = urlparse(self.path)
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required to use cookie clicker"}).encode())
+                return
+
+            user_clicks = 0
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                updated = dict(current)
+                updated["cookie_clicks"] = max(0, int(updated.get("cookie_clicks", 0) or 0)) + 1
+                user_clicks = updated["cookie_clicks"]
+                users[user_key] = updated
+
             with COOKIE_LOCK:
                 COOKIE_COUNT += 1
                 count = COOKIE_COUNT
@@ -1155,10 +1219,11 @@ class Handler(SimpleHTTPRequestHandler):
                 save_cookie_count()
             except OSError:
                 pass
+            save_auth_db()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"count": count}).encode())
+            self.wfile.write(json.dumps({"count": count, "your_clicks": user_clicks}).encode())
             return
 
         length = int(self.headers.get("Content-Length", 0))
@@ -1189,6 +1254,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "password": password,
                     "created_ts": int(time.time()),
                     "last_rename_ts": 0,
+                    "cookie_clicks": 0,
                 }
             save_auth_db()
             token = auth_create_session(user_key)

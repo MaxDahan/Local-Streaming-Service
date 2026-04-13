@@ -223,11 +223,11 @@ video.live-channel::-webkit-media-controls-start-playback-button,
 video.live-channel::-webkit-media-controls-overlay-play-button { display:none !important; }
 .home-text { 
   text-align:center; 
-  max-width:600px; 
+  max-width:760px; 
   display:flex; 
   flex-direction:column; 
   align-items:center;
-  gap:24px;
+  gap:16px;
   width:100%;
   padding-bottom:40px;
 }
@@ -239,28 +239,41 @@ video.live-channel::-webkit-media-controls-overlay-play-button { display:none !i
   box-sizing:border-box;
 }
 .home-text h2 {
-  font-size:52px;
+  font-size:clamp(38px, 5vw, 62px);
   font-weight:900;
-  letter-spacing:-1px;
-  margin:0;
+  letter-spacing:-0.02em;
+  margin:0 0 4px;
   background:linear-gradient(
     135deg,
-    color-mix(in srgb, var(--text-main) 82%, var(--accent-strong) 18%),
-    color-mix(in srgb, var(--text-main) 68%, var(--link) 32%)
+    color-mix(in srgb, var(--text-main) 86%, var(--accent-strong) 14%),
+    color-mix(in srgb, var(--text-main) 64%, var(--link) 36%)
   );
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
   background-clip:text;
-  line-height:1.1;
-  text-shadow:0 2px 10px rgba(0,0,0,0.24);
+  line-height:1.04;
+  text-shadow:0 4px 18px rgba(0,0,0,0.3);
 }
 .home-text > p:first-of-type {
-  font-size:18px;
-  color:var(--text-muted);
-  max-width:600px;
-  line-height:1.6;
+  font-size:clamp(17px, 1.9vw, 21px);
+  color:color-mix(in srgb, var(--text-main) 90%, var(--text-muted) 10%);
+  max-width:700px;
+  line-height:1.5;
   margin:0;
-  font-weight:500;
+  font-weight:600;
+  letter-spacing:0.01em;
+}
+.home-overview {
+  font-size:15px;
+  color:color-mix(in srgb, var(--text-main) 84%, var(--text-muted) 16%);
+  max-width:700px;
+  line-height:1.7;
+  margin:2px auto 6px;
+  padding:14px 16px;
+  border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--border-card) 72%, var(--link) 28%);
+  background:color-mix(in srgb, var(--bg-card) 78%, transparent 22%);
+  box-shadow:0 8px 24px rgba(0,0,0,0.18);
 }
 .home-actions { 
   display:flex; 
@@ -760,9 +773,18 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   transition:transform 100ms ease, box-shadow 100ms ease;
   user-select:none;
 }
+.cookie-btn.is-locked {
+  filter:grayscale(1);
+  opacity:0.55;
+  cursor:not-allowed;
+}
 .cookie-btn:hover {
   transform:translateY(-1px) scale(1.05);
   box-shadow:0 10px 24px rgba(0,0,0,0.32);
+}
+.cookie-btn.is-locked:hover {
+  transform:none;
+  box-shadow:0 8px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
 }
 .cookie-btn:active {
   transform:scale(0.88);
@@ -775,12 +797,65 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   letter-spacing:0.03em;
   text-align:center;
   min-width:52px;
-  pointer-events:none;
+  pointer-events:auto;
   background:color-mix(in srgb, var(--bg-card) 90%, #000 10%);
   border:1px solid var(--border-input);
   border-radius:8px;
   padding:2px 6px;
   box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  cursor:default;
+}
+.cookie-leaderboard {
+  display:none;
+  position:absolute;
+  right:-6px;
+  bottom:calc(100% + 2px);
+  min-width:190px;
+  background:color-mix(in srgb, var(--bg-card) 92%, #000 8%);
+  border:1px solid var(--border-input);
+  border-radius:10px;
+  padding:7px 8px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  z-index:2;
+}
+.cookie-leaderboard::before {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-10px;
+  height:10px;
+}
+.cookie-leaderboard h5 {
+  margin:0 0 4px;
+  font-size:11px;
+  letter-spacing:0.03em;
+  color:var(--text-main);
+}
+.cookie-leaderboard ol {
+  margin:0;
+  padding-left:18px;
+}
+.cookie-btn:hover ~ .cookie-leaderboard,
+.cookie-leaderboard:hover,
+.cookie-dock:focus-within .cookie-leaderboard {
+  display:block;
+}
+.cookie-leaderboard li {
+  font-size:11px;
+  color:var(--text-muted);
+  line-height:1.35;
+}
+.cookie-leaderboard .empty {
+  font-size:11px;
+  color:var(--text-muted);
+}
+.cookie-auth-hint {
+  margin:6px 0 0;
+  padding-top:6px;
+  border-top:1px solid var(--border-input);
+  font-size:11px;
+  color:var(--text-muted);
 }
 .user-dock {
   position:fixed;
@@ -1280,6 +1355,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   <div class="home-text" id="homeText">
     <h2>Welcome to MAXISTREAMS!</h2>
     <p>Your personal streaming hub. Browse channels, discover new content, and enjoy instant playback.</p>
+    <p class="home-overview">Maxistreams is your private all-in-one streaming space for live channels and on-demand folders, built to feel fast, simple, and personal. For the full experience, create an account and log in to unlock cookie clicking, live chat, chronological checkpoints, and theme sync between sessions and devices.</p>
     <div class="home-actions">
       <button class="home-action" onclick="playRandomChannel()">🎲 Random Channel</button>
       <button class="home-action secondary" onclick="setMode('browse')">📂 Browse Library</button>
@@ -1355,8 +1431,15 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 </div>
 
 <div class="cookie-dock" id="cookieDock">
-  <button class="cookie-btn" id="cookieBtn" title="Click the cookie!" aria-label="Cookie clicker">🍪</button>
+  <button class="cookie-btn is-locked" id="cookieBtn" title="Please login to click" aria-label="Cookie clicker">🍪</button>
   <span class="cookie-score" id="cookieScore">...</span>
+  <div class="cookie-leaderboard" id="cookieLeaderboard">
+    <h5>Top 5 Cookie Clickers</h5>
+    <ol id="cookieLeaderboardList">
+      <li class="empty">No clicks yet.</li>
+    </ol>
+    <p id="cookieAuthHint" class="cookie-auth-hint">Please login to use cookie clicker.</p>
+  </div>
 </div>
 
 <div class="theme-dock" id="themeDock">
@@ -1373,7 +1456,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   </button>
   <div class="theme-panel" id="themePanel">
     <h4>Theme</h4>
-    <p>This browser only</p>
+    <p id="themeAuthHint">Login to have persistent theme.</p>
     <select id="themeSelect" aria-label="Theme selector"></select>
   </div>
 </div>
@@ -1470,8 +1553,48 @@ const authTopStatus = document.getElementById("authTopStatus");
 const authPanelIdentity = document.getElementById("authPanelIdentity");
 const cookieBtn = document.getElementById("cookieBtn");
 const cookieScore = document.getElementById("cookieScore");
+const cookieLeaderboardList = document.getElementById("cookieLeaderboardList");
+const cookieAuthHint = document.getElementById("cookieAuthHint");
+const themeAuthHint = document.getElementById("themeAuthHint");
 
 let cookieCountValue = 0;
+let cookiePollTimer = null;
+
+function renderCookieLeaderboard(entries){
+  if(!cookieLeaderboardList) return;
+  cookieLeaderboardList.innerHTML = "";
+  if(!Array.isArray(entries) || !entries.length){
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No clicks yet.";
+    cookieLeaderboardList.appendChild(li);
+    return;
+  }
+  entries.slice(0, 5).forEach((entry) => {
+    const li = document.createElement("li");
+    const safeEntry = (entry && typeof entry === "object") ? entry : {};
+    const name = String(safeEntry.username || "Unknown").trim() || "Unknown";
+    const clicks = Number(safeEntry.clicks) || 0;
+    li.textContent = `${name}: ${formatCookieCount(Math.max(0, clicks))}`;
+    cookieLeaderboardList.appendChild(li);
+  });
+}
+
+function syncCookieAuthState(){
+  if(!cookieBtn) return;
+  const canClick = Boolean(authToken && authUsername);
+  cookieBtn.classList.toggle("is-locked", !canClick);
+  cookieBtn.title = canClick ? "Click the cookie!" : "Please login to click";
+  if(cookieAuthHint) cookieAuthHint.style.display = canClick ? "none" : "block";
+}
+
+function syncThemeAuthHint(){
+  if(!themeAuthHint) return;
+  const loggedIn = Boolean(authToken && authUsername);
+  themeAuthHint.textContent = loggedIn
+    ? "Theme is synced to your account and persists across sessions/devices."
+    : "Login to have persistent theme.";
+}
 
 function formatCookieCount(n){
   if(n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
@@ -1480,34 +1603,53 @@ function formatCookieCount(n){
 }
 
 function fetchCookieCount(){
-  fetch("/api/cookies")
+  const query = authToken ? `?token=${encodeURIComponent(authToken)}` : "";
+  fetch(`/api/cookies${query}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
       if(data && typeof data.count === "number"){
         cookieCountValue = data.count;
         if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
+      }
+      if(data && Array.isArray(data.leaderboard)){
+        renderCookieLeaderboard(data.leaderboard);
       }
     })
     .catch(() => {});
 }
 
 function clickCookie(){
+  if(!authToken || !authUsername){
+    syncCookieAuthState();
+    requireLoginForFeature("cookie clicker");
+    return;
+  }
   cookieCountValue++;
   if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
-  fetch("/api/cookies/click", { method: "POST" })
+  fetch(`/api/cookies/click?token=${encodeURIComponent(authToken)}`, { method: "POST" })
     .then(r => r.ok ? r.json() : null)
     .then(data => {
       if(data && typeof data.count === "number"){
         cookieCountValue = data.count;
         if(cookieScore) cookieScore.textContent = formatCookieCount(cookieCountValue);
       }
+      fetchCookieCount();
     })
-    .catch(() => {});
+    .catch(() => { fetchCookieCount(); });
 }
 
-if(cookieBtn) cookieBtn.addEventListener("click", clickCookie);
-setInterval(fetchCookieCount, 4000);
-fetchCookieCount();
+function initCookieClicker(){
+  try {
+    if(cookieBtn){
+      cookieBtn.addEventListener("click", clickCookie);
+    }
+    syncCookieAuthState();
+    syncThemeAuthHint();
+    fetchCookieCount();
+    if(cookiePollTimer) clearInterval(cookiePollTimer);
+    cookiePollTimer = setInterval(fetchCookieCount, 4000);
+  } catch (_) {}
+}
 
 const THEME_STORAGE_KEY = "maxistreams.theme";
 const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
@@ -2277,6 +2419,9 @@ function setAuthState(token="", username=""){
   // Bottom status line is for transient action/error messages only.
   setAuthStatus("");
   refreshForgotPasswordLink();
+  syncCookieAuthState();
+  syncThemeAuthHint();
+  fetchCookieCount();
 }
 
 function authPost(path, payload){
@@ -2353,8 +2498,8 @@ function fetchThemeFromAccount(){
       let data = {};
       try { data = await r.json(); } catch (_) {}
       if(!r.ok) return null;
-      const theme = normalizeThemeName(data?.theme || "");
-      const vars = sanitizeThemeVars(data?.vars);
+      const theme = normalizeThemeName(((data && data.theme)) || "");
+      const vars = sanitizeThemeVars((data && data.vars));
       if(!theme) return null;
       return { theme, vars };
     })
@@ -2451,7 +2596,7 @@ function fetchChatMessages(initial=false){
       if(r.status === 401){
         let data = {};
         try { data = await r.json(); } catch (_) {}
-        throw new Error(data?.error || "Login required to use chat.");
+        throw new Error(((data && data.error)) || "Login required to use chat.");
       }
       return r.ok ? r.json() : { messages: [] };
     })
@@ -2465,7 +2610,7 @@ function fetchChatMessages(initial=false){
       }
     })
     .catch((err) => {
-      const msg = String(err?.message || "").trim();
+      const msg = String(((err && err.message)) || "").trim();
       if(msg){
         if(chatMessages) chatMessages.innerHTML = `<div class="chat-empty">${escapeHtml(msg)}</div>`;
         requireLoginForFeature("chat");
@@ -2602,7 +2747,7 @@ function sendChatMessage(){
       if(r.status === 401){
         let data = {};
         try { data = await r.json(); } catch (_) {}
-        throw new Error(data?.error || "Login required to use chat.");
+        throw new Error(((data && data.error)) || "Login required to use chat.");
       }
       return r.ok ? r.json() : null;
     })
@@ -2614,7 +2759,7 @@ function sendChatMessage(){
       }
     })
     .catch((err) => {
-      const msg = String(err?.message || "").trim();
+      const msg = String(((err && err.message)) || "").trim();
       if(msg) requireLoginForFeature("chat");
       fetchChatMessages(false);
     });
@@ -2656,9 +2801,9 @@ function refreshOpenFolderChronoPrompt(){
     })
     .then((resume) => {
       if(!chronoBtn.isConnected) return;
-      const index = Math.max(1, Number(resume?.next_index) || 1);
-      const total = Math.max(1, Number(resume?.total) || 1);
-      const rawTitle = String(resume?.display_title || resume?.current_file || "Next episode").trim();
+      const index = Math.max(1, Number((resume && resume.next_index)) || 1);
+      const total = Math.max(1, Number((resume && resume.total)) || 1);
+      const rawTitle = String((resume && resume.display_title) || (resume && resume.current_file) || "Next episode").trim();
       const formatted = formatDisplayPath(rawTitle, "file") || "Next episode";
       chronoBtn.textContent = `📚 Resume ${index}/${total}`;
       chronoBtn.title = `Will play next: ${formatted}`;
@@ -3027,7 +3172,7 @@ function initThemePicker(){
       setAuthBusy(true);
       authPost("/api/auth/register", { username, password }).then(({ ok, data }) => {
         if(!ok){
-          setAuthStatus(data?.error || "Could not create account");
+          setAuthStatus(((data && data.error)) || "Could not create account");
           return;
         }
         setAuthState(data.token || "", data.username || username);
@@ -3044,7 +3189,7 @@ function initThemePicker(){
       setAuthBusy(true);
       authPost("/api/auth/login", { username, password }).then(({ ok, data }) => {
         if(!ok){
-          setAuthStatus(data?.error || "Login failed");
+          setAuthStatus(((data && data.error)) || "Login failed");
           return;
         }
         setAuthState(data.token || "", data.username || username);
@@ -3074,7 +3219,7 @@ function initThemePicker(){
         new_password: newPassword,
       }).then(({ ok, data }) => {
         if(!ok){
-          setAuthStatus(data?.error || "Could not change password");
+          setAuthStatus(((data && data.error)) || "Could not change password");
           return;
         }
         if(passwordInput) passwordInput.value = "";
@@ -3119,7 +3264,7 @@ function initThemePicker(){
       setAuthBusy(true);
       authPost("/api/auth/rename", { token: authToken, new_username: newUsername, password }).then(({ ok, data }) => {
         if(!ok){
-          if(data?.retry_after_seconds){
+          if(data && data.retry_after_seconds){
             const totalSeconds = Math.max(0, Number(data.retry_after_seconds) || 0);
             const totalMinutes = Math.ceil(totalSeconds / 60);
             const hours = Math.floor(totalMinutes / 60);
@@ -3131,7 +3276,7 @@ function initThemePicker(){
               setAuthStatus(`Rename available in ~${Math.max(1, minutes)}m`);
             }
           } else {
-            setAuthStatus(data?.error || "Rename failed");
+            setAuthStatus(((data && data.error)) || "Rename failed");
           }
           return;
         }
@@ -3278,7 +3423,7 @@ function setOnDemandQueuePreview(preview){
   if(!onDemandQueue || !onDemandQueueList) return;
 
   const queueLabel = (entry) => {
-    const raw = String(entry?.display_title || entry?.current_file || "Episode").trim();
+    const raw = String((entry && entry.display_title) || (entry && entry.current_file) || "Episode").trim();
     if(!raw) return "Episode";
     const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
     if(parts.length > 1) return parts.slice(1).join(" / ");
@@ -3287,7 +3432,7 @@ function setOnDemandQueuePreview(preview){
 
   if(!onDemandQueuePreview.length){
     onDemandQueue.style.display = "none";
-    contentRoot?.classList.remove("queue-open");
+    if(contentRoot) contentRoot.classList.remove("queue-open");
     onDemandQueueList.innerHTML = "";
     requestAnimationFrame(() => {
       positionPlaybackUiUnderStream();
@@ -3297,7 +3442,7 @@ function setOnDemandQueuePreview(preview){
   }
 
   onDemandQueue.style.display = "block";
-  contentRoot?.classList.add("queue-open");
+  if(contentRoot) contentRoot.classList.add("queue-open");
   onDemandQueueList.innerHTML = "";
   let currentRow = null;
   let currentPos = -1;
@@ -3605,7 +3750,7 @@ function requestOnDemandSeek(targetSeconds, preferServer=false){
         }
         if(Array.isArray(d.queue_preview)) setOnDemandQueuePreview(d.queue_preview);
         updateOnDemandEpisodeUI();
-        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
         playHLS(d.playlist, true, title, false, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -3746,7 +3891,7 @@ function goToNextOnDemandEpisode(){
         setPendingNextEpisode(false);
         setOnDemandSeekbarDisabled(false);
         updateOnDemandQueueDisabledState();
-        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
         playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -3833,7 +3978,7 @@ function goToOnDemandQueueEpisode(queuePosition){
         setOnDemandSeekbarDisabled(false);
         updateOnDemandQueueDisabledState();
         setOnDemandQueuePreview(d.queue_preview);
-        const title = d.display_title || (currentlyPlayingItem?.dataset?.previewText || "");
+        const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
         playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -3944,9 +4089,9 @@ function stopAndShowHome(){
   Array.from(list.querySelectorAll(".item")).forEach((item) => {
     item.classList.remove("selected");
   });
-  contentRoot?.classList.add("home-mode");
-  contentRoot?.classList.remove("playback-mode");
-  contentRoot?.classList.remove("folder-prompt-mode");
+  if(contentRoot) contentRoot.classList.add("home-mode");
+  if(contentRoot) contentRoot.classList.remove("playback-mode");
+  if(contentRoot) contentRoot.classList.remove("folder-prompt-mode");
   homeText.innerHTML = originalHomeHTML;
   homeText.style.display = "block";
   currentOnDemandPreviewText = "";
@@ -3959,10 +4104,10 @@ function stopAndShowHome(){
 
 function playChannel(channel, sidebarItem=null){
   stopVideo();
-  contentRoot?.classList.remove("home-mode");
+  if(contentRoot) contentRoot.classList.remove("home-mode");
   currentOnDemandPath = "";
-  currentChannelId = String(channel?.id || "");
-  currentChannelLabel = String(channel?.name || "");
+  currentChannelId = String((channel && channel.id) || "");
+  currentChannelLabel = String((channel && channel.name) || "");
   homeText.style.display = "none";
   setStatus(`📺 Loading ${channel.name}...`);
   setOnDemandPreviewText(`Playing ${channel.name}`);
@@ -4042,8 +4187,8 @@ document.addEventListener("keydown", (e) => {
     }
   }
 
-  const tag = (document.activeElement?.tagName || "").toUpperCase();
-  const typing = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
+  const tag = ((document.activeElement && document.activeElement.tagName) || "").toUpperCase();
+  const typing = tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable);
 
   if(e.key === "/" && document.activeElement !== searchInput){
     e.preventDefault();
@@ -4056,7 +4201,7 @@ document.addEventListener("keydown", (e) => {
     if(document.fullscreenElement){
       document.exitFullscreen().catch(() => {});
     } else if(mediaStage && mediaStage.style.display !== "none"){
-      mediaStage.requestFullscreen?.().catch(() => {});
+      if(mediaStage.requestFullscreen) mediaStage.requestFullscreen().catch(() => {});
     }
   } else if((e.key === "m" || e.key === "M") && !typing){
     e.preventDefault();
@@ -4066,7 +4211,8 @@ document.addEventListener("keydown", (e) => {
       setTemporaryOnDemandPreview(video.muted ? "🔇 Muted" : "🔊 Unmuted", 2200);
     }
   } else if((e.key === " " || e.code === "Space") && !typing){
-    if(mediaStage && mediaStage.style.display !== "none"){
+    const canTogglePlayPause = mode === "browse";
+    if(canTogglePlayPause && mediaStage && mediaStage.style.display !== "none"){
       e.preventDefault();
       if(video.paused){
         video.play().catch(() => {});
@@ -4173,10 +4319,10 @@ function resetPlayer() {
   currentOnDemandPreviewText = "";
   onDemandBufferedSeconds = 0;
   nowPlaying.innerHTML = "";
-  contentRoot?.classList.remove("playback-mode");
-  contentRoot?.classList.remove("folder-prompt-mode");
-  contentRoot?.classList.remove("queue-open");
-  contentRoot?.classList.remove("folder-playback");
+  if(contentRoot) contentRoot.classList.remove("playback-mode");
+  if(contentRoot) contentRoot.classList.remove("folder-prompt-mode");
+  if(contentRoot) contentRoot.classList.remove("queue-open");
+  if(contentRoot) contentRoot.classList.remove("folder-playback");
 
   if(currentlyPlayingItem){
     currentlyPlayingItem.classList.remove("playing");
@@ -4247,8 +4393,8 @@ function showSkeleton(item, loadingText="Loading stream...", retryable=false){
   pendingOnDemand = true;
 
   lastLoadingItem = item;
-  contentRoot?.classList.remove("folder-prompt-mode");
-  contentRoot?.classList.add("playback-mode");
+  if(contentRoot) contentRoot.classList.remove("folder-prompt-mode");
+  if(contentRoot) contentRoot.classList.add("playback-mode");
   mediaStage.style.display="flex";
   loadingImage.style.display="block";
   startOnDemandLoadingUI("Preparing on-demand stream...");
@@ -4288,8 +4434,8 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
     onDemandPendingSeekSeconds = null;
   }
 
-  contentRoot?.classList.add("playback-mode");
-  contentRoot?.classList.toggle("folder-playback", Boolean(folder));
+  if(contentRoot) contentRoot.classList.add("playback-mode");
+  if(contentRoot) contentRoot.classList.toggle("folder-playback", Boolean(folder));
   mediaStage.style.display="flex";
   video.style.display="block";
   video.style.visibility="hidden";
@@ -4365,11 +4511,11 @@ function setMode(m){
   applyThemeImages(themeSelect.value);
   list.innerHTML = "";
   if(m === "browse"){
-    contentRoot?.classList.remove("home-mode");
+    if(contentRoot) contentRoot.classList.remove("home-mode");
     list.innerHTML = '<div class="item">Loading folders...</div>';
     setStatus("📁 Loading folders...");
   } else {
-    contentRoot?.classList.add("home-mode");
+    if(contentRoot) contentRoot.classList.add("home-mode");
     setStatus("📺 Loading channels...");
   }
   homeText.style.display = (m==="channels") ? "block" : "none";
@@ -4457,7 +4603,7 @@ function loadFolder(path){
           div.onclick=()=>{
             setSelectedBrowseItem(div);
             stopVideo();
-            contentRoot?.classList.add("folder-prompt-mode");
+            if(contentRoot) contentRoot.classList.add("folder-prompt-mode");
             div.classList.add("selected");
             homeText.innerHTML = `
               <h2>📁 ${i.name}</h2>
@@ -4490,7 +4636,7 @@ function loadFolder(path){
                 if(r.status === 401){
                   let data = {};
                   try { data = await r.json(); } catch (_) {}
-                  throw new Error(data?.error || "Login required for chronological checkpoints.");
+                  throw new Error(((data && data.error)) || "Login required for chronological checkpoints.");
                 }
                 if(!r.ok) throw new Error("play_folder failed");
                 return r.json();
@@ -4529,7 +4675,7 @@ function loadFolder(path){
                 });
               })
               .catch((err)=>{
-                const msg = String(err?.message || "").trim();
+                const msg = String(((err && err.message)) || "").trim();
                 if(msg.toLowerCase().includes("login required")){
                   failOnDemandLoad(div, `⚠️ ${msg}`);
                   requireLoginForFeature("chronological checkpoints");
@@ -4649,6 +4795,7 @@ window.addEventListener("pagehide", stopCurrentStream);
 
 /* ---------- Init ---------- */
 initThemePicker();
+initCookieClicker();
 syncOverlayHeight();
 window.addEventListener("resize", () => {
   syncOverlayHeight();
