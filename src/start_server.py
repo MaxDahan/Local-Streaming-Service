@@ -206,6 +206,10 @@ AUTH_DB = {"users": {}, "sessions": {}}
 RENAME_COOLDOWN_SECONDS = 24 * 60 * 60
 AUTH_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 AUTH_MAX_SESSIONS_PER_USER = 6
+THEME_NAME_RE = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+THEME_VAR_KEY_RE = re.compile(r"^--[a-zA-Z0-9_-]{1,64}$")
+THEME_MAX_VARS = 256
+THEME_MAX_VALUE_LENGTH = 512
 
 
 def load_cookie_count():
@@ -309,6 +313,32 @@ def normalize_username(username):
     return value
 
 
+def normalize_theme_payload(raw_theme, raw_vars):
+    theme_name = str(raw_theme or "").strip().lower()
+    if not theme_name or not THEME_NAME_RE.fullmatch(theme_name):
+        return None
+
+    clean_vars = {}
+    if isinstance(raw_vars, dict):
+        for key, value in raw_vars.items():
+            if len(clean_vars) >= THEME_MAX_VARS:
+                break
+            k = str(key or "").strip()
+            v = str(value or "").strip()
+            if not k or not v:
+                continue
+            if not THEME_VAR_KEY_RE.fullmatch(k):
+                continue
+            if len(v) > THEME_MAX_VALUE_LENGTH:
+                continue
+            clean_vars[k] = v
+
+    return {
+        "name": theme_name,
+        "vars": clean_vars,
+    }
+
+
 def prune_auth_sessions_locked(now_ts=None):
     """Prune stale/invalid auth sessions while AUTH_LOCK is held."""
     now = int(now_ts or time.time())
@@ -386,6 +416,13 @@ def load_auth_db():
             "created_ts": created_ts,
             "last_rename_ts": last_rename_ts,
         }
+        theme_payload = normalize_theme_payload(info.get("theme"), info.get("theme_vars"))
+        if not theme_payload and isinstance(info.get("theme_pref"), dict):
+            # Backward/alternate shape support.
+            pref = info.get("theme_pref")
+            theme_payload = normalize_theme_payload(pref.get("name"), pref.get("vars"))
+        if theme_payload:
+            clean_users[k]["theme_pref"] = theme_payload
 
     clean_sessions = {}
     for token, info in sessions_map.items():
@@ -1001,6 +1038,27 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 self.wfile.write(json.dumps({"authenticated": False}).encode())
             return
+        if parsed.path == "/api/auth/theme":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                return
+
+            pref = user_info.get("theme_pref") if isinstance(user_info.get("theme_pref"), dict) else {}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "ok": True,
+                "theme": pref.get("name", ""),
+                "vars": pref.get("vars", {}) if isinstance(pref.get("vars"), dict) else {},
+            }).encode())
+            return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -1153,11 +1211,17 @@ class Handler(SimpleHTTPRequestHandler):
             user_key = username.lower()
             with AUTH_LOCK:
                 user_info = AUTH_DB.get("users", {}).get(user_key)
-            if not isinstance(user_info, dict) or str(user_info.get("password") or "") != password:
+            if not isinstance(user_info, dict):
                 self.send_response(401)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid username or password"}).encode())
+                self.wfile.write(json.dumps({"error": "Invalid username and password"}).encode())
+                return
+            if str(user_info.get("password") or "") != password:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Username exists but password is incorrect"}).encode())
                 return
             token = auth_create_session(user_key)
             self.send_response(200)
@@ -1173,6 +1237,47 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/auth/logout":
             token = str(body.get("token") or "").strip()
             auth_remove_session(token)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/auth/theme":
+            token = str(body.get("token") or "").strip()
+            theme_name = body.get("theme")
+            theme_vars = body.get("vars")
+
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                return
+
+            normalized_theme = normalize_theme_payload(theme_name, theme_vars)
+            if not normalized_theme:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid theme payload"}).encode())
+                return
+
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                updated = dict(current)
+                updated["theme_pref"] = normalized_theme
+                users[user_key] = updated
+            save_auth_db()
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()

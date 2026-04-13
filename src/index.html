@@ -1966,6 +1966,8 @@ let authToken = "";
 let authUsername = "";
 let authBusy = false;
 let bootThemeOwner = "";
+let accountThemeName = "";
+let accountThemeVars = null;
 
 try {
   bootThemeOwner = (localStorage.getItem(AUTH_LAST_USERNAME_STORAGE_KEY) || "").trim().toLowerCase();
@@ -2247,6 +2249,7 @@ function setAuthState(token="", username=""){
     setAuthPanelIdentity(`Logged in as ${authUsername}`);
     if(normalizeThemeOwner(previousAuthUsername) !== normalizeThemeOwner(authUsername)){
       applyStoredThemeForOwner(authUsername, true);
+      syncThemeFromAccount(false);
     }
   } else {
     try {
@@ -2257,6 +2260,8 @@ function setAuthState(token="", username=""){
     setAuthStateStyles(false);
     setAuthTopStatus("Logged out");
     setAuthPanelIdentity("Logged out");
+    accountThemeName = "";
+    accountThemeVars = null;
     if(previousAuthUsername){
       applyTheme(configuredDefaultTheme, false);
     }
@@ -2293,6 +2298,92 @@ function authPost(path, payload){
       data: { error: err && err.name === "AbortError" ? "Request timed out" : "Network error" },
     };
   }).finally(() => clearTimeout(timeout));
+}
+
+function sanitizeThemeVars(rawVars){
+  if(!rawVars || typeof rawVars !== "object") return {};
+  const clean = {};
+  Object.entries(rawVars).forEach(([key, value]) => {
+    const k = String(key || "").trim();
+    const v = String(value || "").trim();
+    if(!k.startsWith("--") || !k || !v) return;
+    if(k.length > 70 || v.length > 512) return;
+    clean[k] = v;
+  });
+  return clean;
+}
+
+function cacheThemeForOwner(owner, themeName, vars){
+  const normalizedTheme = normalizeThemeName(themeName);
+  if(!normalizedTheme) return;
+  try {
+    const keys = getThemeStorageKeys(owner);
+    localStorage.setItem(keys.themeKey, normalizedTheme);
+    localStorage.setItem(keys.varsKey, JSON.stringify({
+      theme: normalizedTheme,
+      vars: sanitizeThemeVars(vars),
+    }));
+  } catch (_) {}
+}
+
+function saveThemeToAccount(themeName, vars){
+  const token = String(authToken || "").trim();
+  const owner = normalizeThemeOwner(authUsername);
+  const normalizedTheme = normalizeThemeName(themeName);
+  if(!token || !owner || !normalizedTheme) return;
+
+  accountThemeName = normalizedTheme;
+  accountThemeVars = sanitizeThemeVars(vars);
+  cacheThemeForOwner(authUsername, normalizedTheme, accountThemeVars);
+
+  authPost("/api/auth/theme", {
+    token,
+    theme: normalizedTheme,
+    vars: accountThemeVars,
+  }).catch(() => {});
+}
+
+function fetchThemeFromAccount(){
+  const token = String(authToken || "").trim();
+  const owner = normalizeThemeOwner(authUsername);
+  if(!token || !owner) return Promise.resolve(null);
+
+  return fetch(`/api/auth/theme?token=${encodeURIComponent(token)}`)
+    .then(async (r) => {
+      let data = {};
+      try { data = await r.json(); } catch (_) {}
+      if(!r.ok) return null;
+      const theme = normalizeThemeName(data?.theme || "");
+      const vars = sanitizeThemeVars(data?.vars);
+      if(!theme) return null;
+      return { theme, vars };
+    })
+    .catch(() => null);
+}
+
+function syncThemeFromAccount(fallbackToLocal=true){
+  const owner = normalizeThemeOwner(authUsername);
+  const token = String(authToken || "").trim();
+  if(!owner || !token) return Promise.resolve(false);
+
+  return fetchThemeFromAccount().then((pref) => {
+    // Ignore stale async responses when auth state changed.
+    if(owner !== normalizeThemeOwner(authUsername) || token !== String(authToken || "").trim()){
+      return false;
+    }
+    if(pref && pref.theme){
+      accountThemeName = pref.theme;
+      accountThemeVars = pref.vars || {};
+      cacheThemeForOwner(authUsername, pref.theme, accountThemeVars);
+      applyTheme(pref.theme, false);
+      return true;
+    }
+    if(fallbackToLocal) applyStoredThemeForOwner(authUsername, true);
+    return false;
+  }).catch(() => {
+    if(fallbackToLocal) applyStoredThemeForOwner(authUsername, true);
+    return false;
+  });
 }
 
 function refreshAuthSession(){
@@ -2754,6 +2845,9 @@ function applyTheme(themeName, persist=true){
       localStorage.setItem(keys.themeKey, themeSelect.value);
       localStorage.setItem(keys.varsKey, JSON.stringify({ theme: themeSelect.value, vars: preset }));
     } catch (_) {}
+    if(authToken && authUsername){
+      saveThemeToAccount(themeSelect.value, preset);
+    }
   }
 }
 
@@ -3082,10 +3176,13 @@ function loadConfig(){
 
       setThemeOptions(configuredThemes);
       return hydrateThemeConfigs(configuredThemes).then(() => {
-        let saved = getStoredThemeForOwner(getThemeOwnerForLoad()) || configuredDefaultTheme;
+        let saved = accountThemeName || getStoredThemeForOwner(getThemeOwnerForLoad()) || configuredDefaultTheme;
         saved = normalizeThemeName(saved);
         if(!configuredThemes.includes(saved)) saved = configuredDefaultTheme;
-        applyTheme(saved);
+        applyTheme(saved, false);
+        if(authToken && authUsername){
+          return syncThemeFromAccount(false).then(() => {});
+        }
       });
     })
     .catch(() => {
@@ -3927,6 +4024,24 @@ searchInput.addEventListener("keydown", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  const activeEl = document.activeElement;
+  if(e.key === "Escape"){
+    const themeOpen = Boolean(themePanel && themePanel.classList.contains("open"));
+    const userOpen = Boolean(userPanel && userPanel.classList.contains("open"));
+    const focusedInTheme = Boolean(themePanel && activeEl && themePanel.contains(activeEl));
+    const focusedInUser = Boolean(userPanel && activeEl && userPanel.contains(activeEl));
+
+    if(themeOpen || userOpen || focusedInTheme || focusedInUser){
+      if(themePanel) themePanel.classList.remove("open");
+      if(userPanel) userPanel.classList.remove("open");
+      if(activeEl && (focusedInTheme || focusedInUser) && typeof activeEl.blur === "function"){
+        activeEl.blur();
+      }
+      e.preventDefault();
+      return;
+    }
+  }
+
   const tag = (document.activeElement?.tagName || "").toUpperCase();
   const typing = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
 
