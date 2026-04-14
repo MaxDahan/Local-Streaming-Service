@@ -19,7 +19,8 @@ media/converted/**
 
 # Chat/data history and local notes
 output/chat_history/
-configurations/users.json
+src/configurations/users.json
+output/users.json
 output/folder_resume.json
 chat_history/
 backup-channels.json
