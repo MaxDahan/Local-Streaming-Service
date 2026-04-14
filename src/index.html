@@ -254,15 +254,6 @@ video.live-channel::-webkit-media-controls-overlay-play-button { display:none !i
   line-height:1.04;
   text-shadow:0 4px 18px rgba(0,0,0,0.3);
 }
-.home-text > p:first-of-type {
-  font-size:clamp(17px, 1.9vw, 21px);
-  color:color-mix(in srgb, var(--text-main) 90%, var(--text-muted) 10%);
-  max-width:700px;
-  line-height:1.5;
-  margin:0;
-  font-weight:600;
-  letter-spacing:0.01em;
-}
 .home-overview {
   font-size:15px;
   color:color-mix(in srgb, var(--text-main) 84%, var(--text-muted) 16%);
@@ -274,6 +265,61 @@ video.live-channel::-webkit-media-controls-overlay-play-button { display:none !i
   border:1px solid color-mix(in srgb, var(--border-card) 72%, var(--link) 28%);
   background:color-mix(in srgb, var(--bg-card) 78%, transparent 22%);
   box-shadow:0 8px 24px rgba(0,0,0,0.18);
+}
+.home-live-card {
+  margin:2px auto 0;
+  max-width:700px;
+  padding:14px 16px;
+  border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--status-border) 70%, var(--border-card) 30%);
+  background:color-mix(in srgb, var(--status-bg) 74%, transparent 26%);
+  box-shadow:0 8px 24px rgba(0,0,0,0.18);
+  text-align:left;
+}
+.home-live-card h3 {
+  margin:0 0 6px;
+  font-size:14px;
+  color:var(--status-text);
+  letter-spacing:0.03em;
+  text-transform:uppercase;
+}
+.home-live-count {
+  margin:0;
+  color:var(--text-main);
+  font-size:16px;
+  font-weight:700;
+}
+.home-live-count strong {
+  color:var(--accent-strong);
+}
+.home-live-users {
+  margin:8px 0 0;
+  color:var(--text-muted);
+  font-size:13px;
+  line-height:1.45;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.home-live-users-empty {
+  margin:0;
+  color:var(--text-muted);
+  font-size:13px;
+}
+.home-live-user-pill {
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--status-border) 64%, var(--border-card) 36%);
+  background:color-mix(in srgb, var(--bg-card) 86%, transparent 14%);
+  color:var(--text-main);
+  font-size:12px;
+  font-weight:700;
+}
+.home-live-user-pill.me {
+  border-color:color-mix(in srgb, var(--accent-strong) 68%, var(--status-border) 32%);
+  color:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
 }
 .home-actions { 
   display:flex; 
@@ -314,6 +360,31 @@ video.live-channel::-webkit-media-controls-overlay-play-button { display:none !i
   color:var(--text-muted); 
   margin:12px 0 0 0;
   font-weight:500;
+}
+.home-block-title {
+  margin:14px auto 0;
+  max-width:760px;
+  text-align:left;
+}
+.home-block-title h3 {
+  margin:0;
+  font-size:16px;
+  color:var(--text-main);
+  letter-spacing:0.02em;
+}
+.home-block-title p {
+  margin:6px 0 0;
+  font-size:13px;
+  color:var(--text-muted);
+  line-height:1.5;
+}
+.home-chat-shell {
+  width:100%;
+  max-width:760px;
+  align-self:flex-start;
+  margin-left:0;
+  margin-right:auto;
+  text-align:left;
 }
 kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-bottom-width:2px; padding:2px 6px; border-radius:6px; font-size:12px; }
 #playFolderBtn {
@@ -660,6 +731,28 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   width:min(92%, 1400px);
   max-height:320px;
 }
+.content.home-mode .chat-stage {
+  position:relative;
+  right:auto;
+  bottom:auto;
+  left:auto;
+  transform:none;
+  top:auto;
+  width:100%;
+  margin:10px 0 0;
+  max-height:none;
+  z-index:2;
+  text-align:left;
+}
+.content.home-mode .chat-messages {
+  min-height:220px;
+  max-height:280px;
+  text-align:left;
+}
+.content.home-mode .chat-row,
+.content.home-mode .chat-empty {
+  text-align:left;
+}
 .chat-header {
   display:flex;
   justify-content:space-between;
@@ -973,14 +1066,40 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 .user-panel .user-actions {
   display:grid;
-  grid-template-columns:1fr;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:6px;
   margin-top:8px;
+}
+.user-panel .user-actions button {
+  margin-top:0;
 }
 .user-panel button.secondary {
   background:var(--bg-button);
   color:var(--text-main);
   border:1px solid var(--border-input);
+}
+.user-panel .admin-health-link {
+  display:none;
+  margin:0 0 8px;
+  width:100%;
+  box-sizing:border-box;
+  border-radius:9px;
+  border:1px solid #b56b2f;
+  background:color-mix(in srgb, #6a3a1a 72%, transparent 28%);
+  color:#ffe8d0;
+  text-decoration:none;
+  text-align:left;
+  font-weight:700;
+  font-size:11px;
+  line-height:1.35;
+  padding:6px 8px;
+}
+.user-panel .admin-health-link.visible {
+  display:block;
+}
+.user-panel .admin-health-link:hover {
+  border-color:#d78946;
+  background:color-mix(in srgb, #7a451f 76%, transparent 24%);
 }
 .user-panel .auth-status {
   margin:8px 0 0;
@@ -1353,14 +1472,28 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 <div class="content home-mode">
   <div class="home-text" id="homeText">
     <h2>Welcome to MAXISTREAMS!</h2>
-    <p>Your personal streaming hub. Browse channels, discover new content, and enjoy instant playback.</p>
     <p class="home-overview">Maxistreams is your private all-in-one streaming space for live channels and on-demand folders, built to feel fast, simple, and personal. For the full experience, create an account and log in to unlock cookie clicking, live chat, chronological checkpoints, and theme sync between sessions and devices.</p>
+    <div class="home-live-card">
+      <h3>Online Users</h3>
+      <div class="home-live-users" id="homeCurrentUsersList" aria-live="polite">
+        <p class="home-live-users-empty">Waiting for activity...</p>
+      </div>
+    </div>
     <div class="home-actions">
       <button class="home-action" onclick="playRandomChannel()">🎲 Random Channel</button>
       <button class="home-action secondary" onclick="setMode('browse')">📂 Browse Library</button>
     </div>
     <p class="home-tip">💡 Tip: Press <kbd>/</kbd> to search • <kbd>Esc</kbd> to stop playback</p>
     <img data-theme-home alt="Theme homepage" style="max-width:100%; margin-top:20px; border-radius:12px; display:none;" />
+    <div class="home-block-title">
+      <h3>Live Lobby Chat</h3>
+      <p>Chat with people who are online right now.</p>
+    </div>
+    <div id="homeChatMount" class="home-chat-shell"></div>
+    <div class="home-block-title">
+      <h3>Additional Info</h3>
+      <p>Project links, release notes, and updates.</p>
+    </div>
     <div class="github-card">
       <span class="github-label">🔗 Check out this project on GitHub</span>
       <a href="https://github.com/MaxDahan/Local-Streaming-Service" target="_blank" rel="noopener noreferrer">
@@ -1464,6 +1597,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   <button class="user-toggle" id="userToggle" title="Account" aria-label="Account">ME</button>
   <div class="user-panel" id="userPanel">
     <p id="authPanelIdentity" class="auth-panel-identity logged-out">Logged out</p>
+    <a id="adminHealthPanelLink" class="admin-health-link" href="#" aria-label="Open admin health dashboard">Admin Health Dashboard</a>
     <label for="usernameInput">Username</label>
     <input id="usernameInput" type="text" maxlength="32" placeholder="username" />
     <label for="passwordInput">Password</label>
@@ -1555,6 +1689,7 @@ const cookieScore = document.getElementById("cookieScore");
 const cookieLeaderboardList = document.getElementById("cookieLeaderboardList");
 const cookieAuthHint = document.getElementById("cookieAuthHint");
 const themeAuthHint = document.getElementById("themeAuthHint");
+const adminHealthPanelLink = document.getElementById("adminHealthPanelLink");
 
 let cookieCountValue = 0;
 let cookiePollTimer = null;
@@ -1650,12 +1785,48 @@ function initCookieClicker(){
   } catch (_) {}
 }
 
+function hideAdminPanelLink(){
+  if(!adminHealthPanelLink) return;
+  adminHealthPanelLink.classList.remove("visible");
+  adminHealthPanelLink.removeAttribute("href");
+}
+
+function showAdminPanelLink(token){
+  if(!adminHealthPanelLink) return;
+  adminHealthPanelLink.href = `/admin/health?token=${encodeURIComponent(token)}`;
+  adminHealthPanelLink.classList.add("visible");
+}
+
+function refreshAdminEntryButton(){
+  if(!authToken || !authUsername){
+    hideAdminPanelLink();
+    return;
+  }
+  const requestedToken = authToken;
+  fetch(`/api/admin/flag?token=${encodeURIComponent(requestedToken)}`, { cache: "no-store" })
+    .then((r) => r.ok ? r.json() : { isAdmin: false })
+    .then((data) => {
+      if(!authToken || !authUsername || authToken !== requestedToken){
+        hideAdminPanelLink();
+        return;
+      }
+      if(data && data.isAdmin){
+        showAdminPanelLink(requestedToken);
+      } else {
+        hideAdminPanelLink();
+      }
+    })
+    .catch(() => hideAdminPanelLink());
+}
+
 const THEME_STORAGE_KEY = "maxistreams.theme";
 const THEME_VARS_STORAGE_KEY = "maxistreams.theme.vars";
 const THEME_USER_STORAGE_PREFIX = "maxistreams.theme.user.";
 const THEME_USER_VARS_STORAGE_PREFIX = "maxistreams.theme.vars.user.";
 const CHAT_USERNAME_KEY = "maxistreams.chat.username";
+const CHAT_COLLAPSED_STATE_STORAGE_KEY = "maxistreams.chat.collapsedByChannel";
 const AUTH_TOKEN_STORAGE_KEY = "maxistreams.auth.token";
+const PRESENCE_CLIENT_ID_STORAGE_KEY = "maxistreams.presence.clientId";
 const AUTH_TOKEN_SESSION_STORAGE_KEY = "maxistreams.auth.token.session";
 const AUTH_REMEMBER_STORAGE_KEY = "maxistreams.auth.rememberMe";
 const AUTH_LAST_USERNAME_STORAGE_KEY = "maxistreams.auth.lastUsername";
@@ -1663,6 +1834,7 @@ const AUTOPLAY_NEXT_STORAGE_KEY = "maxistreams.onDemand.autoplayNext";
 const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
 const DEFAULT_HOME_IMAGE = "";
 const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
+const HOMEPAGE_CHAT_CHANNEL = "homepage";
 const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo", "pokemon"];
 const THEME_LABELS = {
   default: "Default",
@@ -2078,6 +2250,9 @@ let chatChannel = "";
 let chatPollTimer = null;
 let chatLastMessageId = 0;
 let chatCollapsed = false;
+let chatCollapsedByChannel = {};
+let presenceClientId = "";
+let presencePollTimer = null;
 let onDemandProgressVisual = 0;
 let onDemandProgressTarget = 0;
 let onDemandProgressTimer = null;
@@ -2114,6 +2289,20 @@ try {
   bootThemeOwner = (localStorage.getItem(AUTH_LAST_USERNAME_STORAGE_KEY) || "").trim().toLowerCase();
 } catch (_) {
   bootThemeOwner = "";
+}
+
+try {
+  const rawChatCollapseMap = localStorage.getItem(CHAT_COLLAPSED_STATE_STORAGE_KEY);
+  const parsedChatCollapseMap = rawChatCollapseMap ? JSON.parse(rawChatCollapseMap) : {};
+  if(parsedChatCollapseMap && typeof parsedChatCollapseMap === "object" && !Array.isArray(parsedChatCollapseMap)){
+    Object.entries(parsedChatCollapseMap).forEach(([key, value]) => {
+      const channel = String(key || "").trim();
+      if(!channel) return;
+      chatCollapsedByChannel[channel] = Boolean(value);
+    });
+  }
+} catch (_) {
+  chatCollapsedByChannel = {};
 }
 
 function setAuthBusy(isBusy){
@@ -2213,6 +2402,137 @@ if(onDemandAutoplayToggle){
   });
 }
 
+function ensurePresenceClientId(){
+  if(presenceClientId) return presenceClientId;
+
+  try {
+    const stored = (localStorage.getItem(PRESENCE_CLIENT_ID_STORAGE_KEY) || "").trim();
+    if(/^[A-Za-z0-9._:-]{8,128}$/.test(stored)){
+      presenceClientId = stored;
+      return presenceClientId;
+    }
+  } catch (_) {}
+
+  let generated = "";
+  try {
+    if(window.crypto && typeof window.crypto.randomUUID === "function"){
+      generated = `web-${window.crypto.randomUUID()}`;
+    }
+  } catch (_) {}
+
+  if(!generated){
+    generated = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  }
+
+  generated = generated.replace(/[^A-Za-z0-9._:-]/g, "").slice(0, 128);
+  if(generated.length < 8){
+    generated = `web-${Date.now().toString(36)}-fallback`;
+  }
+
+  presenceClientId = generated;
+  try {
+    localStorage.setItem(PRESENCE_CLIENT_ID_STORAGE_KEY, presenceClientId);
+  } catch (_) {}
+  return presenceClientId;
+}
+
+function renderCurrentUsers(payload){
+  const usersEl = document.getElementById("homeCurrentUsersList");
+  if(!usersEl) return;
+
+  usersEl.innerHTML = "";
+  const requiresLogin = Boolean(payload && payload.requires_login);
+  if(requiresLogin){
+    usersEl.innerHTML = '<p class="home-live-users-empty">Login to see online users.</p>';
+    return;
+  }
+
+  const users = Array.isArray(payload && payload.users) ? payload.users : [];
+  if(!users.length){
+    usersEl.innerHTML = '<p class="home-live-users-empty">No logged-in users online right now.</p>';
+    return;
+  }
+
+  const seen = new Set();
+  const labels = users.map((entry) => {
+    const info = (entry && typeof entry === "object") ? entry : {};
+    const username = String(info.username || "Guest").trim() || "Guest";
+    const key = `${username.toLowerCase()}::${info.is_me ? "me" : "other"}`;
+    if(seen.has(key)) return null;
+    seen.add(key);
+    return {
+      label: info.is_me ? `${username} (you)` : username,
+      isMe: Boolean(info.is_me),
+      sortName: username.toLowerCase(),
+    };
+  }).filter(Boolean);
+
+  labels.sort((a, b) => {
+    if(a.isMe && !b.isMe) return -1;
+    if(!a.isMe && b.isMe) return 1;
+    return a.sortName.localeCompare(b.sortName);
+  });
+
+  if(!labels.length){
+    usersEl.innerHTML = '<p class="home-live-users-empty">No logged-in users online right now.</p>';
+    return;
+  }
+
+  labels.forEach((item) => {
+    const pill = document.createElement("span");
+    pill.className = `home-live-user-pill${item.isMe ? " me" : ""}`;
+    pill.textContent = item.label;
+    usersEl.appendChild(pill);
+  });
+}
+
+function fetchCurrentUsers(){
+  const clientId = ensurePresenceClientId();
+  if(!clientId) return;
+
+  const params = new URLSearchParams({ client_id: clientId });
+  if(authToken) params.set("token", authToken);
+
+  fetch(`/api/presence?${params.toString()}`, { cache: "no-store" })
+    .then((r) => r.ok ? r.json() : null)
+    .then((data) => {
+      if(data) renderCurrentUsers(data);
+    })
+    .catch(() => {});
+}
+
+function startPresencePolling(){
+  ensurePresenceClientId();
+  fetchCurrentUsers();
+  if(presencePollTimer) clearInterval(presencePollTimer);
+  presencePollTimer = setInterval(fetchCurrentUsers, 4000);
+}
+
+function sendPresenceOffline(){
+  const clientId = ensurePresenceClientId();
+  if(!clientId) return;
+
+  const payload = {
+    client_id: clientId,
+    token: authToken || "",
+  };
+
+  try {
+    const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    if(navigator.sendBeacon){
+      navigator.sendBeacon("/api/presence/offline", body);
+      return;
+    }
+  } catch (_) {}
+
+  fetch("/api/presence/offline", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function setOnDemandPlayMode(mode="single"){
   const normalized = mode === "chronological" ? "chronological" : (mode === "shuffle" ? "shuffle" : "single");
   onDemandPlayMode = normalized;
@@ -2290,6 +2610,32 @@ function setChatCollapsed(collapsed){
   requestAnimationFrame(positionChatUnderStream);
 }
 
+function getDefaultChatCollapsed(channelId){
+  return String(channelId || "") === HOMEPAGE_CHAT_CHANNEL;
+}
+
+function getChatCollapsedForChannel(channelId){
+  const key = String(channelId || "").trim();
+  if(!key) return false;
+  if(Object.prototype.hasOwnProperty.call(chatCollapsedByChannel, key)){
+    return Boolean(chatCollapsedByChannel[key]);
+  }
+  return getDefaultChatCollapsed(key);
+}
+
+function setChatCollapsedForChannel(channelId, collapsed){
+  const key = String(channelId || "").trim();
+  if(!key) return;
+  chatCollapsedByChannel[key] = Boolean(collapsed);
+  try {
+    localStorage.setItem(CHAT_COLLAPSED_STATE_STORAGE_KEY, JSON.stringify(chatCollapsedByChannel));
+  } catch (_) {}
+}
+
+function getHomeChatMount(){
+  return document.getElementById("homeChatMount");
+}
+
 function escapeHtml(value){
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -2331,6 +2677,13 @@ function setAuthTopStatus(text){
 
 function setAuthPanelIdentity(text){
   if(authPanelIdentity) authPanelIdentity.textContent = text;
+}
+
+function syncAuthActionButtons(isLoggedIn){
+  if(createAccountBtn) createAccountBtn.style.display = isLoggedIn ? "none" : "";
+  if(loginBtn) loginBtn.style.display = isLoggedIn ? "none" : "";
+  if(renameAccountBtn) renameAccountBtn.style.display = isLoggedIn ? "" : "none";
+  if(logoutBtn) logoutBtn.style.display = isLoggedIn ? "" : "none";
 }
 
 function requireLoginForFeature(featureLabel){
@@ -2378,8 +2731,10 @@ function setAuthState(token="", username=""){
   authToken = String(token || "").trim();
   authUsername = String(username || "").trim();
   persistAuthToken(authToken);
+  const loggedIn = Boolean(authUsername);
+  syncAuthActionButtons(loggedIn);
 
-  if(authUsername){
+  if(loggedIn){
     try {
       bootThemeOwner = normalizeThemeOwner(authUsername);
       localStorage.setItem(AUTH_LAST_USERNAME_STORAGE_KEY, bootThemeOwner);
@@ -2411,7 +2766,9 @@ function setAuthState(token="", username=""){
   refreshOpenFolderChronoPrompt();
   if(currentChannelId){
     openChannelChat(currentChannelId, currentChannelLabel || currentChannelId);
-  } else if(!authUsername) {
+  } else if(mode === "channels" && homeText && homeText.style.display !== "none") {
+    openHomeLobbyChat();
+  } else {
     closeChannelChat();
   }
 
@@ -2420,7 +2777,9 @@ function setAuthState(token="", username=""){
   refreshForgotPasswordLink();
   syncCookieAuthState();
   syncThemeAuthHint();
+  refreshAdminEntryButton();
   fetchCookieCount();
+  fetchCurrentUsers();
 }
 
 function authPost(path, payload){
@@ -2619,11 +2978,18 @@ function fetchChatMessages(initial=false){
 
 function openChannelChat(channelId, label){
   if(!chatStage || !channelId) return;
+  const homeChatMount = getHomeChatMount();
+  const isHomeLobby = String(channelId) === HOMEPAGE_CHAT_CHANNEL;
+  if(String(channelId) === HOMEPAGE_CHAT_CHANNEL && homeChatMount && mode === "channels"){
+    if(chatStage.parentElement !== homeChatMount) homeChatMount.appendChild(chatStage);
+  } else if(contentRoot && chatStage.parentElement !== contentRoot) {
+    contentRoot.appendChild(chatStage);
+  }
   chatChannel = String(channelId);
   chatLastMessageId = 0;
   if(chatTitle) chatTitle.textContent = `Live Chat · ${label || channelId}`;
   chatStage.style.display = "block";
-  setChatCollapsed(chatCollapsed);
+  setChatCollapsed(getChatCollapsedForChannel(chatChannel));
   requestAnimationFrame(positionChatUnderStream);
 
   if(!authToken){
@@ -2648,6 +3014,17 @@ function openChannelChat(channelId, label){
   fetchChatMessages(true);
   if(chatPollTimer) clearInterval(chatPollTimer);
   chatPollTimer = setInterval(() => fetchChatMessages(false), 2500);
+}
+
+function openHomeLobbyChat(){
+  if(mode !== "channels") return;
+  if(currentChannelId) return;
+  if(!homeText || homeText.style.display === "none") return;
+  const homeChatMount = getHomeChatMount();
+  if(homeChatMount && chatStage && chatStage.parentElement !== homeChatMount){
+    homeChatMount.appendChild(chatStage);
+  }
+  openChannelChat(HOMEPAGE_CHAT_CHANNEL, "Homepage Lobby");
 }
 
 function closeChannelChat(){
@@ -3120,7 +3497,11 @@ function initThemePicker(){
     });
   }
   if(chatToggleBtn){
-    chatToggleBtn.addEventListener("click", () => setChatCollapsed(!chatCollapsed));
+    chatToggleBtn.addEventListener("click", () => {
+      const next = !chatCollapsed;
+      setChatCollapsed(next);
+      if(chatChannel) setChatCollapsedForChannel(chatChannel, next);
+    });
   }
   if(userToggle && userPanel && userDock){
     userToggle.addEventListener("click", (e) => {
@@ -4080,7 +4461,13 @@ function refreshCurrentView(){
   }
 }
 
+function resetContentScrollTop(){
+  if(!contentRoot) return;
+  contentRoot.scrollTop = 0;
+}
+
 function stopAndShowHome(){
+  resetContentScrollTop();
   searchInput.value = "";
   applyListFilter();
   stopVideo();
@@ -4098,10 +4485,13 @@ function stopAndShowHome(){
   setSelectionPreview();
   applyThemeImages(themeSelect.value);
   loadPatchNotes();
+  openHomeLobbyChat();
+  fetchCurrentUsers();
   syncOverlayHeight();
 }
 
 function playChannel(channel, sidebarItem=null){
+  resetContentScrollTop();
   stopVideo();
   if(contentRoot) contentRoot.classList.remove("home-mode");
   currentOnDemandPath = "";
@@ -4498,6 +4888,7 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
 
 /* ---------- Mode switching ---------- */
 function setMode(m){
+  resetContentScrollTop();
   searchInput.value = "";
   mode = m;
   listLoadToken++;
@@ -4522,6 +4913,8 @@ function setMode(m){
   if(m === "channels"){
     loadChannels();
     loadPatchNotes();
+    openHomeLobbyChat();
+    fetchCurrentUsers();
   } else {
     currentPath = mediaRoot;
     loadFolder(currentPath);
@@ -4790,16 +5183,25 @@ function waitForSegments(url,minSegments,callback,requestToken=null,opts={}){
   },150);
 }
 
-window.addEventListener("pagehide", stopCurrentStream);
+window.addEventListener("pagehide", () => {
+  sendPresenceOffline();
+  stopCurrentStream();
+});
+window.addEventListener("beforeunload", sendPresenceOffline);
 
 /* ---------- Init ---------- */
 initThemePicker();
 initCookieClicker();
+startPresencePolling();
 syncOverlayHeight();
 window.addEventListener("resize", () => {
   syncOverlayHeight();
   positionPlaybackUiUnderStream();
   positionChatUnderStream();
+});
+window.addEventListener("focus", fetchCurrentUsers);
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible") fetchCurrentUsers();
 });
 loadConfig().finally(() => {
   setMode("channels");

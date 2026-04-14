@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MaxiStreams Admin Health</title>
+<style>
+:root{--bg:#070b16;--line:#273762;--text:#e8eeff;--muted:#9fb2df}
+*{box-sizing:border-box} body{margin:0;color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(1200px 600px at 10% -20%,#1d2e5a 0%,var(--bg) 55%)}
+.wrap{max-width:1100px;margin:28px auto;padding:0 18px}.top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.card{background:linear-gradient(180deg,#121d3d,#0f1731);border:1px solid var(--line);border-radius:14px;padding:14px}
+.big{font-size:1.4rem;font-weight:700}.muted{color:var(--muted)} table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-top:1px solid #1f2f58;text-align:left} input,button{padding:8px;border-radius:8px;border:1px solid #2d4277;background:#0d1530;color:#eaf1ff}
+button{cursor:pointer;background:#17316d} .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}} @media (max-width:620px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top"><h1>MaxiStreams Admin Health</h1><p id="stamp" class="muted">Loading...</p></header>
+  <p class="muted" style="margin:0 0 12px;"><a href="/" style="color:#cfe0ff;">Back to MaxiStreams</a></p>
+  <section class="grid">
+    <article class="card"><div class="muted">CPU</div><div class="big" id="cpu">--</div></article>
+    <article class="card"><div class="muted">RAM</div><div class="big" id="ram">--</div></article>
+    <article class="card"><div class="muted">Load Avg</div><div class="big" id="load">--</div></article>
+    <article class="card"><div class="muted">Uptime</div><div class="big" id="uptime">--</div></article>
+    <article class="card"><div class="muted">Process RSS</div><div class="big" id="rss">--</div></article>
+    <article class="card"><div class="muted">Disk Used</div><div class="big" id="disk">--</div></article>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <h2>User Access</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="reloadUsers" type="button">Reload Users</button>
+        <button id="logout">Clear Admin Session</button>
+      </div>
+    </div>
+    <p id="adminMsg" class="muted" style="margin:0 0 10px;">Tip: Use Reload Users after editing users.json manually.</p>
+    <table>
+      <thead><tr><th>User</th><th>Admin</th><th>Enabled</th><th>New Password</th><th>Actions</th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+  </section>
+</main>
+<script>
+const $ = (id)=>document.getElementById(id);
+const AUTH_TOKEN_STORAGE_KEY = "maxistreams.auth.token";
+const AUTH_TOKEN_SESSION_STORAGE_KEY = "maxistreams.auth.token.session";
+const bytes=(n)=>{if(n==null)return"--";const u=["B","KB","MB","GB","TB"];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++}return v.toFixed(v>=10?1:2)+" "+u[i]};
+const up=(s)=>{const d=Math.floor(s/86400);s%=86400;const h=Math.floor(s/3600);s%=3600;const m=Math.floor(s/60);return d+"d "+h+"h "+m+"m"};
+const fmt=(n)=>{const v=Number(n);return Number.isFinite(v)?v.toFixed(2):"--"};
+let authToken = "";
+
+function readToken(){
+  const fromQuery = (new URLSearchParams(window.location.search).get("token") || "").trim();
+  if(fromQuery) return fromQuery;
+  try {
+    const localTok = (localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim();
+    if(localTok) return localTok;
+  } catch (_) {}
+  try {
+    return (sessionStorage.getItem(AUTH_TOKEN_SESSION_STORAGE_KEY) || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+function clearToken(){
+  try { localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY); } catch (_) {}
+  try { sessionStorage.removeItem(AUTH_TOKEN_SESSION_STORAGE_KEY); } catch (_) {}
+}
+
+function adminUrl(path){
+  return `${path}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}`;
+}
+
+async function requireAdmin(){
+  if(!authToken){
+    location.href = "/admin/health/login";
+    return false;
+  }
+  const r = await fetch(adminUrl("/api/admin/flag"), { cache: "no-store" });
+  if(!r.ok){
+    location.href = "/admin/health/login";
+    return false;
+  }
+  const d = await r.json().catch(() => ({}));
+  if(!d.isAdmin){
+    location.href = "/admin/health/login";
+    return false;
+  }
+  return true;
+}
+
+async function health(){
+  const r=await fetch(adminUrl("/api/admin/health"),{cache:"no-store"}); if(!r.ok){location.href="/admin/health/login";return 5000;}
+  const d=await r.json();
+  $("cpu").textContent=d.cpuPercent+"% ("+d.cpuCores+" cores)";
+  $("ram").textContent=d.memory.usedPercent+"%";
+  const lv = Array.isArray(d.loadAvg) ? d.loadAvg : [];
+  $("load").textContent=`1m: ${fmt(lv[0])} | 5m: ${fmt(lv[1])} | 15m: ${fmt(lv[2])}`;
+  $("uptime").textContent=up(d.uptimeSec);
+  $("rss").textContent=bytes(d.process.rss);
+  $("disk").textContent=d.disk?.usedPercent==null?"--":d.disk.usedPercent+"%";
+  $("stamp").textContent=d.hostname+" • "+d.platform+" • "+new Date(d.timestamp).toLocaleTimeString();
+  return d.clientPollMs||5000;
+}
+async function users(){
+  const r=await fetch(adminUrl("/api/admin/users"),{cache:"no-store"}); if(!r.ok) return;
+  const d=await r.json(); const b=$("users"); b.innerHTML="";
+  for(const u of d.users){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${u.username}</td><td><input class="a" type="checkbox" ${u.isAdmin?"checked":""}></td><td><input class="e" type="checkbox" ${u.enabled?"checked":""}></td><td><input class="p" type="password" placeholder="optional"></td><td><div style="display:flex;gap:6px;"><button class="saveBtn">Save</button><button class="delBtn" style="background:#5a1f29;border-color:#8b3242;">Delete</button></div></td>`;
+    tr.querySelector(".saveBtn").onclick=async()=>{
+      const body={isAdmin:tr.querySelector(".a").checked,enabled:tr.querySelector(".e").checked};
+      const pw=tr.querySelector(".p").value.trim(); if(pw) body.password=pw;
+      await fetch("/api/admin/users/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:authToken,username:u.username,...body})});
+      tr.querySelector(".p").value="";
+      await users();
+    };
+    tr.querySelector(".delBtn").onclick=async()=>{
+      const msg = $("adminMsg");
+      if(!confirm(`Delete user \"${u.username}\"? This will also invalidate their active sessions.`)) return;
+      msg.textContent = `Deleting ${u.username}...`;
+      try {
+        const resp = await fetch("/api/admin/users/delete", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ token: authToken, username: u.username }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok || !data.ok){
+          msg.textContent = data.error || "Could not delete user";
+          return;
+        }
+        msg.textContent = `Deleted user ${u.username}.`;
+        await users();
+      } catch (_) {
+        msg.textContent = "Network error while deleting user";
+      }
+    };
+    b.appendChild(tr);
+  }
+}
+$("logout").onclick=async()=>{
+  if(authToken){
+    await fetch("/api/auth/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:authToken})}).catch(()=>{});
+  }
+  clearToken();
+  location.href="/admin/health/login";
+};
+
+$("reloadUsers").onclick=async()=>{
+  const msg = $("adminMsg");
+  msg.textContent = "Reloading users from disk...";
+  try {
+    const r = await fetch("/api/admin/reload_users", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ token: authToken }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok || !d.ok){
+      msg.textContent = d.error || "Could not reload users";
+      return;
+    }
+    msg.textContent = `Reloaded ${Number(d.reloaded_users) || 0} users from disk.`;
+    await users();
+    await health();
+  } catch (_) {
+    msg.textContent = "Network error while reloading users";
+  }
+};
+
+(async()=>{
+  authToken = readToken();
+  if(!await requireAdmin()) return;
+  const poll=await health();
+  await users();
+  setInterval(()=>health().catch(()=>{}),poll);
+})();
+</script>
+</body>
+</html>

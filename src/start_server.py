@@ -9,6 +9,7 @@ import subprocess
 import random
 import time
 import secrets
+import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from threading import Lock
@@ -193,6 +194,13 @@ CHAT_NEXT_ID = 1
 CHAT_LOCK = Lock()
 CHAT_STORAGE_DIR = os.path.join(BASE_DIR, "output", "chat_history", "channels")
 
+# Lightweight presence map for homepage "current users".
+PRESENCE_LOCK = Lock()
+PRESENCE_TTL_SECONDS = 40
+PRESENCE_MAX_ENTRIES = 5000
+PRESENCE_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
+PRESENCE_MAP = {}
+
 # Global cookie clicker counter
 COOKIE_COUNT = 0
 COOKIE_LOCK = Lock()
@@ -201,7 +209,7 @@ FOLDER_RESUME_LOCK = Lock()
 FOLDER_RESUME_PATH = os.path.join(BASE_DIR, "output", "folder_resume.json")
 FOLDER_RESUME_MAP = {}
 AUTH_LOCK = Lock()
-USERS_STORAGE_PATH = os.path.join(BASE_DIR, "output", "users.json")
+USERS_STORAGE_PATH = os.path.join(BASE_DIR, "src", "configurations", "users.json")
 AUTH_DB = {"users": {}, "sessions": {}}
 RENAME_COOLDOWN_SECONDS = 24 * 60 * 60
 AUTH_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
@@ -210,6 +218,14 @@ THEME_NAME_RE = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
 THEME_VAR_KEY_RE = re.compile(r"^--[a-zA-Z0-9_-]{1,64}$")
 THEME_MAX_VARS = 256
 THEME_MAX_VALUE_LENGTH = 512
+ADMIN_HEALTH_SAMPLE_SECONDS = 2.5
+ADMIN_HEALTH_LOCK = Lock()
+ADMIN_HEALTH_CACHE = {
+    "timestamp": 0.0,
+    "payload": {},
+}
+CPU_SAMPLE_LOCK = Lock()
+CPU_SAMPLE_PREV = None
 
 
 def load_cookie_count():
@@ -438,6 +454,8 @@ def load_auth_db():
             "created_ts": created_ts,
             "last_rename_ts": last_rename_ts,
             "cookie_clicks": max(0, int(info.get("cookie_clicks", 0) or 0)),
+            "is_admin": bool(info.get("is_admin") or info.get("isAdmin")),
+            "enabled": bool(info.get("enabled", True)),
         }
         theme_payload = normalize_theme_payload(info.get("theme"), info.get("theme_vars"))
         if not theme_payload and isinstance(info.get("theme_pref"), dict):
@@ -497,6 +515,189 @@ def auth_get_user_by_token(token):
     return user_key, user_info
 
 
+def auth_is_user_enabled(user_info):
+    if not isinstance(user_info, dict):
+        return False
+    return bool(user_info.get("enabled", True))
+
+
+def auth_is_user_admin(user_info):
+    if not isinstance(user_info, dict):
+        return False
+    return bool(user_info.get("is_admin") or user_info.get("isAdmin"))
+
+
+def require_admin_by_token(token):
+    user_key, user_info = auth_get_user_by_token(token)
+    if not user_key or not isinstance(user_info, dict):
+        return None, None
+    if not auth_is_user_enabled(user_info):
+        return None, None
+    if not auth_is_user_admin(user_info):
+        return None, None
+    return user_key, user_info
+
+
+def _read_cpu_percent_linux():
+    global CPU_SAMPLE_PREV
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as f:
+            first = f.readline().strip()
+    except OSError:
+        return None
+    if not first.startswith("cpu "):
+        return None
+    parts = first.split()[1:]
+    if len(parts) < 4:
+        return None
+    try:
+        values = [int(x) for x in parts]
+    except ValueError:
+        return None
+
+    idle = values[3] + (values[4] if len(values) > 4 else 0)
+    total = sum(values)
+    now = (idle, total)
+
+    with CPU_SAMPLE_LOCK:
+        prev = CPU_SAMPLE_PREV
+        CPU_SAMPLE_PREV = now
+
+    if not prev:
+        return None
+
+    idle_delta = idle - prev[0]
+    total_delta = total - prev[1]
+    if total_delta <= 0:
+        return None
+    used = (total_delta - idle_delta) / total_delta * 100.0
+    return round(max(0.0, min(100.0, used)), 1)
+
+
+def _read_memory_stats_linux():
+    info = {}
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip().split()[0]
+                try:
+                    info[key] = int(value) * 1024
+                except ValueError:
+                    continue
+    except OSError:
+        return None
+
+    total = info.get("MemTotal")
+    available = info.get("MemAvailable")
+    if not isinstance(total, int) or total <= 0:
+        return None
+    if not isinstance(available, int):
+        free = info.get("MemFree")
+        cached = info.get("Cached")
+        buffers = info.get("Buffers")
+        available = sum(v for v in (free, cached, buffers) if isinstance(v, int))
+    used = max(0, total - max(0, int(available or 0)))
+    used_pct = round((used / total) * 100.0, 1) if total > 0 else 0.0
+    return {
+        "total": total,
+        "used": used,
+        "free": max(0, total - used),
+        "usedPercent": used_pct,
+    }
+
+
+def _read_process_rss_bytes_linux():
+    try:
+        with open("/proc/self/statm", "r", encoding="utf-8") as f:
+            parts = f.read().strip().split()
+        if len(parts) < 2:
+            return 0
+        rss_pages = int(parts[1])
+        page_size = int(os.sysconf("SC_PAGE_SIZE"))
+        return max(0, rss_pages * page_size)
+    except (OSError, ValueError, TypeError):
+        return 0
+
+
+def _read_disk_stats(path_value):
+    target = path_value if path_value and os.path.exists(path_value) else BASE_DIR
+    try:
+        st = os.statvfs(target)
+    except OSError:
+        return {
+            "path": target,
+            "free": None,
+            "total": None,
+            "usedPercent": None,
+        }
+    total = st.f_frsize * st.f_blocks
+    free = st.f_frsize * st.f_bavail
+    used = max(0, total - free)
+    used_pct = round((used / total) * 100.0, 1) if total > 0 else None
+    return {
+        "path": target,
+        "free": free,
+        "total": total,
+        "usedPercent": used_pct,
+    }
+
+
+def get_admin_health_snapshot():
+    now = time.time()
+    with ADMIN_HEALTH_LOCK:
+        if ADMIN_HEALTH_CACHE["payload"] and (now - ADMIN_HEALTH_CACHE["timestamp"]) < ADMIN_HEALTH_SAMPLE_SECONDS:
+            return ADMIN_HEALTH_CACHE["payload"]
+
+    cpu_percent = _read_cpu_percent_linux()
+    if cpu_percent is None:
+        try:
+            load_1 = os.getloadavg()[0]
+            cores = max(1, os.cpu_count() or 1)
+            cpu_percent = round(min(100.0, max(0.0, (load_1 / cores) * 100.0)), 1)
+        except OSError:
+            cpu_percent = 0.0
+
+    memory = _read_memory_stats_linux() or {
+        "total": 0,
+        "used": 0,
+        "free": 0,
+        "usedPercent": 0.0,
+    }
+    try:
+        load_avg = [round(v, 2) for v in os.getloadavg()]
+    except OSError:
+        load_avg = [0.0, 0.0, 0.0]
+
+    disk = _read_disk_stats(MEDIA_ROOT)
+
+    payload = {
+        "cpuPercent": cpu_percent,
+        "cpuCores": max(1, os.cpu_count() or 1),
+        "memory": memory,
+        "loadAvg": load_avg,
+        "uptimeSec": max(0, int(time.time() - os.stat("/proc/1").st_ctime)) if os.path.exists("/proc/1") else 0,
+        "process": {
+            "rss": _read_process_rss_bytes_linux(),
+            "heapUsed": 0,
+            "heapTotal": 0,
+        },
+        "disk": disk,
+        "hostname": os.uname().nodename if hasattr(os, "uname") else "localhost",
+        "platform": os.uname().sysname.lower() if hasattr(os, "uname") else "linux",
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "clientPollMs": max(3000, int(CONFIG.get("admin_health", {}).get("client_poll_ms", 5000))) if isinstance(CONFIG.get("admin_health"), dict) else 5000,
+    }
+
+    with ADMIN_HEALTH_LOCK:
+        ADMIN_HEALTH_CACHE["timestamp"] = now
+        ADMIN_HEALTH_CACHE["payload"] = payload
+    return payload
+
+
 def auth_create_session(user_key):
     token = secrets.token_hex(24)
     now = int(time.time())
@@ -519,6 +720,133 @@ def auth_remove_session(token):
     with AUTH_LOCK:
         AUTH_DB.get("sessions", {}).pop(tok, None)
     save_auth_db()
+
+
+def normalize_presence_client_id(raw_value):
+    client_id = str(raw_value or "").strip()
+    if PRESENCE_CLIENT_ID_RE.fullmatch(client_id):
+        return client_id
+    return ""
+
+
+def prune_presence_locked(now_ts=None):
+    now = int(now_ts or time.time())
+    cutoff = now - PRESENCE_TTL_SECONDS
+
+    for client_id, info in list(PRESENCE_MAP.items()):
+        if not isinstance(info, dict):
+            PRESENCE_MAP.pop(client_id, None)
+            continue
+        try:
+            last_seen_ts = int(info.get("last_seen_ts") or 0)
+        except (TypeError, ValueError):
+            last_seen_ts = 0
+        if last_seen_ts <= cutoff:
+            PRESENCE_MAP.pop(client_id, None)
+
+    overflow = len(PRESENCE_MAP) - PRESENCE_MAX_ENTRIES
+    if overflow > 0:
+        sorted_entries = sorted(
+            PRESENCE_MAP.items(),
+            key=lambda item: int((item[1] or {}).get("last_seen_ts") or 0),
+        )
+        for client_id, _ in sorted_entries[:overflow]:
+            PRESENCE_MAP.pop(client_id, None)
+
+
+def touch_presence(client_id, ip, username="Guest", authenticated=False, user_key=""):
+    clean_client_id = normalize_presence_client_id(client_id)
+    if not clean_client_id:
+        return
+
+    clean_user_key = str(user_key or "").strip().lower()
+    is_authenticated = bool(authenticated and clean_user_key)
+    if not is_authenticated:
+        # Guests are not tracked in online user presence.
+        with PRESENCE_LOCK:
+            PRESENCE_MAP.pop(clean_client_id, None)
+        return
+
+    clean_username = re.sub(r"\s+", " ", str(username or "").strip())[:32] or "Guest"
+    now = int(time.time())
+    with PRESENCE_LOCK:
+        prune_presence_locked(now)
+        PRESENCE_MAP[clean_client_id] = {
+            "client_id": clean_client_id,
+            "ip": str(ip or "").strip(),
+            "user_key": clean_user_key,
+            "username": clean_username,
+            "authenticated": True,
+            "last_seen_ts": now,
+        }
+        prune_presence_locked(now)
+
+
+def remove_presence(client_id, user_key=""):
+    clean_client_id = normalize_presence_client_id(client_id)
+    if not clean_client_id:
+        return
+
+    clean_user_key = str(user_key or "").strip().lower()
+    with PRESENCE_LOCK:
+        info = PRESENCE_MAP.get(clean_client_id)
+        if not isinstance(info, dict):
+            return
+        existing_user_key = str(info.get("user_key") or "").strip().lower()
+        if clean_user_key and existing_user_key and existing_user_key != clean_user_key:
+            return
+        PRESENCE_MAP.pop(clean_client_id, None)
+
+
+def get_presence_snapshot(requester_user_key=""):
+    clean_requester_key = str(requester_user_key or "").strip().lower()
+    if not clean_requester_key:
+        return {
+            "requires_login": True,
+            "count": 0,
+            "users": [],
+        }
+
+    now = int(time.time())
+
+    with PRESENCE_LOCK:
+        prune_presence_locked(now)
+        entries = list(PRESENCE_MAP.values())
+
+    entries.sort(key=lambda info: int(info.get("last_seen_ts") or 0), reverse=True)
+
+    deduped = []
+    seen_keys = set()
+    for info in entries:
+        if not isinstance(info, dict):
+            continue
+        if not bool(info.get("authenticated")):
+            continue
+
+        user_key = str(info.get("user_key") or "").strip().lower()
+        username = re.sub(r"\s+", " ", str(info.get("username") or "").strip())[:32]
+        if not user_key or not username:
+            continue
+        if user_key in seen_keys:
+            continue
+        seen_keys.add(user_key)
+        deduped.append({
+            "user_key": user_key,
+            "username": username,
+        })
+
+    users = []
+    for info in deduped[:20]:
+        users.append({
+            "username": info.get("username", ""),
+            "is_me": bool(info.get("user_key") == clean_requester_key),
+        })
+
+    return {
+        "requires_login": False,
+        "count": len(deduped),
+        "users": users,
+    }
 
 
 def chat_file_path(channel):
@@ -968,6 +1296,47 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/admin/health/login":
+            login_path = os.path.join(BASE_DIR, "public", "admin-health", "login.html")
+            if os.path.exists(login_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                with open(login_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_error(404)
+            return
+        if parsed.path == "/admin/health":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            _, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(302)
+                self.send_header("Location", "/admin/health/login")
+                self.end_headers()
+                return
+            dashboard_path = os.path.join(BASE_DIR, "public", "admin-health", "index.html")
+            if os.path.exists(dashboard_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                with open(dashboard_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_error(404)
+            return
+        if parsed.path == "/js/admin-entry-button.js":
+            js_path = os.path.join(BASE_DIR, "public", "js", "admin-entry-button.js")
+            if os.path.exists(js_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript")
+                self.end_headers()
+                with open(js_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_error(404)
+            return
         if parsed.path == "/":
             # Serve index.html from src/
             index_path = os.path.join(BASE_DIR, "src", "index.html")
@@ -1082,6 +1451,64 @@ class Handler(SimpleHTTPRequestHandler):
                 "vars": pref.get("vars", {}) if isinstance(pref.get("vars"), dict) else {},
             }).encode())
             return
+        if parsed.path == "/api/admin/flag":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            is_admin = bool(user_key and auth_is_user_enabled(user_info) and auth_is_user_admin(user_info))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "isAdmin": is_admin,
+                "username": user_info.get("username") if isinstance(user_info, dict) else None,
+            }).encode())
+            return
+        if parsed.path == "/api/admin/health":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            _, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+                return
+            snapshot = get_admin_health_snapshot()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(snapshot).encode())
+            return
+        if parsed.path == "/api/admin/users":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            _, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+                return
+            rows = []
+            with AUTH_LOCK:
+                users_map = AUTH_DB.get("users", {})
+                for key in sorted(users_map.keys()):
+                    info = users_map.get(key)
+                    if not isinstance(info, dict):
+                        continue
+                    rows.append({
+                        "username": str(info.get("username") or key),
+                        "isAdmin": bool(info.get("is_admin") or info.get("isAdmin")),
+                        "enabled": bool(info.get("enabled", True)),
+                        "created_ts": int(info.get("created_ts") or 0),
+                        "cookie_clicks": max(0, int(info.get("cookie_clicks", 0) or 0)),
+                    })
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"users": rows}).encode())
+            return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -1169,9 +1596,199 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"messages": messages}).encode())
             return
 
+        if parsed.path == "/api/presence":
+            qs = parse_qs(parsed.query)
+            client_id = normalize_presence_client_id(qs.get("client_id", [""])[0])
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+
+            username = "Guest"
+            if user_key and isinstance(user_info, dict):
+                username = str(user_info.get("username") or "Guest")
+
+            if client_id:
+                touch_presence(
+                    client_id=client_id,
+                    ip=self.client_address[0],
+                    username=username,
+                    authenticated=bool(user_key),
+                    user_key=user_key,
+                )
+
+            snapshot = get_presence_snapshot(user_key)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(snapshot).encode())
+            return
+
         return super().do_GET()
 
     def do_POST(self):
+        if self.path == "/api/admin/users/update":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                raw_body = self.rfile.read(length) if length > 0 else b"{}"
+                body = json.loads(raw_body)
+            except json.JSONDecodeError:
+                self.send_error(400)
+                return
+
+            token = str(body.get("token") or "").strip()
+            admin_key, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+                return
+
+            target_username = normalize_username(body.get("username"))
+            if not target_username:
+                self.send_error(400)
+                return
+            target_key = target_username.lower()
+
+            password = body.get("password")
+            is_admin = body.get("isAdmin")
+            enabled = body.get("enabled")
+
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(target_key)
+                if not isinstance(current, dict):
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "User not found"}).encode())
+                    return
+
+                updated = dict(current)
+                if isinstance(is_admin, bool):
+                    # Prevent accidentally removing admin role from self.
+                    if target_key == admin_key and not is_admin:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Cannot remove your own admin role"}).encode())
+                        return
+                    updated["is_admin"] = is_admin
+                if isinstance(enabled, bool):
+                    # Prevent disabling your own current admin account.
+                    if target_key == admin_key and not enabled:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Cannot disable your own account"}).encode())
+                        return
+                    updated["enabled"] = enabled
+                if isinstance(password, str) and len(password) >= 3:
+                    updated["password"] = password
+                users[target_key] = updated
+
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/admin/users/delete":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                raw_body = self.rfile.read(length) if length > 0 else b"{}"
+                body = json.loads(raw_body)
+            except json.JSONDecodeError:
+                self.send_error(400)
+                return
+
+            token = str(body.get("token") or "").strip()
+            admin_key, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+                return
+
+            target_username = normalize_username(body.get("username"))
+            if not target_username:
+                self.send_error(400)
+                return
+            target_key = target_username.lower()
+
+            if target_key == admin_key:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Cannot delete your own active admin account"}).encode())
+                return
+
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                if target_key not in users:
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "User not found"}).encode())
+                    return
+
+                users.pop(target_key, None)
+
+                # Drop all auth sessions for deleted user.
+                sessions_map = AUTH_DB.get("sessions", {})
+                for session_token, session_info in list(sessions_map.items()):
+                    if not isinstance(session_info, dict):
+                        continue
+                    if str(session_info.get("user_key") or "").strip().lower() == target_key:
+                        sessions_map.pop(session_token, None)
+
+                # Drop any live presence entries tied to deleted user.
+                with PRESENCE_LOCK:
+                    for client_id, presence in list(PRESENCE_MAP.items()):
+                        if not isinstance(presence, dict):
+                            continue
+                        if str(presence.get("user_key") or "").strip().lower() == target_key:
+                            PRESENCE_MAP.pop(client_id, None)
+
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "deleted": target_username}).encode())
+            return
+
+        if self.path == "/api/admin/reload_users":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                raw_body = self.rfile.read(length) if length > 0 else b"{}"
+                body = json.loads(raw_body)
+            except json.JSONDecodeError:
+                self.send_error(400)
+                return
+
+            token = str(body.get("token") or "").strip()
+            _, admin_info = require_admin_by_token(token)
+            if not admin_info:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+                return
+
+            load_auth_db()
+            with AUTH_LOCK:
+                user_count = len(AUTH_DB.get("users", {}))
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "ok": True,
+                "reloaded_users": user_count,
+            }).encode())
+            return
+
         if self.path == "/api/stop_session":
             ip = self.client_address[0]
             for slot, info in list(sessions.items()):
@@ -1283,6 +1900,12 @@ class Handler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid username and password"}).encode())
                 return
+            if not auth_is_user_enabled(user_info):
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "This account is disabled"}).encode())
+                return
             if str(user_info.get("password") or "") != password:
                 self.send_response(401)
                 self.send_header("Content-Type", "application/json")
@@ -1302,7 +1925,23 @@ class Handler(SimpleHTTPRequestHandler):
 
         if self.path == "/api/auth/logout":
             token = str(body.get("token") or "").strip()
+            client_id = normalize_presence_client_id(body.get("client_id") or "")
+            user_key, _ = auth_get_user_by_token(token)
+            if client_id:
+                remove_presence(client_id, user_key=user_key)
             auth_remove_session(token)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/presence/offline":
+            client_id = normalize_presence_client_id(body.get("client_id") or "")
+            token = str(body.get("token") or "").strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if client_id:
+                remove_presence(client_id, user_key=user_key)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()

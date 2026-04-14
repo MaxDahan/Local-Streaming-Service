@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MaxiStreams Admin Health Login</title>
+<style>
+:root{--bg:#070b16;--line:#273762;--text:#e8eeff;--muted:#9fb2df}
+*{box-sizing:border-box} body{margin:0;color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(1200px 600px at 10% -20%,#1d2e5a 0%,var(--bg) 55%)}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:min(430px,95vw);background:linear-gradient(180deg,#121d3d,#0f1731);border:1px solid var(--line);border-radius:14px;padding:16px}
+input,button{width:100%;padding:10px;border-radius:10px;border:1px solid #2d4277;background:#0d1530;color:#eaf1ff;margin-top:10px}
+button{cursor:pointer;background:#17316d}.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="card">
+    <h1>MaxiStreams Admin Health</h1>
+    <p class="muted">Sign in as an admin</p>
+    <form id="f">
+      <input id="u" placeholder="Username" required />
+      <input id="p" type="password" placeholder="Password" required />
+      <label class="muted" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;">
+        <input id="remember" type="checkbox" checked style="width:auto;margin:0;" />
+        Remember me on this browser
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="muted"><a href="/" style="color:#cfe0ff;">Back to MaxiStreams</a></p>
+    <p id="m" class="muted"></p>
+  </section>
+</main>
+<script>
+const AUTH_TOKEN_STORAGE_KEY = "maxistreams.auth.token";
+const AUTH_TOKEN_SESSION_STORAGE_KEY = "maxistreams.auth.token.session";
+const AUTH_REMEMBER_STORAGE_KEY = "maxistreams.auth.rememberMe";
+
+function setStoredToken(token, remember){
+  const value = String(token || "").trim();
+  if(!value){
+    try { localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY); } catch (_) {}
+    try { sessionStorage.removeItem(AUTH_TOKEN_SESSION_STORAGE_KEY); } catch (_) {}
+    return;
+  }
+  try {
+    if(remember){
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, value);
+      sessionStorage.removeItem(AUTH_TOKEN_SESSION_STORAGE_KEY);
+      localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, "1");
+    } else {
+      sessionStorage.setItem(AUTH_TOKEN_SESSION_STORAGE_KEY, value);
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, "0");
+    }
+  } catch (_) {}
+}
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  m.textContent = "Signing in...";
+
+  const username = u.value.trim();
+  const password = p.value;
+  const rememberMe = !!remember.checked;
+
+  let authPayload = null;
+  try {
+    const loginResp = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ username, password })
+    });
+    authPayload = await loginResp.json().catch(() => ({}));
+    if(!loginResp.ok || !authPayload.token){
+      m.textContent = authPayload.error || "Invalid credentials";
+      return;
+    }
+  } catch (_) {
+    m.textContent = "Network error while signing in";
+    return;
+  }
+
+  try {
+    const flagResp = await fetch(`/api/admin/flag?token=${encodeURIComponent(authPayload.token)}`, { cache: "no-store" });
+    const flagData = await flagResp.json().catch(() => ({}));
+    if(!flagResp.ok || !flagData.isAdmin){
+      m.textContent = "This account is not an admin";
+      return;
+    }
+  } catch (_) {
+    m.textContent = "Could not verify admin access";
+    return;
+  }
+
+  setStoredToken(authPayload.token, rememberMe);
+  window.location.href = `/admin/health?token=${encodeURIComponent(authPayload.token)}`;
+});
+</script>
+</body>
+</html>
