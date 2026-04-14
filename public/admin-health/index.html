@@ -13,6 +13,7 @@
 .big{font-size:1.4rem;font-weight:700}.muted{color:var(--muted)} table{width:100%;border-collapse:collapse}
 th,td{padding:10px;border-top:1px solid #1f2f58;text-align:left} input,button{padding:8px;border-radius:8px;border:1px solid #2d4277;background:#0d1530;color:#eaf1ff}
 button{cursor:pointer;background:#17316d} .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#logout.confirm-armed{background:#6f1f2a;border-color:#b7485a;color:#ffe8ec}
 @media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}} @media (max-width:620px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -52,6 +53,23 @@ const bytes=(n)=>{if(n==null)return"--";const u=["B","KB","MB","GB","TB"];let i=
 const up=(s)=>{const d=Math.floor(s/86400);s%=86400;const h=Math.floor(s/3600);s%=3600;const m=Math.floor(s/60);return d+"d "+h+"h "+m+"m"};
 const fmt=(n)=>{const v=Number(n);return Number.isFinite(v)?v.toFixed(2):"--"};
 let authToken = "";
+let logoutConfirmArmed = false;
+
+function resetLogoutConfirm(){
+  const btn = $("logout");
+  logoutConfirmArmed = false;
+  if(!btn) return;
+  btn.classList.remove("confirm-armed");
+  btn.textContent = "Clear Admin Session";
+}
+
+function armLogoutConfirm(){
+  const btn = $("logout");
+  logoutConfirmArmed = true;
+  if(!btn) return;
+  btn.classList.add("confirm-armed");
+  btn.textContent = "Are you sure?";
+}
 
 function readToken(){
   const fromQuery = (new URLSearchParams(window.location.search).get("token") || "").trim();
@@ -145,12 +163,25 @@ async function users(){
   }
 }
 $("logout").onclick=async()=>{
+  if(!logoutConfirmArmed){
+    armLogoutConfirm();
+    return;
+  }
   if(authToken){
     await fetch("/api/auth/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:authToken})}).catch(()=>{});
   }
+  resetLogoutConfirm();
   clearToken();
   location.href="/admin/health/login";
 };
+
+document.addEventListener("pointerdown", (ev) => {
+  if(!logoutConfirmArmed) return;
+  const btn = $("logout");
+  if(!btn) return;
+  if(btn.contains(ev.target)) return;
+  resetLogoutConfirm();
+});
 
 $("reloadUsers").onclick=async()=>{
   const msg = $("adminMsg");
