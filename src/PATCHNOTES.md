@@ -1,5 +1,37 @@
 # MAXISTREAMS Patch Notes
 
+## v1.9.0 - Homepage Presence, Admin UX & Data Safety
+**Release: April 2026**
+
+### ✨ New Features
+- **Homepage Presence Card** - Added a live "Current Users" list on homepage
+- **Homepage Lobby Chat** - Added live chat directly on homepage with dedicated lobby channel
+- **Per-Channel Chat Visibility Memory** - Chat hide/show now remembers state per channel context
+
+### 🖥️ UI Improvements
+- Added "Additional Info" section organization on homepage
+- Improved account panel actions layout and login-aware button visibility
+- Moved Admin Health access into the account panel for cleaner dock UI
+- Updated admin entry styling for clearer visual hierarchy
+
+### 🛠️ Admin & Health Dashboard
+- Added **Reload Users** action in admin dashboard
+- Added **Delete User** action in admin dashboard (with safeguards)
+- Updated logout control label to **Clear Admin Session**
+- Added two-step confirmation flow for Clear Admin Session
+- Clarified load average display as **1m / 5m / 15m**
+- Fixed Process RSS metric reporting (real process RSS instead of placeholder)
+
+### 🔒 Account & Data Handling
+- Consolidated account storage to `src/configurations/users.json`
+- Removed legacy fallback users DB behavior
+- Ensured users data files are git-ignored to avoid accidental commits
+
+### 🐛 Fixes
+- Fixed homepage chat not appearing due to stale mount behavior after re-render
+- Fixed scroll position reset when switching between homepage/channels/playback
+- Fixed guest visibility behavior for online users (login-required messaging)
+
 ## v1.8.0 - Accounts, Per-User Resume & Access Controls
 **Release: April 2026**
 

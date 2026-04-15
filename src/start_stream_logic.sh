@@ -22,6 +22,11 @@ if [ -z "$MEDIA_ROOT" ] || [ "$MEDIA_ROOT" = "null" ]; then
   MEDIA_ROOT="$BASE_DIR/media/converted"
 fi
 
+# Support clone-anywhere configs by resolving relative media_root from repo base.
+if [[ "$MEDIA_ROOT" != /* ]]; then
+  MEDIA_ROOT="$BASE_DIR/$MEDIA_ROOT"
+fi
+
 echo "🔹 Base dir: $BASE_DIR"
 echo "🔹 Media root: $MEDIA_ROOT"
 echo "🔹 Channel dir: $CHANNEL_DIR"

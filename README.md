@@ -1,31 +1,87 @@
-Local broadcasting service to local network and file/folder streamer. Great for running on a raspberry pi.
+# MaxiStreams
 
-**Directions**
+Local network streaming server with:
+- always-on channel streams
+- on-demand file/folder playback
+- account login and live chat
 
-1. Make sure to have a media/ folder with media/raw and media/converted. Throw all your
-folders of content into the raw folder (ex: media/raw/Adventure Time) then run 
-"encode_to_720p.sh". This will convert all the videos to the same format into the 
-converted folder.
+Designed for home servers and Raspberry Pi style setups.
 
-2. From here define your channels in "channels.json" with the folder names for each channel.
-This will pull from the converted folder so make sure the folder names match.
+## Quick Start (Fresh Clone)
 
-3. Run "sudo ./start_server.sh" to boot up the channel servers and website!
+### 1. Install dependencies
 
-Access the stream from maxistreams.local
-*you can also access m3u8 links for debugging at "<ipaddress>/channels/<channel-name>/output/<channel-name>.m3u8"
+Ubuntu/Debian:
 
-4. run "sudo ./stop_server.sh" to end the streaming and website processes.
+```bash
+sudo apt update
+sudo apt install -y python3 ffmpeg jq
+```
 
-**Features**
+Why these are needed:
+- `python3`: web server and API
+- `ffmpeg`: encoding + HLS stream generation
+- `jq`: starts all channels from `channels.json`
 
-Channels: like tv channels for livestreaming as they run all the time. Configurable through channels.json.
+### 2. Clone and enter the project
 
-Browser: file browser where you can shuffle play all media in a folder or play a specific file. Up to 5 sessions allowed at a time. Additional sessions will boot the oldest session (sessions are based on ip address).
+```bash
+git clone <your-repo-url>
+cd Streaming
+```
 
-**Information**
+### 3. Add media
 
-Make sure to use an SSD and not Hard Drive as things will lag with a Hard Drive!!
+Put source media into:
 
-Logrotate: to stop logs from becoming super big after running this for a long time they are contained to two files that 
-get cleaned periodically. Additionally, the .ts files also get cleaned and the number in the file name eventually loops back to 0.
+`media/raw/<Show or Folder Name>/...`
+
+Then encode to streaming-friendly 720p:
+
+```bash
+./encode_to_720p.sh
+```
+
+Encoded files are written to `media/converted/` with matching folder structure.
+
+### 4. Configure channels
+
+Edit `channels.json` so each channel points to folders that exist under `media/converted/`.
+
+### 5. Start the service
+
+```bash
+sudo ./start_server.sh
+```
+
+Then open:
+- `http://maxistreams.local`
+- or `http://<your-server-ip>`
+
+### 6. Stop the service
+
+```bash
+sudo ./stop_server.sh
+```
+
+## Debugging
+
+Direct HLS URL format:
+
+`http://<your-server-ip>/channels/<channel-id>/output/<channel-id>.m3u8`
+
+Server log:
+
+`output/server.log`
+
+## Notes
+
+- User account data is stored locally in `src/configurations/users.json`.
+- That users file is intentionally git-ignored (not committed).
+- Paths are repository-relative by default (for example `media_root` uses `media/converted`).
+- Use an SSD for better stream performance.
+- Long-running outputs/logs rotate and segment files are cleaned up over time.
+
+## Is it easy for someone else to set up?
+
+Yes. A new user can clone, install `python3/ffmpeg/jq`, add media, run one encode command, then start the server. The exact commands are listed above for copy/paste setup.

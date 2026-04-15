@@ -1,6 +1,6 @@
 {
   "max_sessions": 10,
-  "media_root": "/mnt/usb/Streaming/media/converted",
+  "media_root": "media/converted",
   "title_cleanup_config": "src/configurations/title_cleanup.json",
   "themes": {
     "default": "default",

@@ -15,7 +15,8 @@ from socketserver import ThreadingMixIn
 from threading import Lock
 from urllib.parse import urlparse, parse_qs
 
-BASE_DIR = os.path.abspath(os.getcwd())
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 CONFIG_PATH = os.path.join(BASE_DIR, "src", "configurations", "config.json")
 
 
@@ -962,6 +963,12 @@ VERBOSE_EPISODE_RE = re.compile(
 )
 
 
+def natural_sort_key(value):
+    """Sort helper that treats digit groups numerically (e.g. Season 10 after Season 9)."""
+    text = str(value or "")
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", text)]
+
+
 def _show_words(s):
     """Tokenize a string into lowercase words, splitting on non-alnum and CamelCase."""
     s = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', s)
@@ -985,8 +992,11 @@ def get_file_index(path):
     name = os.path.basename(path)
     try:
         siblings = sorted(
-            f for f in os.listdir(parent)
-            if not f.startswith('.') and os.path.isfile(os.path.join(parent, f))
+            (
+                f for f in os.listdir(parent)
+                if not f.startswith('.') and os.path.isfile(os.path.join(parent, f))
+            ),
+            key=natural_sort_key,
         )
         return siblings.index(name) + 1
     except (ValueError, OSError):
@@ -1519,7 +1529,7 @@ class Handler(SimpleHTTPRequestHandler):
 
             items = []
             file_count = 0
-            for name in sorted(os.listdir(full)):
+            for name in sorted(os.listdir(full), key=natural_sort_key):
                 if name.startswith("."):
                     continue
                 p = os.path.join(full, name)
@@ -2356,7 +2366,7 @@ class Handler(SimpleHTTPRequestHandler):
                 for n in names:
                     if n.lower().endswith((".mp4", ".mkv")):
                         files.append(os.path.join(root, n))
-            files = sorted(files)
+            files = sorted(files, key=natural_sort_key)
             if not files:
                 self.send_error(404)
                 return
@@ -2472,7 +2482,7 @@ class Handler(SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": "Login required for chronological checkpoints"}).encode())
                     return
-            files = sorted(files)
+            files = sorted(files, key=natural_sort_key)
             if play_mode == "shuffle":
                 random.shuffle(files)
         else:
