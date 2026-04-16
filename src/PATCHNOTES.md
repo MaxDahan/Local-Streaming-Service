@@ -1,5 +1,39 @@
 # MAXISTREAMS Patch Notes
 
+## v2.0.0 - Browse Mode Overhaul, Themes & Blunt Clicker
+**Release: April 2026**
+
+### ✨ New Features
+- **Blunt Clicker** - Added a 🚬 shared blunt button — authenticated users can hit the blunt and contribute to a global + per-user count
+- **Blunt Leaderboard** - Tracks top blunt hitters with per-user counts; only accessible to logged-in users
+- **BNZ Media Theme** - New black & white ink-art theme with custom white-outline overlay art
+- **Xbox Theme** - New Xbox-green dark theme with neon green accents and Xbox wallpaper overlay
+- **Two new theme slots in theme picker** - BNZ Media and Xbox available to all users
+
+### 🖥️ Browse Mode Improvements
+- **Browse Dashboard** - Added a visual library dashboard with folder cover art cards when entering Browse mode
+- **Recently Played Section** - Dashboard now shows recently played shows with progress bars and season/episode labels (e.g. *Season 2 · Ep 4/13*)
+- **Folder Subgrid** - Clicking a show folder now shows its contents as a card grid on the right side
+- **Season-aware subfolder navigation** - Clicking a Season folder in the subgrid now loads that season in the left sidebar and shows the folder prompt on the right
+- **← Back card** - First card in every subgrid is now a dashed Back card to navigate up to the parent folder
+- **Homescreen cleanup** - Navigating home via the MAXISTREAMS logo now properly clears browse library cards and folder prompts
+
+### 🔖 Chronological Resume Improvements
+- **Show-level chrono position** - Chronological position and Resume button now always reference the top-level show folder (e.g. *Adventure Time*), even when viewing a Season subfolder — so position reflects the full series, not just the season
+- **Recently played auto-resume** - Clicking a card in the Recently Played section now immediately starts Chronological Resume from your saved checkpoint, no extra button click needed
+- **Chrono position shows season context** - Resume button and status line now display season + episode within season alongside overall position (e.g. *Season 2: 4/13 (overall: 30/298)*)
+
+### 🐛 Fixes
+- **Blunt counter no longer resets on server restart** — `blunt_hits` was being stripped from the user database on every load; now persistently saved and reloaded correctly
+- **Blunt count drift prevention** — Server startup now re-syncs the global blunt count from per-user hit totals to prevent any future counter divergence
+- **Browse → Home chat missing** — Fixed chat lobby not appearing after navigating from Browse back to the home screen
+- **Subgrid folder clicks now sync left sidebar** — Clicking a folder card on the right side now loads that folder's contents in the left sidebar (previously only the Back button did this)
+- **Non-media files hidden in Browse** — Only folders and `.mp4` files are shown in the sidebar and subgrid; subtitle files, images, and other media artifacts are hidden
+- **Removed 📁 folder emoji** from browse cards that have no cover art
+- **Recently played season label** — Was incorrectly showing "Ep 8/298" (full library count); now correctly shows season-scoped episode count
+
+---
+
 ## v1.9.0 - Homepage Presence, Admin UX & Data Safety
 **Release: April 2026**
 

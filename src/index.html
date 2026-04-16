@@ -162,9 +162,14 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
   padding-bottom:520px;
 }
 .content.folder-prompt-mode {
-  justify-content:center;
-  padding-top:40px;
-  padding-bottom:120px;
+  justify-content:flex-start;
+  padding-top:100px;
+  padding-bottom:140px;
+}
+.content.browse-root-mode {
+  justify-content:flex-start;
+  padding-top:90px;
+  padding-bottom:140px;
 }
 .content.home-mode {
   justify-content:flex-start;
@@ -419,6 +424,26 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   color:var(--text-muted);
   font-size:12px;
   line-height:1.35;
+}
+#playFolderChronoPos {
+  margin:18px 0 0;
+  padding:14px 20px;
+  background:color-mix(in srgb, var(--accent-strong) 12%, var(--bg-panel) 88%);
+  border:1px solid color-mix(in srgb, var(--accent-strong) 30%, transparent 70%);
+  border-radius:12px;
+  font-size:15px;
+  font-weight:600;
+  color:var(--text-main);
+  letter-spacing:0.01em;
+  line-height:1.5;
+  white-space:pre-line;
+}
+#playFolderChronoHint {
+  margin:8px 0 0;
+  font-size:12px;
+  color:color-mix(in srgb, var(--text-muted) 70%, var(--text-main) 30%);
+  font-style:italic;
+  line-height:1.4;
 }
 .play-folder-btn {
   font-size:14px;
@@ -1490,6 +1515,167 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   border-top:2px solid color-mix(in srgb, var(--border-card) 70%, transparent 30%);
 }
 
+/* Browse dashboard */
+#browseDashboard {
+  display:none;
+  width:100%;
+  max-width:1100px;
+  box-sizing:border-box;
+}
+#browseDashboard.visible {
+  display:block;
+}
+.browse-dashboard-header {
+  margin-bottom:36px;
+}
+.browse-dashboard-header h2 {
+  font-size:clamp(26px, 4vw, 42px);
+  font-weight:900;
+  letter-spacing:-0.02em;
+  margin:0 0 6px;
+  background:linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text-main) 86%, var(--accent-strong) 14%),
+    color-mix(in srgb, var(--text-main) 64%, var(--link) 36%)
+  );
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  line-height:1.1;
+}
+.browse-dashboard-header p {
+  font-size:13px;
+  color:var(--text-muted);
+  margin:0;
+}
+.browse-section {
+  margin-bottom:36px;
+}
+.browse-section-title {
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.09em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+  margin:0 0 14px;
+}
+.browse-cards {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+  gap:14px;
+}
+.browse-card {
+  background:var(--bg-card);
+  border:1px solid var(--border-card);
+  border-radius:12px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  display:flex;
+  flex-direction:column;
+}
+.browse-card:hover {
+  transform:translateY(-3px) scale(1.025);
+  box-shadow:0 8px 22px rgba(0,0,0,0.3);
+  border-color:var(--item-hover-border);
+}
+.browse-card-cover {
+  width:100%;
+  aspect-ratio:16/9;
+  background:color-mix(in srgb, var(--bg-card) 70%, #000 30%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.browse-card-cover img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.browse-card-cover-placeholder {
+  font-size:32px;
+  opacity:0.45;
+  user-select:none;
+}
+.browse-card-body {
+  padding:8px 10px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  flex:1;
+}
+.browse-card-name {
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-main);
+  line-height:1.3;
+  word-break:break-word;
+}
+.browse-card-sub {
+  font-size:11px;
+  color:var(--text-muted);
+  line-height:1.3;
+}
+.browse-card-progress {
+  height:3px;
+  background:var(--border-input);
+  border-radius:2px;
+  overflow:hidden;
+  margin-top:4px;
+}
+.browse-card-progress-fill {
+  height:100%;
+  background:var(--accent-strong);
+  border-radius:2px;
+  transition:width 0.4s ease;
+}
+.browse-card-back {
+  justify-content:center;
+  background:color-mix(in srgb, var(--bg-card) 60%, transparent 40%);
+  border-style:dashed;
+  opacity:0.8;
+}
+.browse-card-back:hover {
+  opacity:1;
+}
+.browse-card-back .browse-card-name {
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-muted);
+}
+/* Folder subgrid inside homeText */
+.browse-subgrid {
+  width:100%;
+  margin-top:36px;
+  text-align:left;
+  border-top:1px solid var(--border-input);
+  padding-top:28px;
+}
+.browse-subgrid-title {
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+  margin:0 0 12px;
+}
+.content.folder-prompt-mode .home-text {
+  max-width:720px;
+  width:100%;
+  margin:0 auto;
+  text-align:center;
+  align-items:center;
+  padding-top:0;
+}
+.browse-subgrid-loading {
+  color:var(--text-muted);
+  font-size:13px;
+  margin:0;
+}
+
 .theme-dock {
   display:block;
   position:fixed;
@@ -1663,6 +1849,20 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <div class="patch-notes-content" id="patchNotesContent">
         <p>Loading patch notes...</p>
       </div>
+    </div>
+  </div>
+  <div id="browseDashboard">
+    <div class="browse-dashboard-header">
+      <h2>📂 Library</h2>
+      <p>Click a show to browse, or double-click to navigate into it.</p>
+    </div>
+    <div class="browse-section" id="browseRecentSection" style="display:none;">
+      <p class="browse-section-title">Recently Played</p>
+      <div class="browse-cards" id="browseRecentCards"></div>
+    </div>
+    <div class="browse-section">
+      <p class="browse-section-title">All Shows</p>
+      <div class="browse-cards" id="browseLibraryCards"></div>
     </div>
   </div>
   <div id="mediaStage" class="media-stage">
@@ -1850,6 +2050,10 @@ const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatToggleBtn = document.getElementById("chatToggleBtn");
+const browseDashboard = document.getElementById("browseDashboard");
+const browseRecentSection = document.getElementById("browseRecentSection");
+const browseRecentCards = document.getElementById("browseRecentCards");
+const browseLibraryCards = document.getElementById("browseLibraryCards");
 const userDock = document.getElementById("userDock");
 const userToggle = document.getElementById("userToggle");
 const userPanel = document.getElementById("userPanel");
@@ -1924,8 +2128,8 @@ function syncThemeAuthHint(){
 }
 
 function formatCookieCount(n){
-  if(n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
-  if(n >= 1000) return `${(n/1000).toFixed(1)}K`;
+  if(n >= 1000000) return `${(n/1000000).toFixed(3)}M`;
+  if(n >= 1000) return `${(n/1000).toFixed(3)}K`;
   return String(n);
 }
 
@@ -2197,7 +2401,7 @@ const THEME_IMAGE_EXTENSIONS = ["webp", "jpg", "jpeg", "png", "gif"];
 const DEFAULT_HOME_IMAGE = "";
 const DEFAULT_LOADING_IMAGE = "src/images/skeleton.jpg";
 const HOMEPAGE_CHAT_CHANNEL = "homepage";
-const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo", "pokemon"];
+const THEME_DEFAULT_ORDER = ["default", "light", "ocean", "volcano", "heaven", "space", "dinosaur", "beach", "csgo", "pokemon", "bnz", "xbox"];
 const THEME_LABELS = {
   default: "Default",
   light: "Light",
@@ -2208,7 +2412,9 @@ const THEME_LABELS = {
   dinosaur: "Dinosaur",
   beach: "Beach",
   csgo: "Counter-Strike GO",
-  pokemon: "Pokemon"
+  pokemon: "Pokemon",
+  bnz: "BNZ Media",
+  xbox: "Xbox"
 };
 const THEME_PRESETS = {
   default: {
@@ -2582,6 +2788,84 @@ const THEME_PRESETS = {
     "--warn": "#ff9a78",
     "--kbd-bg": "#13264b",
     "--kbd-border": "#395b96"
+  },
+  bnz: {
+    "--bg-body": "linear-gradient(135deg, #000000, #0a0a0a 48%, #040404)",
+    "--bg-sidebar": "rgba(4,4,4,0.97)",
+    "--border-sidebar": "#2a2a2a",
+    "--text-main": "#f0f0f0",
+    "--text-muted": "#888888",
+    "--bg-content": "radial-gradient(circle at top, #111111, #0a0a0a 55%, #050505 100%)",
+    "--bg-card": "#0f0f0f",
+    "--border-card": "#2c2c2c",
+    "--bg-input": "#080808",
+    "--border-input": "#333333",
+    "--bg-button": "#181818",
+    "--bg-button-hover": "#242424",
+    "--accent-grad": "linear-gradient(135deg, #ffffff, #c0c0c0)",
+    "--accent-text": "#000000",
+    "--accent-strong": "#ffffff",
+    "--status-bg": "#0d0d0d",
+    "--status-text": "#d4d4d4",
+    "--status-border": "#2e2e2e",
+    "--item-bg": "#111111",
+    "--item-hover-bg": "#1c1c1c",
+    "--item-hover-border": "#3a3a3a",
+    "--item-selected-bg": "#1e1e1e",
+    "--item-selected-border": "#ffffff",
+    "--item-selected-text": "#ffffff",
+    "--item-playing-bg": "#141414",
+    "--item-playing-border": "#aaaaaa",
+    "--item-playing-text": "#f5f5f5",
+    "--chip-bg": "#161616",
+    "--chip-border": "#333333",
+    "--chip-text": "#dddddd",
+    "--link": "#e0e0e0",
+    "--link-hover": "#ffffff",
+    "--warn": "#ff5555",
+    "--kbd-bg": "#0d0d0d",
+    "--kbd-border": "#2e2e2e",
+    "--theme-content-overlay": "url('src/images/themes/bnz/overlay.png')",
+    "--theme-overlay-opacity": "0.18"
+  },
+  xbox: {
+    "--bg-body": "linear-gradient(135deg, #000000, #050f05 48%, #000a00)",
+    "--bg-sidebar": "rgba(2,10,2,0.97)",
+    "--border-sidebar": "#1a3d1a",
+    "--text-main": "#e8ffe8",
+    "--text-muted": "#6abf6a",
+    "--bg-content": "radial-gradient(circle at top, #071407, #040d04 55%, #010801 100%)",
+    "--bg-card": "#071207",
+    "--border-card": "#1e4d1e",
+    "--bg-input": "#040d04",
+    "--border-input": "#1e4a1e",
+    "--bg-button": "#0d1f0d",
+    "--bg-button-hover": "#142814",
+    "--accent-grad": "linear-gradient(135deg, #52b043, #7dd955)",
+    "--accent-text": "#000000",
+    "--accent-strong": "#52b043",
+    "--status-bg": "#060f06",
+    "--status-text": "#7dd955",
+    "--status-border": "#1a3d1a",
+    "--item-bg": "#0a180a",
+    "--item-hover-bg": "#122012",
+    "--item-hover-border": "#2e6b2e",
+    "--item-selected-bg": "#0f2a0f",
+    "--item-selected-border": "#52b043",
+    "--item-selected-text": "#d4ffd4",
+    "--item-playing-bg": "#0b2c0b",
+    "--item-playing-border": "#52b043",
+    "--item-playing-text": "#ccffcc",
+    "--chip-bg": "#0d1e0d",
+    "--chip-border": "#255225",
+    "--chip-text": "#b8f0b8",
+    "--link": "#7dd955",
+    "--link-hover": "#aaff88",
+    "--warn": "#ff5555",
+    "--kbd-bg": "#060e06",
+    "--kbd-border": "#1a3a1a",
+    "--theme-content-overlay": "url('src/images/themes/xbox/overlay.jpg')",
+    "--theme-overlay-opacity": "0.15"
   }
 };
 
@@ -3344,7 +3628,7 @@ function openChannelChat(channelId, label){
   if(!chatStage || !channelId) return;
   const homeChatMount = getHomeChatMount();
   const isHomeLobby = String(channelId) === HOMEPAGE_CHAT_CHANNEL;
-  if(String(channelId) === HOMEPAGE_CHAT_CHANNEL && homeChatMount && mode === "channels"){
+  if(String(channelId) === HOMEPAGE_CHAT_CHANNEL && homeChatMount && homeText && homeText.style.display !== "none"){
     if(chatStage.parentElement !== homeChatMount) homeChatMount.appendChild(chatStage);
   } else if(contentRoot && chatStage.parentElement !== contentRoot) {
     contentRoot.appendChild(chatStage);
@@ -3381,7 +3665,6 @@ function openChannelChat(channelId, label){
 }
 
 function openHomeLobbyChat(){
-  if(mode !== "channels") return;
   if(currentChannelId) return;
   if(!homeText || homeText.style.display === "none") return;
   const homeChatMount = getHomeChatMount();
@@ -4965,6 +5248,7 @@ function stopAndShowHome(){
   if(contentRoot) contentRoot.classList.add("home-mode");
   if(contentRoot) contentRoot.classList.remove("playback-mode");
   if(contentRoot) contentRoot.classList.remove("folder-prompt-mode");
+  hideBrowseDashboard();
   homeText.innerHTML = originalHomeHTML;
   homeText.style.display = "block";
   currentOnDemandPreviewText = "";
@@ -5390,6 +5674,7 @@ function setMode(m){
   document.getElementById("browseBtn").classList.toggle("active", m==="browse");
 
   stopVideo();
+  hideBrowseDashboard();
   homeText.innerHTML = originalHomeHTML;
   applyThemeImages(themeSelect.value);
   list.innerHTML = "";
@@ -5444,6 +5729,300 @@ function loadChannels(){
 }
 
 /* ---------- Browse filesystem ---------- */
+function makeBrowseCard(name, path, sub, progressPct, onclick){
+  const card = document.createElement("div");
+  card.className = "browse-card";
+  const cover = document.createElement("div");
+  cover.className = "browse-card-cover";
+  const img = document.createElement("img");
+  img.src = `/api/folder_cover?path=${encodeURIComponent(path)}`;
+  img.alt = "";
+  img.onerror = () => { img.style.display = "none"; };
+  const placeholder = document.createElement("span");
+  placeholder.className = "browse-card-cover-placeholder";
+  cover.appendChild(img);
+  cover.appendChild(placeholder);
+  const body = document.createElement("div");
+  body.className = "browse-card-body";
+  const label = document.createElement("div");
+  label.className = "browse-card-name";
+  label.textContent = name;
+  body.appendChild(label);
+  if(sub){
+    const subEl = document.createElement("div");
+    subEl.className = "browse-card-sub";
+    subEl.textContent = sub;
+    body.appendChild(subEl);
+  }
+  if(progressPct != null && progressPct > 0){
+    const bar = document.createElement("div");
+    bar.className = "browse-card-progress";
+    const fill = document.createElement("div");
+    fill.className = "browse-card-progress-fill";
+    fill.style.width = `${Math.min(100, progressPct)}%`;
+    bar.appendChild(fill);
+    body.appendChild(bar);
+  }
+  card.appendChild(cover);
+  card.appendChild(body);
+  card.onclick = onclick;
+  return card;
+}
+
+function loadBrowseDashboard(items){
+  if(!browseDashboard) return;
+  browseDashboard.classList.add("visible");
+  if(contentRoot){
+    contentRoot.classList.add("browse-root-mode");
+    contentRoot.classList.remove("folder-prompt-mode");
+  }
+
+  // Library cards from already-fetched items
+  if(browseLibraryCards){
+    browseLibraryCards.innerHTML = "";
+    items.forEach(i => {
+      if(i.type !== "folder") return;
+      const card = makeBrowseCard(i.name, i.path, null, null, () => {
+        // Click on library card = same as clicking sidebar item
+        const sidebarItem = [...list.querySelectorAll(".item.folder")].find(el => el.textContent === i.name);
+        if(sidebarItem) sidebarItem.click();
+        else {
+          // Synthesize a folder click
+          triggerFolderOpen(i);
+        }
+      });
+      browseLibraryCards.appendChild(card);
+    });
+  }
+
+  // Recently played — requires auth
+  if(browseRecentCards && browseRecentSection){
+    browseRecentSection.style.display = "none";
+    if(!authToken){ return; }
+    fetch(`/api/browse_recent?token=${encodeURIComponent(authToken)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if(!data || !Array.isArray(data.entries) || !data.entries.length) return;
+        browseRecentSection.style.display = "";
+        browseRecentCards.innerHTML = "";
+        data.entries.forEach(entry => {
+          const pct = entry.total > 0 ? Math.round((entry.resume_index / entry.total) * 100) : 0;
+          let sub = null;
+          if(entry.total > 0){
+            if(entry.season_name && entry.episode_in_season != null && entry.season_total != null){
+              sub = `${entry.season_name} · Ep ${entry.episode_in_season}/${entry.season_total}`;
+            } else {
+              sub = `Ep ${entry.resume_index} / ${entry.total}`;
+            }
+          }
+          const card = makeBrowseCard(entry.folder_name, entry.path, sub, pct, () => {
+            const folder = {name: entry.folder_name, path: entry.path, type: "folder"};
+            triggerFolderOpen(folder);
+            if(authToken){
+              // Auto-start chronological play from the show-level checkpoint
+              const chronoBtn = document.getElementById("playFolderChronoBtn");
+              if(chronoBtn && !chronoBtn.disabled) chronoBtn.click();
+            }
+          });
+          browseRecentCards.appendChild(card);
+        });
+      })
+      .catch(() => {});
+  }
+}
+
+function hideBrowseDashboard(){
+  if(!browseDashboard) return;
+  browseDashboard.classList.remove("visible");
+  if(contentRoot) contentRoot.classList.remove("browse-root-mode");
+}
+
+function triggerFolderOpen(i){
+  // Shared logic extracted from folder onclick — opens folder prompt in homeText
+  setSelectedBrowseItem(null);
+  stopVideo();
+  hideBrowseDashboard();
+  if(contentRoot) contentRoot.classList.add("folder-prompt-mode");
+  homeText.innerHTML = buildFolderPromptHTML(i.name, i.path);
+  homeText.style.display = "block";
+  const rootPath = getRootFolderPath(i.path);
+  const chronoBtnEl = document.getElementById("playFolderChronoBtn");
+  if(chronoBtnEl) chronoBtnEl.dataset.folderPath = rootPath;
+  refreshOpenFolderChronoPrompt();
+  wireUpFolderPlayButtons(i, rootPath);
+  loadFolderSubgrid(i.path);
+}
+
+function buildFolderPromptHTML(name, path){
+  return `
+    <h2>📁 ${name}</h2>
+    <p>Choose how to play videos in <strong>${name}</strong></p>
+    <div class="folder-play-actions">
+      <button id="playFolderShuffleBtn" class="play-folder-btn">🔀 Shuffle Play</button>
+      <button id="playFolderChronoBtn" class="play-folder-btn secondary">📚 Chronological Resume</button>
+    </div>
+    <p id="playFolderChronoPos" class="folder-play-hint">Current chronological position: loading...</p>
+    <p id="playFolderChronoHint" class="folder-play-hint">Checking your chronological checkpoint...</p>
+    <div id="browseSubgrid" class="browse-subgrid">
+      <p class="browse-subgrid-title">Contents</p>
+      <div class="browse-cards" id="browseSubgridCards"><p class="browse-subgrid-loading">Loading...</p></div>
+    </div>
+  `;
+}
+
+function loadFolderSubgrid(folderPath){
+  setTimeout(() => {
+    const container = document.getElementById("browseSubgridCards");
+    if(!container) return;
+    fetch(`/api/list?path=${encodeURIComponent(folderPath)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(items => {
+        const subgridEl = document.getElementById("browseSubgridCards");
+        if(!subgridEl) return;
+        subgridEl.innerHTML = "";
+        if(!items.length){
+          subgridEl.innerHTML = '<p class="browse-subgrid-loading">Nothing here.</p>';
+          return;
+        }
+        // Add ".." back card as first item
+        const parentPath = folderPath.split("/").slice(0,-1).join("/");
+        if(parentPath){
+          const backCard = document.createElement("div");
+          backCard.className = "browse-card browse-card-back";
+          const backBody = document.createElement("div");
+          backBody.className = "browse-card-body";
+          const backLabel = document.createElement("div");
+          backLabel.className = "browse-card-name";
+          backLabel.textContent = "← Back";
+          const backSub = document.createElement("div");
+          backSub.className = "browse-card-sub";
+          backSub.textContent = parentPath === mediaRoot ? "Library" : parentPath.split("/").pop();
+          backBody.appendChild(backLabel);
+          backBody.appendChild(backSub);
+          backCard.appendChild(backBody);
+          backCard.onclick = () => {
+            searchInput.value = "";
+            currentPath = parentPath;
+            loadFolder(parentPath);
+          };
+          subgridEl.appendChild(backCard);
+        }
+
+        items.forEach(i => {
+          if(i.type !== "folder" && !String(i.name || "").toLowerCase().endsWith(".mp4")) return;
+          const isFolder = i.type === "folder";
+          const card = makeBrowseCard(
+            isFolder ? i.name : (i.display_name || i.name),
+            i.path,
+            null, null,
+            () => {
+              if(isFolder){
+                searchInput.value = "";
+                currentPath = i.path;
+                loadFolder(i.path);
+              } else {
+                // Play the file — find in sidebar list or synthesize
+                const sidebarItem = [...list.querySelectorAll(".item.file")].find(el => el.dataset.filterText && el.dataset.filterText.includes(i.name));
+                if(sidebarItem) sidebarItem.click();
+                else {
+                  const reqToken = showSkeleton(null, "Loading stream...", true);
+                  fetch("/api/play_file",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:i.path})})
+                    .then(r=>r.ok?r.json():Promise.reject())
+                    .then(d=>{
+                      if(reqToken!==playRequestToken){pendingOnDemand=false;stopOnDemandLoadingUI();return;}
+                      activeSlot=d.slot;pendingOnDemand=false;currentOnDemandPath=d.source_path||i.path;
+                      onDemandBaseOffsetSeconds=0;setOnDemandDuration(d.duration_seconds);setOnDemandPlayMode(d.play_mode||"single");
+                      setOnDemandEpisodeState(d.episode_index,d.episode_total);setOnDemandQueuePreview(d.queue_preview);
+                      waitForSegments(d.playlist,3,()=>{
+                        if(reqToken!==playRequestToken)return;
+                        playHLS(d.playlist,true,formatDisplayPath(d.display_title||i.path,"file"),false,null,false,d.slot);
+                      },reqToken,{timeoutMs:45000,onProgress:(sc,el)=>updateOnDemandLoadingProgress(sc,3,el),onTimeout:()=>failOnDemandLoad(null,"⚠️ Stream load timed out.")});
+                    }).catch(()=>failOnDemandLoad(null,"⚠️ Could not start file stream."));
+                }
+              }
+            }
+          );
+          subgridEl.appendChild(card);
+        });
+      })
+      .catch(() => {});
+  }, 0);
+}
+
+function getRootFolderPath(path) {
+  const rootParts = mediaRoot.split("/").length;
+  const parts = path.split("/");
+  if (parts.length <= rootParts + 1) return path;
+  return parts.slice(0, rootParts + 1).join("/");
+}
+
+function wireUpFolderPlayButtons(i, chronoPath){
+  const startFolderPlayback = (playMode) => {
+    if(playMode === "chronological" && !authToken){
+      requireLoginForFeature("chronological checkpoints");
+      return;
+    }
+    const effectivePath = playMode === "chronological" ? (chronoPath || i.path) : i.path;
+    const sidebarItem = [...list.querySelectorAll(".item.folder")].find(el => el.textContent === i.name) || null;
+    const requestToken = showSkeleton(sidebarItem, "Loading stream...", true);
+    fetch("/api/play_folder",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({path:effectivePath, play_mode: playMode, token: authToken})
+    })
+    .then(async (r)=>{
+      if(r.status === 401){
+        let data = {};
+        try { data = await r.json(); } catch (_) {}
+        throw new Error(((data && data.error)) || "Login required for chronological checkpoints.");
+      }
+      if(!r.ok) throw new Error("play_folder failed");
+      return r.json();
+    })
+    .then(d=>{
+      if(requestToken !== playRequestToken){
+        pendingOnDemand = false;
+        stopOnDemandLoadingUI();
+        if(sidebarItem) restoreSidebarItem(sidebarItem);
+        fetch("/api/stop_session",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}",keepalive:true}).catch(()=>{});
+        return;
+      }
+      activeSlot = d.slot;
+      pendingOnDemand = false;
+      currentOnDemandPath = d.source_path || "";
+      onDemandBaseOffsetSeconds = 0;
+      setOnDemandDuration(d.duration_seconds);
+      setOnDemandPlayMode(d.play_mode || playMode || "shuffle");
+      setOnDemandEpisodeState(d.episode_index, d.episode_total);
+      setOnDemandQueuePreview(d.queue_preview);
+      waitForSegments(d.playlist,3,()=>{
+        if(requestToken !== playRequestToken) return;
+        stopOnDemandLoadingUI();
+        loadingImage.style.display="none";
+        const playTitle = formatDisplayPath(d.display_title || i.path, "file");
+        playHLS(d.playlist,true,playTitle,true,sidebarItem,false,d.slot);
+      }, requestToken, {
+        timeoutMs: 45000,
+        onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
+        onTimeout: () => failOnDemandLoad(sidebarItem, "⚠️ Stream load timed out. Try again."),
+      });
+    })
+    .catch((err)=>{
+      const msg = String(((err && err.message)) || "").trim();
+      if(msg.toLowerCase().includes("login required")){
+        failOnDemandLoad(sidebarItem, `⚠️ ${msg}`);
+        requireLoginForFeature("chronological checkpoints");
+        return;
+      }
+      failOnDemandLoad(sidebarItem, "⚠️ Could not start folder stream. Try again.");
+    });
+  };
+  const shuffleBtn = document.getElementById("playFolderShuffleBtn");
+  const chronoBtn = document.getElementById("playFolderChronoBtn");
+  if(shuffleBtn) shuffleBtn.onclick = () => startFolderPlayback("shuffle");
+  if(chronoBtn) chronoBtn.onclick = () => startFolderPlayback("chronological");
+}
+
 function loadFolder(path){
   const token = listLoadToken;
   fetch(`/api/list?path=${encodeURIComponent(path)}`)
@@ -5453,6 +6032,13 @@ function loadFolder(path){
       list.innerHTML="";
       homeText.style.display="none";
       stopVideo();
+
+      const isRoot = path === mediaRoot;
+      if(isRoot){
+        loadBrowseDashboard(items);
+      } else {
+        hideBrowseDashboard();
+      }
 
       if(path!==mediaRoot){
         const up=document.createElement("div");
@@ -5473,6 +6059,7 @@ function loadFolder(path){
       }
 
       items.forEach(i=>{
+        if(i.type !== "folder" && !String(i.name || "").toLowerCase().endsWith(".mp4")) return;
         const div=document.createElement("div");
         const displayName = i.display_name || formatEpisodeTitle(i.name, i.type);
         const previewTitle = i.display_title || formatDisplayPath(i.path, i.type);
@@ -5488,91 +6075,18 @@ function loadFolder(path){
           div.onclick=()=>{
             setSelectedBrowseItem(div);
             stopVideo();
+            hideBrowseDashboard();
             if(contentRoot) contentRoot.classList.add("folder-prompt-mode");
             div.classList.add("selected");
-            homeText.innerHTML = `
-              <h2>📁 ${i.name}</h2>
-              <p>Choose how to play videos in <strong>${i.name}</strong></p>
-              <div class="folder-play-actions">
-                <button id="playFolderShuffleBtn" class="play-folder-btn">🔀 Shuffle Play</button>
-                <button id="playFolderChronoBtn" class="play-folder-btn secondary">📚 Chronological Resume</button>
-              </div>
-              <p id="playFolderChronoPos" class="folder-play-hint">Current chronological position: loading...</p>
-              <p id="playFolderChronoHint" class="folder-play-hint">Checking your chronological checkpoint...</p>
-            `;
+            homeText.innerHTML = buildFolderPromptHTML(i.name, i.path);
             homeText.style.display="block";
 
+            const rootPath = getRootFolderPath(i.path);
             const chronoBtnEl = document.getElementById("playFolderChronoBtn");
-            if(chronoBtnEl) chronoBtnEl.dataset.folderPath = i.path;
+            if(chronoBtnEl) chronoBtnEl.dataset.folderPath = rootPath;
             refreshOpenFolderChronoPrompt();
-
-            const startFolderPlayback = (playMode)=>{
-              if(playMode === "chronological" && !authToken){
-                requireLoginForFeature("chronological checkpoints");
-                return;
-              }
-              const requestToken = showSkeleton(div);
-              fetch("/api/play_folder",{
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({path:i.path, play_mode: playMode, token: authToken})
-              })
-              .then(async (r)=>{
-                if(r.status === 401){
-                  let data = {};
-                  try { data = await r.json(); } catch (_) {}
-                  throw new Error(((data && data.error)) || "Login required for chronological checkpoints.");
-                }
-                if(!r.ok) throw new Error("play_folder failed");
-                return r.json();
-              })
-              .then(d=>{
-                if(requestToken !== playRequestToken){
-                  pendingOnDemand = false;
-                  stopOnDemandLoadingUI();
-                  restoreSidebarItem(div);
-                  fetch("/api/stop_session", {
-                    method:"POST",
-                    headers:{"Content-Type":"application/json"},
-                    body:"{}",
-                    keepalive:true
-                  }).catch(()=>{});
-                  return;
-                }
-                activeSlot = d.slot;
-                pendingOnDemand = false;
-                currentOnDemandPath = d.source_path || "";
-                onDemandBaseOffsetSeconds = 0;
-                setOnDemandDuration(d.duration_seconds);
-                setOnDemandPlayMode(d.play_mode || playMode || "shuffle");
-                setOnDemandEpisodeState(d.episode_index, d.episode_total);
-                setOnDemandQueuePreview(d.queue_preview);
-                waitForSegments(d.playlist,3,()=>{
-                  if(requestToken !== playRequestToken) return;
-                  stopOnDemandLoadingUI();
-                  loadingImage.style.display="none";
-                  const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
-                  playHLS(d.playlist,true,playTitle,true,div,false,d.slot);
-                }, requestToken, {
-                  timeoutMs: 45000,
-                  onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
-                  onTimeout: () => failOnDemandLoad(div, "⚠️ Stream load timed out. Try again."),
-                });
-              })
-              .catch((err)=>{
-                const msg = String(((err && err.message)) || "").trim();
-                if(msg.toLowerCase().includes("login required")){
-                  failOnDemandLoad(div, `⚠️ ${msg}`);
-                  requireLoginForFeature("chronological checkpoints");
-                  return;
-                }
-                failOnDemandLoad(div, "⚠️ Could not start folder stream. Try again.");
-              });
-            };
-            const shuffleBtn = document.getElementById("playFolderShuffleBtn");
-            const chronoBtn = document.getElementById("playFolderChronoBtn");
-            if(shuffleBtn) shuffleBtn.onclick = () => startFolderPlayback("shuffle");
-            if(chronoBtn) chronoBtn.onclick = () => startFolderPlayback("chronological");
+            wireUpFolderPlayButtons(i, rootPath);
+            loadFolderSubgrid(i.path);
           };
           div.ondblclick=()=>{
             searchInput.value = "";
@@ -5632,8 +6146,23 @@ function loadFolder(path){
         list.appendChild(div);
       });
       applyListFilter();
+
+      if(!isRoot){
+        const folderName = path.split("/").pop();
+        homeText.innerHTML = buildFolderPromptHTML(folderName, path);
+        homeText.style.display = "block";
+        if(contentRoot) contentRoot.classList.add("folder-prompt-mode");
+        const rootPath = getRootFolderPath(path);
+        const chronoBtnEl = document.getElementById("playFolderChronoBtn");
+        if(chronoBtnEl) chronoBtnEl.dataset.folderPath = rootPath;
+        refreshOpenFolderChronoPrompt();
+        wireUpFolderPlayButtons({name: folderName, path: path}, rootPath);
+        loadFolderSubgrid(path);
+      }
     });
 }
+
+
 
 /* ---------- Wait for segments before playing ---------- */
 function waitForSegments(url,minSegments,callback,requestToken=null,opts={}){

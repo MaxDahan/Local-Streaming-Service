@@ -6,12 +6,14 @@
     "default": "default",
     "available": [
       "default",
-      "volcano",
+      "bnz",
       "space",
-      "dinosaur",
-      "beach",
       "csgo",
-      "pokemon"
+      "pokemon",
+      "xbox",
+      "dinosaur",
+      "volcano",
+      "beach"
     ]
   }
 }

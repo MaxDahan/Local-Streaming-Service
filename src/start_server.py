@@ -374,7 +374,11 @@ def get_folder_resume_index(folder_key, identity="guest"):
         return 0
     key = make_resume_map_key(folder_key, identity)
     with FOLDER_RESUME_LOCK:
-        return int(FOLDER_RESUME_MAP.get(key, 0) or 0)
+        val = FOLDER_RESUME_MAP.get(key, 0)
+    # Support both legacy int and new dict format
+    if isinstance(val, dict):
+        return max(0, int(val.get("index", 0) or 0))
+    return max(0, int(val or 0))
 
 
 def set_folder_resume_index(folder_key, index, identity="guest"):
@@ -383,8 +387,34 @@ def set_folder_resume_index(folder_key, index, identity="guest"):
     key = make_resume_map_key(folder_key, identity)
     safe_index = max(0, int(index or 0))
     with FOLDER_RESUME_LOCK:
-        FOLDER_RESUME_MAP[key] = safe_index
+        existing = FOLDER_RESUME_MAP.get(key)
+        last_played = time.time()
+        if isinstance(existing, dict):
+            # preserve original first_played if available
+            pass
+        FOLDER_RESUME_MAP[key] = {"index": safe_index, "last_played": last_played}
     save_folder_resume_map()
+
+
+def get_recently_played(identity, limit=5):
+    """Return the most recently played folder paths for an identity."""
+    prefix = normalize_resume_identity(identity) + "::"
+    entries = []
+    with FOLDER_RESUME_LOCK:
+        for key, val in FOLDER_RESUME_MAP.items():
+            if not key.startswith(prefix):
+                continue
+            folder_key = key[len(prefix):]
+            if isinstance(val, dict):
+                idx = max(0, int(val.get("index", 0) or 0))
+                last_played = float(val.get("last_played", 0) or 0)
+            else:
+                idx = max(0, int(val or 0))
+                last_played = 0.0
+            if idx > 0:
+                entries.append({"folder_key": folder_key, "resume_index": idx, "last_played": last_played})
+    entries.sort(key=lambda e: -e["last_played"])
+    return entries[:max(1, int(limit or 5))]
 
 
 def normalize_username(username):
@@ -499,6 +529,7 @@ def load_auth_db():
             "created_ts": created_ts,
             "last_rename_ts": last_rename_ts,
             "cookie_clicks": max(0, int(info.get("cookie_clicks", 0) or 0)),
+            "blunt_hits": max(0, int(info.get("blunt_hits", 0) or 0)),
             "is_admin": bool(info.get("is_admin") or info.get("isAdmin")),
             "enabled": bool(info.get("enabled", True)),
         }
@@ -1590,6 +1621,96 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(items).encode())
             return
+        if parsed.path == "/api/browse_recent":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"entries": []}).encode())
+                return
+            identity = f"user:{user_key}"
+            raw_entries = get_recently_played(identity, limit=8)
+            result = []
+            for entry in raw_entries:
+                fk = entry["folder_key"]
+                real = safe_path(fk)
+                if not real or not os.path.isdir(real):
+                    continue
+                folder_name = os.path.basename(real)
+                # Collect all media files sorted the same way as play_folder
+                all_files = []
+                for root, _, ns in os.walk(real):
+                    for n in ns:
+                        if n.lower().endswith((".mp4", ".mkv")):
+                            all_files.append(os.path.join(root, n))
+                all_files = sorted(all_files, key=natural_sort_key)
+                total = len(all_files)
+                # Season info for the resume position
+                resume_idx = entry["resume_index"]
+                season_name = None
+                episode_in_season = None
+                season_total = None
+                if 0 < resume_idx <= total:
+                    current_file = all_files[resume_idx - 1]
+                    parent_dir = os.path.dirname(current_file)
+                    has_seasons = parent_dir != real
+                    if has_seasons:
+                        season_name = os.path.basename(parent_dir)
+                        season_files = [f for f in all_files if os.path.dirname(f) == parent_dir]
+                        if current_file in season_files:
+                            episode_in_season = season_files.index(current_file) + 1
+                        season_total = len(season_files)
+                result.append({
+                    "folder_key": fk,
+                    "folder_name": folder_name,
+                    "path": fk,
+                    "resume_index": entry["resume_index"],
+                    "total": total,
+                    "season_name": season_name,
+                    "episode_in_season": episode_in_season,
+                    "season_total": season_total,
+                    "last_played": entry["last_played"],
+                })
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"entries": result}).encode())
+            return
+        if parsed.path == "/api/folder_cover":
+            qs = parse_qs(parsed.query)
+            rel_path = qs.get("path", [""])[0]
+            real = safe_path(rel_path)
+            if not real or not os.path.isdir(real):
+                self.send_error(404)
+                return
+            cover_names = ["cover.jpg", "cover.jpeg", "cover.png", "cover.webp",
+                           "poster.jpg", "poster.jpeg", "poster.png", "folder.jpg", "folder.png"]
+            found = None
+            for cn in cover_names:
+                candidate = os.path.join(real, cn)
+                if os.path.isfile(candidate):
+                    found = candidate
+                    break
+            if not found:
+                self.send_error(404)
+                return
+            ext = os.path.splitext(found)[1].lower()
+            mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                    "png": "image/png", "webp": "image/webp"}.get(ext.lstrip("."), "image/jpeg")
+            try:
+                with open(found, "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Cache-Control", "public, max-age=3600")
+                self.end_headers()
+                self.wfile.write(data)
+            except OSError:
+                self.send_error(404)
+            return
         if parsed.path == "/api/cookies":
             qs = parse_qs(parsed.query)
             token = str(qs.get("token", [""])[0]).strip()
@@ -2671,6 +2792,18 @@ if __name__ == "__main__":
     load_chat_history()
     load_folder_resume_map()
     load_auth_db()
+    # Re-sync global blunt count from per-user hits to fix any historical drift
+    with AUTH_LOCK:
+        _user_hit_total = sum(
+            max(0, int(info.get("blunt_hits", 0) or 0))
+            for info in AUTH_DB.get("users", {}).values()
+            if isinstance(info, dict)
+        )
+    with BLUNT_LOCK:
+        if BLUNT_COUNT != _user_hit_total:
+            print(f"🔧 Syncing blunt count: {BLUNT_COUNT} → {_user_hit_total}")
+            BLUNT_COUNT = _user_hit_total
+            save_blunt_count()
 
     def _shutdown_handler(signum, frame):
         print("\n🛑 Shutting down — saving cookie count...")

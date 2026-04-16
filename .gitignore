@@ -29,6 +29,10 @@ __pycache__/
 *.py[cod]
 .vscode/
 
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
 # OS artifacts
 .DS_Store
 ._*
