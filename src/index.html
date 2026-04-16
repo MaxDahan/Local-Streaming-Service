@@ -624,12 +624,30 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   padding-top:8px;
   display:none;
 }
+.on-demand-queue-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
 .on-demand-queue-title {
   font-size:11px;
   color:var(--text-muted);
-  margin:0 0 6px;
+  margin:0;
   letter-spacing:0.02em;
   text-transform:uppercase;
+  flex-shrink:0;
+}
+.on-demand-season-filter {
+  font-size:11px;
+  color:var(--text-main);
+  background:var(--bg-input);
+  border:1px solid var(--border-input);
+  border-radius:8px;
+  padding:3px 6px;
+  cursor:pointer;
+  max-width:140px;
 }
 .on-demand-queue-list {
   display:flex;
@@ -839,6 +857,144 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   background:var(--accent-grad);
   color:var(--accent-text);
   font-weight:700;
+}
+/* Blaze trippy screen overlay */
+#blazeOverlay {
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9998;
+  opacity:0;
+  transition:opacity 3s ease;
+  background:radial-gradient(ellipse at 40% 50%, rgba(60,200,100,0.06) 0%, rgba(180,100,255,0.07) 55%, rgba(0,80,200,0.05) 100%);
+  mix-blend-mode:screen;
+}
+#blazeOverlay.active {
+  opacity:1;
+}
+@keyframes bluntSmokePuff {
+  0%   { transform: translateX(-50%) translateY(0)   scale(0.3); opacity:0.72; filter:blur(4px); }
+  55%  { opacity:0.35; filter:blur(18px); }
+  100% { transform: translateX(-50%) translateY(-220px) scale(5); opacity:0; filter:blur(38px); }
+}
+.blunt-smoke-puff {
+  position:fixed;
+  border-radius:50%;
+  background:rgba(215,225,215,0.65);
+  pointer-events:none;
+  z-index:9999;
+  animation: bluntSmokePuff ease-out forwards;
+  will-change:transform,opacity;
+}
+/* Blunt dock */
+.blunt-dock {
+  position:fixed;
+  right:210px;
+  bottom:18px;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+}
+.blunt-btn {
+  width:52px;
+  height:52px;
+  border-radius:999px;
+  border:1px solid var(--border-input);
+  cursor:pointer;
+  background:linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 78%, #fff 22%), var(--bg-button));
+  font-size:26px;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 8px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition:transform 100ms ease, box-shadow 100ms ease;
+  user-select:none;
+}
+.blunt-btn.is-locked {
+  filter:grayscale(1);
+  opacity:0.55;
+  cursor:not-allowed;
+}
+.blunt-btn:hover {
+  transform:translateY(-1px) scale(1.05);
+  box-shadow:0 10px 24px rgba(0,0,0,0.32);
+}
+.blunt-btn.is-locked:hover {
+  transform:none;
+  box-shadow:0 8px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.blunt-btn:active {
+  transform:scale(0.88);
+  box-shadow:0 4px 10px rgba(0,0,0,0.28);
+}
+.blunt-score {
+  font-size:11px;
+  font-weight:800;
+  color:var(--text-main);
+  letter-spacing:0.03em;
+  text-align:center;
+  min-width:52px;
+  pointer-events:auto;
+  background:color-mix(in srgb, var(--bg-card) 90%, #000 10%);
+  border:1px solid var(--border-input);
+  border-radius:8px;
+  padding:2px 6px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  cursor:default;
+}
+.blunt-leaderboard {
+  display:none;
+  position:absolute;
+  right:-6px;
+  bottom:calc(100% + 2px);
+  min-width:190px;
+  background:color-mix(in srgb, var(--bg-card) 92%, #000 8%);
+  border:1px solid var(--border-input);
+  border-radius:10px;
+  padding:7px 8px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  z-index:2;
+}
+.blunt-leaderboard::before {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-10px;
+  height:10px;
+}
+.blunt-leaderboard h5 {
+  margin:0 0 4px;
+  font-size:11px;
+  letter-spacing:0.03em;
+  color:var(--text-main);
+}
+.blunt-leaderboard ol {
+  margin:0;
+  padding-left:18px;
+}
+.blunt-btn:hover ~ .blunt-leaderboard,
+.blunt-leaderboard:hover {
+  display:block;
+}
+.blunt-leaderboard li {
+  font-size:11px;
+  color:var(--text-muted);
+  line-height:1.35;
+}
+.blunt-leaderboard .empty {
+  font-size:11px;
+  color:var(--text-muted);
+}
+.blunt-auth-hint {
+  margin:6px 0 0;
+  padding-top:6px;
+  border-top:1px solid var(--border-input);
+  font-size:11px;
+  color:var(--text-muted);
 }
 .cookie-dock {
   position:fixed;
@@ -1448,6 +1604,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   .theme-dock { right:12px; bottom:12px; }
   .user-dock { right:76px; bottom:12px; }
   .cookie-dock { right:140px; bottom:12px; }
+  .blunt-dock { right:204px; bottom:12px; }
 }
 </style>
 </head>
@@ -1541,7 +1698,10 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <span id="onDemandSeekTotal">0:00</span>
     </div>
     <div id="onDemandQueue" class="on-demand-queue">
-      <p id="onDemandQueueTitle" class="on-demand-queue-title">Shuffled Queue</p>
+      <div class="on-demand-queue-header">
+        <p id="onDemandQueueTitle" class="on-demand-queue-title">Shuffled Queue</p>
+        <select id="onDemandSeasonFilter" class="on-demand-season-filter" style="display:none;" aria-label="Filter by season"></select>
+      </div>
       <div id="onDemandQueueList" class="on-demand-queue-list"></div>
     </div>
   </div>
@@ -1560,6 +1720,28 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <input id="chatInput" type="text" maxlength="500" placeholder="Type a message..." />
       <button id="chatSendBtn" type="button">Send</button>
     </div>
+  </div>
+</div>
+
+<svg id="blazeSvgDefs" width="0" height="0" style="position:absolute;top:-9999px;left:-9999px;overflow:hidden;" aria-hidden="true">
+  <defs>
+    <filter id="blaze-wave-filter" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGBLinear">
+      <feTurbulence id="blaze-turbulence" type="fractalNoise" baseFrequency="0.006 0.009" numOctaves="3" seed="5" result="noise"/>
+      <feDisplacementMap id="blaze-displace" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+<div id="blazeOverlay"></div>
+
+<div class="blunt-dock" id="bluntDock">
+  <button class="blunt-btn is-locked" id="bluntBtn" title="Please login to hit the blunt" aria-label="Blunt clicker"><img src="/src/images/blunt.jpeg" alt="blunt" width="30" height="30" style="pointer-events:none;display:block;"></button>
+  <span class="blunt-score" id="bluntScore">...</span>
+  <div class="blunt-leaderboard" id="bluntLeaderboard">
+    <h5>Top 5 Blunt Puffers</h5>
+    <ol id="bluntLeaderboardList">
+      <li class="empty">No hits yet.</li>
+    </ol>
+    <p id="bluntAuthHint" class="blunt-auth-hint">Please login to hit the blunt.</p>
   </div>
 </div>
 
@@ -1650,6 +1832,7 @@ const onDemandNextBtn = document.getElementById("onDemandNextBtn");
 const onDemandQueue = document.getElementById("onDemandQueue");
 const onDemandQueueTitle = document.getElementById("onDemandQueueTitle");
 const onDemandQueueList = document.getElementById("onDemandQueueList");
+const onDemandSeasonFilter = document.getElementById("onDemandSeasonFilter");
 const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
@@ -1691,9 +1874,18 @@ const cookieLeaderboardList = document.getElementById("cookieLeaderboardList");
 const cookieAuthHint = document.getElementById("cookieAuthHint");
 const themeAuthHint = document.getElementById("themeAuthHint");
 const adminHealthPanelLink = document.getElementById("adminHealthPanelLink");
+const bluntBtn = document.getElementById("bluntBtn");
+const bluntScore = document.getElementById("bluntScore");
+const bluntLeaderboardList = document.getElementById("bluntLeaderboardList");
+const bluntAuthHint = document.getElementById("bluntAuthHint");
+const blazeOverlay = document.getElementById("blazeOverlay");
 
 let cookieCountValue = 0;
 let cookiePollTimer = null;
+let bluntCountValue = 0;
+let bluntPollTimer = null;
+let bluntCooldown = false;
+let blazeRafId = null;
 
 function renderCookieLeaderboard(entries){
   if(!cookieLeaderboardList) return;
@@ -1783,6 +1975,175 @@ function initCookieClicker(){
     fetchCookieCount();
     if(cookiePollTimer) clearInterval(cookiePollTimer);
     cookiePollTimer = setInterval(fetchCookieCount, 4000);
+  } catch (_) {}
+}
+
+function renderBluntLeaderboard(entries){
+  if(!bluntLeaderboardList) return;
+  bluntLeaderboardList.innerHTML = "";
+  if(!Array.isArray(entries) || !entries.length){
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No hits yet.";
+    bluntLeaderboardList.appendChild(li);
+    return;
+  }
+  entries.slice(0, 5).forEach((entry) => {
+    const li = document.createElement("li");
+    const safeEntry = (entry && typeof entry === "object") ? entry : {};
+    const name = String(safeEntry.username || "Unknown").trim() || "Unknown";
+    const hits = Number(safeEntry.hits) || 0;
+    li.textContent = `${name}: ${formatCookieCount(Math.max(0, hits))}`;
+    bluntLeaderboardList.appendChild(li);
+  });
+}
+
+function syncBluntAuthState(){
+  if(!bluntBtn) return;
+  const loggedIn = Boolean(authToken && authUsername);
+  const canHit = loggedIn && !bluntCooldown;
+  bluntBtn.classList.toggle("is-locked", !canHit);
+  if(!loggedIn){
+    bluntBtn.title = "Please login to hit the blunt";
+  } else if(bluntCooldown){
+    bluntBtn.title = "Already lit \ud83d\udd25 wait for it to fade...";
+  } else {
+    bluntBtn.title = "Hit the blunt!";
+  }
+  if(bluntAuthHint) bluntAuthHint.style.display = loggedIn ? "none" : "block";
+}
+
+function fetchBluntCount(){
+  const query = authToken ? `?token=${encodeURIComponent(authToken)}` : "";
+  fetch(`/api/blunts${query}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if(data && typeof data.count === "number"){
+        bluntCountValue = data.count;
+        if(bluntScore) bluntScore.textContent = formatCookieCount(bluntCountValue);
+      }
+      if(data && Array.isArray(data.leaderboard)){
+        renderBluntLeaderboard(data.leaderboard);
+      }
+    })
+    .catch(() => {});
+}
+
+function spawnBluntSmoke(){
+  if(!bluntBtn) return;
+  const rect = bluntBtn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  // Spawn waves of puffs over 3 seconds to blanket the screen
+  const totalPuffs = 55;
+  for(let i = 0; i < totalPuffs; i++){
+    const delay = i * 0.055 + Math.random() * 0.12;
+    const duration = 2.8 + Math.random() * 2.2;
+    // Spread origin across the whole bottom area, not just button
+    const ox = cx + (Math.random() - 0.5) * W * 0.9;
+    const oy = cy + (Math.random() - 0.5) * H * 0.3 + H * 0.1;
+    const sz = 60 + Math.random() * 140;
+    setTimeout(() => {
+      const puff = document.createElement("div");
+      puff.className = "blunt-smoke-puff";
+      puff.style.left = `${ox}px`;
+      puff.style.top = `${oy}px`;
+      puff.style.width = puff.style.height = `${sz}px`;
+      puff.style.animationDuration = `${duration}s`;
+      document.body.appendChild(puff);
+      puff.addEventListener("animationend", () => puff.remove(), { once: true });
+    }, delay * 1000);
+  }
+}
+
+function startBlazeEffect(){
+  const feDisplace = document.getElementById("blaze-displace");
+  if(blazeOverlay) blazeOverlay.classList.add("active");
+
+  // Woozy intensity ramps up from 0 over 2s, stays, then fades out over 2s
+  const fadeInDur = 2.0;
+  const holdDur   = 6.0;
+  const fadeOutDur = 2.0;
+  const totalDur = fadeInDur + holdDur + fadeOutDur; // 10s
+  const t0 = performance.now();
+
+  function animateBlaze(now){
+    if(!bluntCooldown) return;
+    const t = (now - t0) * 0.001;
+
+    // Envelope: 0→1 over fadeIn, hold at 1, then 1→0 over fadeOut
+    let env;
+    if(t < fadeInDur){
+      env = t / fadeInDur;
+    } else if(t < fadeInDur + holdDur){
+      env = 1;
+    } else {
+      env = Math.max(0, 1 - (t - fadeInDur - holdDur) / fadeOutDur);
+    }
+    // Smooth the envelope with an ease curve
+    const e = env * env * (3 - 2 * env);
+
+    const sc = e * (7 + 5 * Math.sin(t * 0.18 + 0.5));
+    if(feDisplace) feDisplace.setAttribute("scale", sc.toFixed(3));
+
+    const hue = e * (20 + 20 * Math.sin(t * 0.07));
+    const sat = 1 + e * (0.45 + 0.25 * Math.sin(t * 0.11 + 1.0));
+    const con = 1 + e * (0.04 + 0.06 * Math.sin(t * 0.08 + 2.1));
+    document.body.style.filter = `url(#blaze-wave-filter) hue-rotate(${hue.toFixed(2)}deg) saturate(${sat.toFixed(3)}) contrast(${con.toFixed(3)})`;
+
+    blazeRafId = requestAnimationFrame(animateBlaze);
+  }
+  if(blazeRafId) cancelAnimationFrame(blazeRafId);
+  blazeRafId = requestAnimationFrame(animateBlaze);
+
+  setTimeout(() => {
+    if(blazeOverlay) blazeOverlay.classList.remove("active");
+    document.body.style.filter = "";
+    if(feDisplace) feDisplace.setAttribute("scale", "0");
+    if(blazeRafId){ cancelAnimationFrame(blazeRafId); blazeRafId = null; }
+  }, totalDur * 1000);
+  setTimeout(() => {
+    bluntCooldown = false;
+    syncBluntAuthState();
+  }, (totalDur + 0.5) * 1000);
+}
+
+function hitBlunt(){
+  if(!authToken || !authUsername){
+    syncBluntAuthState();
+    requireLoginForFeature("blunt clicker");
+    return;
+  }
+  if(bluntCooldown) return;
+  bluntCooldown = true;
+  syncBluntAuthState();
+  bluntCountValue++;
+  if(bluntScore) bluntScore.textContent = formatCookieCount(bluntCountValue);
+  spawnBluntSmoke();
+  startBlazeEffect();
+  fetch(`/api/blunts/hit?token=${encodeURIComponent(authToken)}`, { method: "POST" })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if(data && typeof data.count === "number"){
+        bluntCountValue = data.count;
+        if(bluntScore) bluntScore.textContent = formatCookieCount(bluntCountValue);
+      }
+      fetchBluntCount();
+    })
+    .catch(() => { fetchBluntCount(); });
+}
+
+function initBluntClicker(){
+  try {
+    if(bluntBtn){
+      bluntBtn.addEventListener("click", hitBlunt);
+    }
+    syncBluntAuthState();
+    fetchBluntCount();
+    if(bluntPollTimer) clearInterval(bluntPollTimer);
+    bluntPollTimer = setInterval(fetchBluntCount, 8000);
   } catch (_) {}
 }
 
@@ -2777,9 +3138,11 @@ function setAuthState(token="", username=""){
   setAuthStatus("");
   refreshForgotPasswordLink();
   syncCookieAuthState();
+  syncBluntAuthState();
   syncThemeAuthHint();
   refreshAdminEntryButton();
   fetchCookieCount();
+  fetchBluntCount();
   fetchCurrentUsers();
 }
 
@@ -3182,10 +3545,21 @@ function refreshOpenFolderChronoPrompt(){
       const total = Math.max(1, Number((resume && resume.total)) || 1);
       const rawTitle = String((resume && resume.display_title) || (resume && resume.current_file) || "Next episode").trim();
       const formatted = formatDisplayPath(rawTitle, "file") || "Next episode";
-      chronoBtn.textContent = `📚 Resume ${index}/${total}`;
-      chronoBtn.title = `Will play next: ${formatted}`;
-      if(chronoPos) chronoPos.textContent = `Current chronological position: ${index}/${total}`;
-      if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+      // Use season info directly from backend (episode_in_season, season_total, season_folder)
+      const epInSeason = resume && resume.episode_in_season;
+      const seasonTotal = resume && resume.season_total;
+      const seasonFolder = resume && resume.season_folder;
+      if(epInSeason && seasonTotal && seasonFolder){
+        chronoBtn.textContent = `📚 Resume ${seasonFolder}: ${epInSeason}/${seasonTotal} (${index}/${total})`;
+        chronoBtn.title = `Will play next: ${formatted}`;
+        if(chronoPos) chronoPos.textContent = `Current chronological position: ${seasonFolder} — ${epInSeason}/${seasonTotal} (overall: ${index}/${total})`;
+        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+      } else {
+        chronoBtn.textContent = `📚 Resume ${index}/${total}`;
+        chronoBtn.title = `Will play next: ${formatted}`;
+        if(chronoPos) chronoPos.textContent = `Current chronological position: ${index}/${total}`;
+        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+      }
     })
     .catch(() => {
       if(!chronoBtn.isConnected) return;
@@ -3774,7 +4148,18 @@ function setOnDemandSeekbarDisabled(disabled){
 function updateOnDemandEpisodeUI(){
   if(onDemandEpisodeMeta){
     if(onDemandEpisodeTotal > 1){
-      onDemandEpisodeMeta.textContent = `Episode ${onDemandEpisodeIndex}/${onDemandEpisodeTotal}`;
+      // Use season_folder from queue entry for season-aware counter
+      let metaText = `${onDemandEpisodeIndex}/${onDemandEpisodeTotal}`;
+      const curEntry = onDemandQueuePreview.find(e => e.is_current);
+      if(curEntry && curEntry.season_folder && curEntry._season_pos){
+        const noSeasonKey = "__none__";
+        const season = curEntry.season_folder;
+        if(season !== noSeasonKey){
+          const seasonCount = onDemandQueuePreview.filter(e => e.season_folder === season).length;
+          metaText = `${season}: ${curEntry._season_pos}/${seasonCount}`;
+        }
+      }
+      onDemandEpisodeMeta.textContent = metaText;
     } else {
       onDemandEpisodeMeta.textContent = "";
     }
@@ -3803,18 +4188,11 @@ function setOnDemandQueuePreview(preview){
   onDemandQueuePreview = Array.isArray(preview) ? preview : [];
   if(!onDemandQueue || !onDemandQueueList) return;
 
-  const queueLabel = (entry) => {
-    const raw = String((entry && entry.display_title) || (entry && entry.current_file) || "Episode").trim();
-    if(!raw) return "Episode";
-    const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
-    if(parts.length > 1) return parts.slice(1).join(" / ");
-    return raw;
-  };
-
   if(!onDemandQueuePreview.length){
     onDemandQueue.style.display = "none";
     if(contentRoot) contentRoot.classList.remove("queue-open");
     onDemandQueueList.innerHTML = "";
+    if(onDemandSeasonFilter) onDemandSeasonFilter.style.display = "none";
     requestAnimationFrame(() => {
       positionPlaybackUiUnderStream();
       positionChatUnderStream();
@@ -3822,12 +4200,116 @@ function setOnDemandQueuePreview(preview){
     return;
   }
 
-  onDemandQueue.style.display = "block";
-  if(contentRoot) contentRoot.classList.add("queue-open");
+  // ── Season grouping ──────────────────────────────────────────────────────
+  // Build a map: seasonFolder → [entries], preserving order
+  const seasonMap = new Map(); // preserves insertion order
+  const noSeasonKey = "__none__";
+  onDemandQueuePreview.forEach(entry => {
+    const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+    if(!seasonMap.has(season)) seasonMap.set(season, []);
+    seasonMap.get(season).push(entry);
+  });
+  const hasSeasons = !(seasonMap.size === 1 && seasonMap.has(noSeasonKey));
+
+  // Populate season selector
+  if(onDemandSeasonFilter){
+    if(hasSeasons && seasonMap.size > 1){
+      onDemandSeasonFilter.style.display = "";
+      const prevSeason = onDemandSeasonFilter.value;
+      onDemandSeasonFilter.innerHTML = "";
+      const allOpt = document.createElement("option");
+      allOpt.value = "__all__";
+      allOpt.textContent = "All seasons";
+      onDemandSeasonFilter.appendChild(allOpt);
+      for(const [key] of seasonMap){
+        if(key === noSeasonKey) continue;
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = key;
+        onDemandSeasonFilter.appendChild(opt);
+      }
+      // Restore or default to current episode's season
+      const curEntry = onDemandQueuePreview.find(e => e.is_current);
+      const curSeason = curEntry ? (String(curEntry.season_folder || "").trim() || noSeasonKey) : noSeasonKey;
+      const validValues = ["__all__", ...Array.from(seasonMap.keys())];
+      if(prevSeason && validValues.includes(prevSeason)){
+        onDemandSeasonFilter.value = prevSeason;
+      } else {
+        onDemandSeasonFilter.value = curSeason !== noSeasonKey ? curSeason : "__all__";
+      }
+    } else {
+      onDemandSeasonFilter.style.display = "none";
+    }
+  }
+
+  renderQueueList();
+}
+
+function renderQueueList(){
+  if(!onDemandQueueList) return;
+  const noSeasonKey = "__none__";
+
+  // Which season filter is active?
+  const activeSeason = (onDemandSeasonFilter && onDemandSeasonFilter.style.display !== "none")
+    ? onDemandSeasonFilter.value
+    : "__all__";
+
+  // Filter entries to active season
+  const filtered = activeSeason === "__all__"
+    ? onDemandQueuePreview
+    : onDemandQueuePreview.filter(entry => {
+        const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+        return season === activeSeason;
+      });
+
+  // Compute per-season episode counts for index badges
+  const seasonCounts = {};
+  onDemandQueuePreview.forEach(entry => {
+    const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+    seasonCounts[season] = (seasonCounts[season] || 0) + 1;
+  });
+  // Position within season
+  const seasonPos = {};
+  onDemandQueuePreview.forEach(entry => {
+    const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+    seasonPos[season] = (seasonPos[season] || 0) + 1;
+    entry._season_pos = seasonPos[season];
+  });
+
+  function entryIndexBadge(entry){
+    const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+    const total = seasonCounts[season] || entry.total;
+    const pos = entry._season_pos || entry.position;
+    if(season !== noSeasonKey){
+      // Try to get Ep number from display_title for the label
+      const t = String((entry && entry.display_title) || "");
+      let m = t.match(/S\d{1,2}E(\d{1,3})/i);
+      const epNum = m ? parseInt(m[1],10) : pos;
+      return `${epNum}/${total}`;
+    }
+    return `${entry.position}/${entry.total}`;
+  }
+
+  function entryLabel(entry){
+    const raw = String((entry && entry.display_title) || (entry && entry.current_file) || "Episode").trim();
+    if(!raw) return "Episode";
+    // Use last meaningful path segment
+    const seg = raw.split("/").filter(Boolean);
+    let name = seg[seg.length - 1] || raw;
+    // Strip SxxExx prefix with optional dash separator
+    name = name.replace(/^S\d{1,2}E\d{1,3}\s*[-–]?\s*/i, "");
+    name = name.replace(/^\d{1,2}x\d{1,3}\s*[-–]?\s*/i, "");
+    // Strip extension, normalize separators
+    name = name.replace(/\.[^.]+$/, "").replace(/[._]+/g, " ").trim();
+    return name || raw;
+  }
+
   onDemandQueueList.innerHTML = "";
   let currentRow = null;
-  let currentPos = -1;
-  onDemandQueuePreview.forEach((entry) => {
+
+  // The backend now sends entries in correct order (index 0 → N-1).
+  // Previous episodes are ABOVE current in the array — no reordering needed.
+  filtered.forEach(entry => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = `on-demand-queue-item${entry.is_current ? " current" : ""}`;
@@ -3835,24 +4317,28 @@ function setOnDemandQueuePreview(preview){
     row.onclick = () => goToOnDemandQueueEpisode(entry.position);
     const idx = document.createElement("span");
     idx.className = "on-demand-queue-item-index";
-    idx.textContent = `${entry.position}/${entry.total}`;
-    const label = document.createElement("span");
-    label.className = "on-demand-queue-item-label";
-    label.textContent = queueLabel(entry);
-    label.title = entry.display_title || label.textContent;
+    idx.textContent = entryIndexBadge(entry);
+    const lbl = document.createElement("span");
+    lbl.className = "on-demand-queue-item-label";
+    lbl.textContent = entryLabel(entry);
+    lbl.title = entry.display_title || lbl.textContent;
     row.appendChild(idx);
-    row.appendChild(label);
+    row.appendChild(lbl);
     onDemandQueueList.appendChild(row);
-    if(entry.is_current){
-      currentRow = row;
-      currentPos = Number(entry.position) || -1;
-    }
+    if(entry.is_current) currentRow = row;
   });
 
-  if(currentRow && currentPos !== lastQueueCurrentPosition){
-    lastQueueCurrentPosition = currentPos;
+  onDemandQueue.style.display = "block";
+  if(contentRoot) contentRoot.classList.add("queue-open");
+
+  // Scroll current episode to the TOP of the visible queue window.
+  // Previous episodes are above it and accessible by scrolling up.
+  if(currentRow){
     requestAnimationFrame(() => {
-      currentRow.scrollIntoView({ block: "nearest" });
+      const container = onDemandQueueList;
+      const rowTop = currentRow.offsetTop;
+      container.scrollTop = rowTop;
+      lastQueueCurrentPosition = rowTop;
       positionPlaybackUiUnderStream();
       positionChatUnderStream();
     });
@@ -4682,6 +5168,12 @@ if(onDemandNextBtn){
   onDemandNextBtn.addEventListener("click", goToNextOnDemandEpisode);
 }
 
+if(onDemandSeasonFilter){
+  onDemandSeasonFilter.addEventListener("change", () => {
+    renderQueueList();
+  });
+}
+
 /* ---------- Helpers ---------- */
 function resetPlayer() {
   if(hls){ hls.destroy(); hls=null; }
@@ -5193,6 +5685,7 @@ window.addEventListener("beforeunload", sendPresenceOffline);
 /* ---------- Init ---------- */
 initThemePicker();
 initCookieClicker();
+initBluntClicker();
 startPresencePolling();
 syncOverlayHeight();
 window.addEventListener("resize", () => {

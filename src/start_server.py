@@ -206,6 +206,10 @@ PRESENCE_MAP = {}
 COOKIE_COUNT = 0
 COOKIE_LOCK = Lock()
 COOKIE_STORAGE_PATH = os.path.join(BASE_DIR, "output", "cookie_count.json")
+# Global blunt clicker counter
+BLUNT_COUNT = 0
+BLUNT_LOCK = Lock()
+BLUNT_STORAGE_PATH = os.path.join(BASE_DIR, "output", "blunt_count.json")
 FOLDER_RESUME_LOCK = Lock()
 FOLDER_RESUME_PATH = os.path.join(BASE_DIR, "output", "folder_resume.json")
 FOLDER_RESUME_MAP = {}
@@ -266,6 +270,46 @@ def get_cookie_leaderboard(limit=5):
             entries.append({"username": username, "clicks": clicks})
 
     entries.sort(key=lambda item: (-item["clicks"], item["username"].lower()))
+    return entries[:max(1, int(limit or 5))]
+
+
+def load_blunt_count():
+    global BLUNT_COUNT
+    try:
+        with open(BLUNT_STORAGE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        BLUNT_COUNT = max(0, int(data.get("count", 0)))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        BLUNT_COUNT = 0
+
+
+def save_blunt_count():
+    try:
+        os.makedirs(os.path.dirname(BLUNT_STORAGE_PATH), exist_ok=True)
+        write_json_atomic(BLUNT_STORAGE_PATH, {"count": BLUNT_COUNT})
+    except OSError as e:
+        print(f"⚠️ Failed to save blunt count: {e}")
+
+
+def get_blunt_leaderboard(limit=5):
+    entries = []
+    with AUTH_LOCK:
+        users = AUTH_DB.get("users", {})
+        for info in users.values():
+            if not isinstance(info, dict):
+                continue
+            username = str(info.get("username") or "").strip()
+            if not username:
+                continue
+            try:
+                hits = max(0, int(info.get("blunt_hits", 0) or 0))
+            except (TypeError, ValueError):
+                hits = 0
+            if hits <= 0:
+                continue
+            entries.append({"username": username, "hits": hits})
+
+    entries.sort(key=lambda item: (-item["hits"], item["username"].lower()))
     return entries[:max(1, int(limit or 5))]
 
 
@@ -1068,7 +1112,8 @@ def get_total_duration_seconds(file_list):
 
 
 def build_shuffle_queue_preview(shuffle_files, current_index, preview_count=None):
-    """Return compact current+upcoming queue preview for shuffled folders."""
+    """Return queue in actual sequential order with is_current flag on the current episode.
+    Previous episodes appear before current so the frontend can scroll up to them."""
     if not isinstance(shuffle_files, list) or not shuffle_files:
         return []
 
@@ -1083,24 +1128,20 @@ def build_shuffle_queue_preview(shuffle_files, current_index, preview_count=None
         idx = 0
     idx = max(0, min(total - 1, idx))
 
-    if preview_count is None:
-        window = total
-    else:
-        window = min(max(1, int(preview_count)), total)
     preview = []
-    for offset in range(window):
-        list_idx = (idx + offset) % total
+    for list_idx in range(total):
         path = valid_files[list_idx]
+        parent_dir = os.path.dirname(path)
         preview.append({
             "position": list_idx + 1,
             "total": total,
-            "is_current": offset == 0,
-            "wrapped": (idx + offset) >= total,
+            "is_current": list_idx == idx,
+            "season_folder": os.path.basename(parent_dir),
             "source_path": os.path.relpath(path, BASE_DIR),
             "display_title": build_display_title(path),
             "current_file": prettify_media_name(
                 os.path.basename(path),
-                parent=os.path.basename(os.path.dirname(path)),
+                parent=os.path.basename(parent_dir),
                 episode_index=get_file_index(path),
             ),
         })
@@ -1572,6 +1613,29 @@ class Handler(SimpleHTTPRequestHandler):
                 "authenticated": bool(user_key),
             }).encode())
             return
+        if parsed.path == "/api/blunts":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            with BLUNT_LOCK:
+                count = BLUNT_COUNT
+            user_hits = 0
+            if user_key and isinstance(user_info, dict):
+                try:
+                    user_hits = max(0, int(user_info.get("blunt_hits", 0) or 0))
+                except (TypeError, ValueError):
+                    user_hits = 0
+            leaderboard = get_blunt_leaderboard(5)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "count": count,
+                "leaderboard": leaderboard,
+                "your_hits": user_hits,
+                "authenticated": bool(user_key),
+            }).encode())
+            return
         if parsed.path == "/api/chat":
             qs = parse_qs(parsed.query)
             channel = str(qs.get("channel", [""])[0]).strip()
@@ -1851,6 +1915,48 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"count": count, "your_clicks": user_clicks}).encode())
+            return
+
+        if self.path.startswith("/api/blunts/hit"):
+            global BLUNT_COUNT
+            parsed = urlparse(self.path)
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required to hit the blunt"}).encode())
+                return
+
+            user_hits = 0
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                updated = dict(current)
+                updated["blunt_hits"] = max(0, int(updated.get("blunt_hits", 0) or 0)) + 1
+                user_hits = updated["blunt_hits"]
+                users[user_key] = updated
+
+            with BLUNT_LOCK:
+                BLUNT_COUNT += 1
+                count = BLUNT_COUNT
+            try:
+                save_blunt_count()
+            except OSError:
+                pass
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"count": count, "your_hits": user_hits}).encode())
             return
 
         length = int(self.headers.get("Content-Length", 0))
@@ -2389,6 +2495,15 @@ class Handler(SimpleHTTPRequestHandler):
             next_file = files[resume_index]
             display_title = build_display_title(next_file)
 
+            # Compute season-aware position info
+            season_dir = os.path.dirname(next_file)
+            season_folder_name = os.path.basename(season_dir)
+            # Season folder is distinct from the root folder itself
+            has_seasons = season_dir != real_folder
+            season_files = [f for f in files if os.path.dirname(f) == season_dir] if has_seasons else []
+            episode_in_season = (season_files.index(next_file) + 1) if (has_seasons and next_file in season_files) else None
+            season_total = len(season_files) if has_seasons else None
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -2402,6 +2517,9 @@ class Handler(SimpleHTTPRequestHandler):
                     parent=os.path.basename(os.path.dirname(next_file)),
                     episode_index=get_file_index(next_file),
                 ),
+                "season_folder": season_folder_name if has_seasons else None,
+                "episode_in_season": episode_in_season,
+                "season_total": season_total,
                 "play_mode": "chronological",
             }).encode())
             return
@@ -2549,6 +2667,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     load_cookie_count()
+    load_blunt_count()
     load_chat_history()
     load_folder_resume_map()
     load_auth_db()
@@ -2556,6 +2675,7 @@ if __name__ == "__main__":
     def _shutdown_handler(signum, frame):
         print("\n🛑 Shutting down — saving cookie count...")
         save_cookie_count()
+        save_blunt_count()
         save_folder_resume_map()
         save_auth_db()
         raise SystemExit(0)
@@ -2563,6 +2683,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _shutdown_handler)
     signal.signal(signal.SIGINT, _shutdown_handler)
     atexit.register(save_cookie_count)
+    atexit.register(save_blunt_count)
     atexit.register(save_folder_resume_map)
     atexit.register(save_auth_db)
 
