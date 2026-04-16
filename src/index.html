@@ -3833,9 +3833,9 @@ function refreshOpenFolderChronoPrompt(){
       const seasonTotal = resume && resume.season_total;
       const seasonFolder = resume && resume.season_folder;
       if(epInSeason && seasonTotal && seasonFolder){
-        chronoBtn.textContent = `📚 Resume ${seasonFolder}: ${epInSeason}/${seasonTotal} (${index}/${total})`;
+        chronoBtn.textContent = `📚 Resume ${seasonFolder} EP - ${epInSeason}/${seasonTotal} (${index}/${total})`;
         chronoBtn.title = `Will play next: ${formatted}`;
-        if(chronoPos) chronoPos.textContent = `Current chronological position: ${seasonFolder} — ${epInSeason}/${seasonTotal} (overall: ${index}/${total})`;
+        if(chronoPos) chronoPos.textContent = `Current chronological position: ${seasonFolder} — EP ${epInSeason}/${seasonTotal} (overall: ${index}/${total})`;
         if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
       } else {
         chronoBtn.textContent = `📚 Resume ${index}/${total}`;
@@ -5212,6 +5212,35 @@ function applyListFilter(){
     if(visible) visibleCount++;
   });
 
+  // Also filter right-side subgrid cards in browse mode
+  if(mode === "browse" && filter){
+    const subgridCards = document.querySelectorAll("#browseSubgridCards .browse-card");
+    subgridCards.forEach(card => {
+      if(card.classList.contains("browse-card-back")) return; // always show back card
+      const nameEl = card.querySelector(".browse-card-name");
+      const text = (nameEl ? nameEl.textContent : "").toLowerCase();
+      card.style.display = text.includes(filter) ? "" : "none";
+    });
+    // Filter library cards on browse dashboard (leave recently played untouched)
+    if(browseLibraryCards){
+      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+        const nameEl = card.querySelector(".browse-card-name");
+        const text = (nameEl ? nameEl.textContent : "").toLowerCase();
+        card.style.display = text.includes(filter) ? "" : "none";
+      });
+    }
+  } else if(mode === "browse"){
+    // Clear any filter on subgrid cards and library cards
+    document.querySelectorAll("#browseSubgridCards .browse-card").forEach(card => {
+      card.style.display = "";
+    });
+    if(browseLibraryCards){
+      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+        card.style.display = "";
+      });
+    }
+  }
+
   const label = mode === "channels"
     ? "📺 Channels"
     : `📁 ${currentPath === mediaRoot ? "Library" : currentPath.split("/").pop()}`;
@@ -5656,6 +5685,12 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
         currentlyPlayingChannel = sidebarItem;
       } else {
         currentlyPlayingItem = sidebarItem;
+        // Scroll the playing item to the top of the sidebar list view
+        requestAnimationFrame(() => {
+          const itemRect = sidebarItem.getBoundingClientRect();
+          const listRect = list.getBoundingClientRect();
+          list.scrollTop = list.scrollTop + (itemRect.top - listRect.top);
+        });
       }
     }
 
