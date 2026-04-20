@@ -1,26 +1,33 @@
 #!/bin/bash
 # encode_to_720p.sh
-# Converts all videos in media/raw/ recursively to H.264 + AAC 720p for streaming
-# Mirrors the folder structure in media/converted/
+# Converts all videos in media/raw/ recursively to H.264 + AAC 720p for streaming.
+# Mirrors the folder structure into media/converted/.
+#
+# All output files share identical stream properties so FFmpeg concat works seamlessly:
+#   codec:  h264 (yuv420p)
+#   audio:  aac 128k stereo 48000Hz
+#   timescale: 1/15360  ← critical for DTS continuity across concat boundaries
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 RAW_DIR="$BASE_DIR/media/raw"
 CONVERTED_DIR="$BASE_DIR/media/converted"
+LOG_FILE="$BASE_DIR/output/encode.log"
 
-# Encoding settings
+# Encoding settings — must stay in sync with stream output format
 TARGET_RESOLUTION="720"
+TARGET_TIMESCALE="15360"   # matches HLS stream timescale; do not change
 TARGET_FRAMERATE="30"
+AUDIO_BITRATE="128k"
 AUDIO_SAMPLE_RATE="48000"
+PARALLEL_JOBS=2            # lower to 1 if USB drive stutters
 
-echo "📼 Starting recursive batch encoding from '$RAW_DIR' to '$CONVERTED_DIR'..."
+mkdir -p "$BASE_DIR/output"
+export RAW_DIR CONVERTED_DIR TARGET_RESOLUTION TARGET_TIMESCALE TARGET_FRAMERATE AUDIO_BITRATE AUDIO_SAMPLE_RATE LOG_FILE
 
-# Loop through all video files recursively
-find "$RAW_DIR" -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) ! -name ".*" | while IFS= read -r input; do
-    # Determine relative path from RAW_DIR
+process_file() {
+    input="$1"
     rel_path="${input#$RAW_DIR/}"
     rel_dir="$(dirname "$rel_path")"
-
-    # Create equivalent folder in converted
     output_folder="$CONVERTED_DIR/$rel_dir"
     mkdir -p "$output_folder"
 
@@ -29,28 +36,82 @@ find "$RAW_DIR" -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \)
     output="$output_folder/${basename_no_ext}.mp4"
 
     if [ -f "$output" ]; then
-        echo "⏩ Skipping '$rel_path' (already converted)"
-        continue
+        echo "⏩ Skipping (already converted): $rel_path"
+        return 0
     fi
 
-    echo "🔹 Encoding '$rel_path' → '$output'"
+    # Probe source
+    vcodec=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$input" 2>/dev/null)
+    acodec=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$input" 2>/dev/null)
+    height=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=height -of csv=p=0 "$input" 2>/dev/null)
+    a_rate=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=sample_rate -of csv=p=0 "$input" 2>/dev/null)
 
-    ffmpeg -y -nostdin -i "$input" \
-        -vf "scale=-2:${TARGET_RESOLUTION},fps=${TARGET_FRAMERATE}" \
-        -map 0:v:0 -map 0:a:0? \
-        -c:v libx264 -preset veryfast -crf 23 \
-        -pix_fmt yuv420p \
-        -r ${TARGET_FRAMERATE} \
-        -c:a aac -b:a 128k -ac 2 -ar ${AUDIO_SAMPLE_RATE} \
-        -movflags +faststart \
-        -map_metadata 0 \
-        "$output"
+    # Determine if video and audio are already stream-copy compatible
+    local video_ok=false audio_ok=false
+    [[ "$vcodec" == "h264" && "${height:-0}" -le "$TARGET_RESOLUTION" ]] && video_ok=true
+    [[ "$acodec" == "aac" && "$a_rate" == "$AUDIO_SAMPLE_RATE" ]] && audio_ok=true
 
-    if [ $? -eq 0 ]; then
-        echo "✅ Finished encoding '$rel_path'"
+    local tmp="${output}.tmp.mp4"
+
+    if $video_ok && $audio_ok; then
+        # Video and audio are already compatible — remux only, normalizing timescale
+        echo "⚡ Remuxing (h264+aac @ ${height}p): $rel_path"
+        ffmpeg -y -nostdin -i "$input" \
+            -c:v copy \
+            -video_track_timescale "$TARGET_TIMESCALE" \
+            -c:a copy \
+            -map 0:v:0 -map 0:a:0? \
+            -movflags +faststart \
+            -map_metadata 0 \
+            "$tmp" 2>>"$LOG_FILE"
+
+    elif $video_ok && ! $audio_ok; then
+        # Video fine, audio needs re-encode (wrong codec or sample rate)
+        echo "⚡ Remux video + re-encode audio (${acodec} ${a_rate}Hz → aac ${AUDIO_SAMPLE_RATE}Hz): $rel_path"
+        ffmpeg -y -nostdin -i "$input" \
+            -c:v copy \
+            -video_track_timescale "$TARGET_TIMESCALE" \
+            -c:a aac -b:a "$AUDIO_BITRATE" -ac 2 -ar "$AUDIO_SAMPLE_RATE" \
+            -map 0:v:0 -map 0:a:0? \
+            -movflags +faststart \
+            -map_metadata 0 \
+            "$tmp" 2>>"$LOG_FILE"
+
     else
-        echo "❌ Failed to encode '$rel_path'"
+        # Full re-encode needed (wrong video codec or oversized)
+        echo "🔹 Encoding (${vcodec}/${acodec} @ ${height:-?}p → h264/aac @ ${TARGET_RESOLUTION}p): $rel_path"
+        ffmpeg -y -nostdin -i "$input" \
+            -vf "scale=-2:${TARGET_RESOLUTION}:flags=lanczos,fps=${TARGET_FRAMERATE}" \
+            -map 0:v:0 -map 0:a:0? \
+            -c:v libx264 -preset veryfast -crf 23 \
+            -pix_fmt yuv420p \
+            -video_track_timescale "$TARGET_TIMESCALE" \
+            -c:a aac -b:a "$AUDIO_BITRATE" -ac 2 -ar "$AUDIO_SAMPLE_RATE" \
+            -movflags +faststart \
+            -map_metadata 0 \
+            "$tmp" 2>>"$LOG_FILE"
     fi
-done
+
+    if [ $? -eq 0 ] && [ -s "$tmp" ]; then
+        mv "$tmp" "$output"
+        echo "✅ Done: $rel_path"
+    else
+        rm -f "$tmp"
+        echo "❌ Failed: $rel_path  (see $LOG_FILE)"
+        return 1
+    fi
+}
+
+export -f process_file
+
+echo "📼 Encoding from '$RAW_DIR' → '$CONVERTED_DIR' (${PARALLEL_JOBS} parallel jobs)"
+echo "   Log: $LOG_FILE"
+
+find "$RAW_DIR" -type f \
+    \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \
+       -o -iname "*.mov" -o -iname "*.wmv" -o -iname "*.flv" \
+       -o -iname "*.m4v" -o -iname "*.ts"  -o -iname "*.webm" \) \
+    ! -name ".*" -print0 \
+    | xargs -0 -P "$PARALLEL_JOBS" -I{} bash -c 'process_file "$@"' _ {}
 
 echo "🎉 All files processed!"

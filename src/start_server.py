@@ -347,13 +347,20 @@ def load_folder_resume_map():
         folder_key = str(key or "").strip()
         if not folder_key:
             continue
-        try:
-            idx = int(value)
-        except (TypeError, ValueError):
-            continue
-        if idx < 0:
-            idx = 0
-        cleaned[folder_key] = idx
+        if isinstance(value, dict):
+            try:
+                idx = max(0, int(value.get("index", 0) or 0))
+            except (TypeError, ValueError):
+                idx = 0
+            cleaned[folder_key] = {"index": idx, "last_played": float(value.get("last_played", 0) or 0)}
+        else:
+            try:
+                idx = int(value)
+            except (TypeError, ValueError):
+                continue
+            if idx < 0:
+                idx = 0
+            cleaned[folder_key] = idx
 
     with FOLDER_RESUME_LOCK:
         FOLDER_RESUME_MAP = cleaned

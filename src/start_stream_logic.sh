@@ -76,58 +76,58 @@ if [ ${#show_names[@]} -eq 0 ]; then
   exit 1
 fi
 
-# Build shuffled playlist with 1-3 episodes per show block, blocks shuffled
-declare -a blocks=()
-for show in "${show_names[@]}"; do
-  show_var=$(echo "$show" | tr ' ' '_' | tr -c 'a-zA-Z0-9_' '_')
-  eval "show_array=(\"\${show_files_$show_var[@]}\")"
-  mapfile -t shuffled < <(printf '%s\0' "${show_array[@]}" | shuf -z | xargs -0 -n1)
-  i=0
-  while [ $i -lt ${#shuffled[@]} ]; do
-    num=$(( RANDOM % 3 + 1 ))
-    if [ $((i + num)) -gt ${#shuffled[@]} ]; then num=$(( ${#shuffled[@]} - i )); fi
-    block=""
-    for ((j=0; j<num; j++)); do
-      block="${block}${shuffled[$((i + j))]}"
-      if [ $j -lt $((num - 1)) ]; then
-        block+=$'\n'
-      fi
-    done
-    blocks+=("$block")
-    i=$((i + num))
-  done
-done
-mapfile -t shuffled_blocks < <(printf '%s\0' "${blocks[@]}" | shuf -z | xargs -0 -n1)
-SHUFFLED_FILES=()
-for block in "${shuffled_blocks[@]}"; do
-  while IFS= read -r ep; do
-    [ -n "$ep" ] && SHUFFLED_FILES+=("$ep")
-  done <<< "$block"
-done
-
-echo "🔹 Total files in playlist: ${#SHUFFLED_FILES[@]}"
-printf "   -> %s\n" "${SHUFFLED_FILES[@]}"
-
-# Write playlist once
-TEMP_PLAYLIST="/tmp/temp_playlist_$$.txt"
-: > "$TEMP_PLAYLIST"
-for f in "${SHUFFLED_FILES[@]}"; do
-  escaped=$(printf "%s" "$f" | sed "s/'/'\\\\''/g")
-  echo "file '$escaped'" >> "$TEMP_PLAYLIST"
-done
-mv "$TEMP_PLAYLIST" "$PLAYLIST_FILE"
-echo "Playlist written to $PLAYLIST_FILE"
-
 while true; do
+  # Reshuffle playlist on every restart so each cycle has a new order
+  blocks=()
+  for show in "${show_names[@]}"; do
+    show_var=$(echo "$show" | tr ' ' '_' | tr -c 'a-zA-Z0-9_' '_')
+    eval "show_array=(\"\${show_files_$show_var[@]}\")"
+    mapfile -t shuffled < <(printf '%s\0' "${show_array[@]}" | shuf -z | xargs -0 -n1)
+    i=0
+    while [ $i -lt ${#shuffled[@]} ]; do
+      num=$(( RANDOM % 3 + 1 ))
+      if [ $((i + num)) -gt ${#shuffled[@]} ]; then num=$(( ${#shuffled[@]} - i )); fi
+      block=""
+      for ((j=0; j<num; j++)); do
+        block="${block}${shuffled[$((i + j))]}"
+        if [ $j -lt $((num - 1)) ]; then
+          block+=$'\n'
+        fi
+      done
+      blocks+=("$block")
+      i=$((i + num))
+    done
+  done
+  mapfile -t shuffled_blocks < <(printf '%s\0' "${blocks[@]}" | shuf -z | xargs -0 -n1)
+  SHUFFLED_FILES=()
+  for block in "${shuffled_blocks[@]}"; do
+    while IFS= read -r ep; do
+      [ -n "$ep" ] && SHUFFLED_FILES+=("$ep")
+    done <<< "$block"
+  done
+
+  echo "🔹 Total files in playlist: ${#SHUFFLED_FILES[@]}"
+  printf "   -> %s\n" "${SHUFFLED_FILES[@]}"
+
+  # Write playlist
+  TEMP_PLAYLIST="/tmp/temp_playlist_$$.txt"
+  : > "$TEMP_PLAYLIST"
+  for f in "${SHUFFLED_FILES[@]}"; do
+    escaped=$(printf "%s" "$f" | sed "s/'/'\\\\''/g")
+    echo "file '$escaped'" >> "$TEMP_PLAYLIST"
+  done
+  mv "$TEMP_PLAYLIST" "$PLAYLIST_FILE"
+  echo "Playlist written to $PLAYLIST_FILE"
+
   echo "🎬 Launching FFmpeg..."
   if [ "$2" != "dry" ]; then
-    ffmpeg -nostdin -re -stream_loop -1 -f concat -safe 0 -i "$CHANNEL_DIR/current_playlist.txt" \
-      -c copy \
+    ffmpeg -nostdin -re -f concat -safe 0 -i "$CHANNEL_DIR/current_playlist.txt" \
+      -c copy -bsf:v h264_mp4toannexb \
       -f hls \
       -hls_time 6 \
       -hls_list_size 30 \
       -hls_flags program_date_time \
-      -hls_segment_filename "${SEGMENT_PREFIX}%03d.ts" \
+      -hls_segment_filename "${SEGMENT_PREFIX}%d.ts" \
       "$OUTPUT_PLAYLIST" 2>&1
   else
     echo "Dry run: skipping FFmpeg"
