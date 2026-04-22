@@ -90,7 +90,10 @@
   --theme-overlay-opacity: 0;
 }
 body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color:var(--text-main); display:flex; height:100vh; }
-.sidebar { width:var(--sidebar-width); background:var(--bg-sidebar); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid var(--border-sidebar); }
+.sidebar { position:relative; width:var(--sidebar-width); background:var(--bg-sidebar); padding:15px; box-sizing:border-box; display:flex; flex-direction:column; border-right:1px solid var(--border-sidebar); flex-shrink:0; }
+.sidebar-resize-handle { position:absolute; top:0; right:-4px; width:8px; height:100%; cursor:col-resize; z-index:100; }
+.sidebar-resize-handle::after { content:""; position:absolute; top:0; left:3px; width:2px; height:100%; background:var(--border-sidebar); opacity:0; transition:opacity 0.15s; }
+.sidebar-resize-handle:hover::after, .sidebar-resize-handle.dragging::after { opacity:1; }
 .logo { font-size:24px; font-weight:bold; margin-bottom:10px; cursor:pointer; text-align:center; }
 .mode-buttons { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .mode-buttons button { width:100%; background:var(--bg-button); color:var(--text-main); border:none; padding:9px; cursor:pointer; border-radius:10px; }
@@ -208,7 +211,7 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
   flex-shrink:0;
 }
 .content.playback-mode .media-stage {
-  margin-top:clamp(96px, 14vh, 176px);
+  margin-top:clamp(64px, 9vh, 116px);
 }
 video {
   position:absolute;
@@ -588,53 +591,6 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   font-size:11px;
   color:var(--text-muted);
 }
-#onDemandSeekRange {
-  width:100%;
-  cursor:pointer;
-  -webkit-appearance:none;
-  appearance:none;
-  background:transparent;
-  height:18px;
-}
-#onDemandSeekRange:disabled {
-  cursor:progress;
-  opacity:0.65;
-}
-#onDemandSeekRange::-webkit-slider-runnable-track {
-  height:4px;
-  border-radius:2px;
-  background:linear-gradient(to right,
-    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
-    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
-    rgba(255,255,255,0.13) var(--buffered-pct,0%) 100%
-  );
-}
-#onDemandSeekRange::-webkit-slider-thumb {
-  -webkit-appearance:none;
-  width:13px;
-  height:13px;
-  border-radius:50%;
-  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
-  margin-top:-4.5px;
-  cursor:pointer;
-}
-#onDemandSeekRange::-moz-range-track {
-  height:4px;
-  border-radius:2px;
-  background:linear-gradient(to right,
-    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
-    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
-    rgba(255,255,255,0.13) var(--buffered-pct,0%) 100%
-  );
-}
-#onDemandSeekRange::-moz-range-thumb {
-  width:13px;
-  height:13px;
-  border-radius:50%;
-  border:none;
-  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
-  cursor:pointer;
-}
 .on-demand-seekbar-times {
   display:flex;
   justify-content:space-between;
@@ -644,9 +600,6 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   color:var(--text-muted);
 }
 .on-demand-queue {
-  margin-top:8px;
-  border-top:1px dashed color-mix(in srgb, var(--border-card) 75%, transparent 25%);
-  padding-top:8px;
   display:none;
 }
 .on-demand-queue-header {
@@ -655,6 +608,12 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   justify-content:space-between;
   gap:8px;
   margin-bottom:6px;
+}
+.on-demand-queue-right-controls {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-shrink:0;
 }
 .on-demand-queue-title {
   font-size:11px;
@@ -674,11 +633,24 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   cursor:pointer;
   max-width:140px;
 }
+.on-demand-queue-search {
+  font-size:11px;
+  color:var(--text-main);
+  background:var(--bg-input);
+  border:1px solid var(--border-input);
+  border-radius:8px;
+  padding:3px 8px;
+  width:110px;
+  outline:none;
+  flex-shrink:0;
+}
+.on-demand-queue-search::placeholder { color:var(--text-muted); }
+.on-demand-queue-search:focus { border-color:var(--accent-strong); }
 .on-demand-queue-list {
   display:flex;
   flex-direction:column;
   gap:4px;
-  max-height:190px;
+  max-height:260px;
   overflow-y:auto;
   padding-right:2px;
   scrollbar-gutter:stable;
@@ -753,6 +725,142 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   transform:translateX(-50%);
   top:var(--now-playing-top, 0px);
   z-index:2;
+}
+/* ── Integrated player controls overlay ─────────────────────────── */
+#playerControls {
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  display:none;
+  z-index:5;
+  border-radius:0 0 12px 12px;
+  overflow:hidden;
+  transition:opacity 0.3s;
+}
+.player-controls-bg {
+  position:absolute;
+  inset:0;
+  background:linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.38) 65%, transparent 100%);
+  pointer-events:none;
+}
+.player-controls-inner {
+  position:relative;
+  padding:6px 12px 10px;
+}
+.player-seek-row {
+  margin-bottom:2px;
+}
+#onDemandSeekRange {
+  width:100%;
+  cursor:pointer;
+  -webkit-appearance:none;
+  appearance:none;
+  background:transparent;
+  height:18px;
+  display:block;
+}
+#onDemandSeekRange:disabled { cursor:progress; opacity:0.65; }
+#onDemandSeekRange::-webkit-slider-runnable-track {
+  height:4px;
+  border-radius:2px;
+  background:linear-gradient(to right,
+    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
+    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
+    rgba(255,255,255,0.18) var(--buffered-pct,0%) 100%
+  );
+}
+#onDemandSeekRange::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
+  margin-top:-4.5px;
+  cursor:pointer;
+}
+#onDemandSeekRange::-moz-range-track {
+  height:4px;
+  border-radius:2px;
+  background:linear-gradient(to right,
+    color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
+    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
+    rgba(255,255,255,0.18) var(--buffered-pct,0%) 100%
+  );
+}
+#onDemandSeekRange::-moz-range-thumb {
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  border:none;
+  background:color-mix(in srgb, var(--accent-strong) 82%, #fff 18%);
+  cursor:pointer;
+}
+.player-btns-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.player-btns-left, .player-btns-right {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.player-btn {
+  background:none;
+  border:none;
+  color:#fff;
+  cursor:pointer;
+  font-size:16px;
+  padding:2px 4px;
+  line-height:1;
+  opacity:0.9;
+  flex-shrink:0;
+}
+.player-btn:hover { opacity:1; }
+.player-time {
+  font-size:12px;
+  color:rgba(255,255,255,0.85);
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.player-time-sep { margin:0 2px; opacity:0.5; }
+.player-live-tag {
+  color:#e74c3c;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.06em;
+  flex-shrink:0;
+}
+.player-hint {
+  font-size:11px;
+  color:rgba(255,255,255,0.5);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.player-volume-slider {
+  width:58px;
+  cursor:pointer;
+  accent-color:#fff;
+  flex-shrink:0;
+}
+#playerControls .on-demand-autoplay {
+  color:rgba(255,255,255,0.7);
+}
+#playerControls .on-demand-next-btn {
+  font-size:11px;
+  padding:4px 8px;
+}
+#playerControls .on-demand-episode-meta {
+  color:rgba(255,255,255,0.55);
+  font-size:11px;
+}
+/* ── Queue-only panel below video ────────────────────────────────── */
+.on-demand-queue {
+  display:none;
 }
 .chat-stage {
   width:min(92%, 1400px);
@@ -882,6 +990,15 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   background:var(--accent-grad);
   color:var(--accent-text);
   font-weight:700;
+}
+/* Blaze filter layer — receives the CSS filter so body never gets one
+   (applying filter to body breaks position:fixed containment) */
+#blazeFilterLayer {
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9997;
+  will-change:filter;
 }
 /* Blaze trippy screen overlay */
 #blazeOverlay {
@@ -1792,6 +1909,33 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   .cookie-dock { right:140px; bottom:12px; }
   .blunt-dock { right:204px; bottom:12px; }
 }
+
+/* ── Theme-aware scrollbars ── */
+.list, .content, .chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: var(--item-hover-border) transparent;
+}
+.list::-webkit-scrollbar,
+.content::-webkit-scrollbar,
+.chat-messages::-webkit-scrollbar {
+  width: 7px;
+}
+.list::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-track,
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.list::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-thumb,
+.chat-messages::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--item-hover-border) 80%, transparent 20%);
+  border-radius: 999px;
+}
+.list::-webkit-scrollbar-thumb:hover,
+.content::-webkit-scrollbar-thumb:hover,
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent-strong) 60%, var(--item-hover-border) 40%);
+}
 </style>
 </head>
 
@@ -1811,6 +1955,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   <div class="selection-preview" id="selectionPreview">Hover or select something to see the full title</div>
   <div class="divider"></div>
   <div class="list" id="list"></div>
+  <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
 </div>
 
 <div class="content home-mode">
@@ -1876,31 +2021,48 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
         <div id="onDemandLoaderFill" class="on-demand-loader-fill"></div>
       </div>
     </div>
-    <video id="video" controls autoplay playsinline style="display:none;"></video>
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <div id="playerControls" style="display:none;">
+      <div class="player-controls-bg"></div>
+      <div class="player-controls-inner">
+        <div id="playerSeekRow" class="player-seek-row">
+          <input id="onDemandSeekRange" type="range" min="0" max="0" step="1" value="0" />
+        </div>
+        <div class="player-btns-row">
+          <div class="player-btns-left">
+            <button id="playerPlayPauseBtn" class="player-btn" type="button" aria-label="Play/Pause">&#9654;</button>
+            <span id="playerTimeDisplay" class="player-time">
+              <span id="onDemandSeekCurrent">0:00</span>
+              <span class="player-time-sep">/</span>
+              <span id="onDemandSeekTotal">0:00</span>
+            </span>
+            <span id="playerLiveTag" class="player-live-tag" style="display:none;">&#9679; LIVE</span>
+            <span id="onDemandSeekHint" class="player-hint"></span>
+          </div>
+          <div class="player-btns-right">
+            <span id="onDemandEpisodeMeta" class="on-demand-episode-meta"></span>
+            <label class="on-demand-autoplay" id="playerAutoplayLabel" title="Automatically play the next episode">
+              <input id="onDemandAutoplayToggle" type="checkbox" checked />
+              <span>Autoplay</span>
+            </label>
+            <button id="playerMuteBtn" class="player-btn" type="button" aria-label="Mute">&#128266;</button>
+            <input id="playerVolumeSlider" type="range" min="0" max="1" step="0.05" value="1" class="player-volume-slider" aria-label="Volume" />
+            <button id="playerFullscreenBtn" class="player-btn" type="button" aria-label="Fullscreen">&#x26F6;</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <div id="nowPlaying"></div>
   <div id="onDemandSeekbar" class="on-demand-seekbar" aria-live="polite">
-    <div class="on-demand-seekbar-top">
-      <span class="on-demand-seekbar-label">Full Episode Seek</span>
-      <div class="on-demand-seekbar-tools">
-        <span id="onDemandEpisodeMeta" class="on-demand-episode-meta"></span>
-        <span id="onDemandSeekHint">Click anywhere to jump and buffer</span>
-        <label class="on-demand-autoplay" title="Automatically play the next episode">
-          <input id="onDemandAutoplayToggle" type="checkbox" checked />
-          <span>Autoplay Next</span>
-        </label>
-        <button id="onDemandNextBtn" class="on-demand-next-btn" type="button" style="display:none;">Next Episode</button>
-      </div>
-    </div>
-    <input id="onDemandSeekRange" type="range" min="0" max="0" step="1" value="0" />
-    <div class="on-demand-seekbar-times">
-      <span id="onDemandSeekCurrent">0:00</span>
-      <span id="onDemandSeekTotal">0:00</span>
-    </div>
     <div id="onDemandQueue" class="on-demand-queue">
       <div class="on-demand-queue-header">
         <p id="onDemandQueueTitle" class="on-demand-queue-title">Shuffled Queue</p>
-        <select id="onDemandSeasonFilter" class="on-demand-season-filter" style="display:none;" aria-label="Filter by season"></select>
+        <input id="onDemandQueueSearch" type="text" class="on-demand-queue-search" placeholder="Search..." autocomplete="off" aria-label="Search queue" />
+        <div class="on-demand-queue-right-controls">
+          <button id="onDemandNextBtn" class="on-demand-next-btn" type="button" style="display:none;">Next Episode</button>
+          <select id="onDemandSeasonFilter" class="on-demand-season-filter" style="display:none;" aria-label="Filter by season"></select>
+        </div>
       </div>
       <div id="onDemandQueueList" class="on-demand-queue-list"></div>
     </div>
@@ -1931,6 +2093,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
     </filter>
   </defs>
 </svg>
+<div id="blazeFilterLayer"></div>
 <div id="blazeOverlay"></div>
 
 <div class="blunt-dock" id="bluntDock">
@@ -2022,6 +2185,9 @@ const onDemandLoaderText = document.getElementById("onDemandLoaderText");
 const onDemandLoaderMeta = document.getElementById("onDemandLoaderMeta");
 const onDemandLoaderFill = document.getElementById("onDemandLoaderFill");
 const onDemandSeekbar = document.getElementById("onDemandSeekbar");
+const playerControls = document.getElementById("playerControls");
+const playerSeekRow = document.getElementById("playerSeekRow");
+const playerLiveTag = document.getElementById("playerLiveTag");
 const onDemandSeekRange = document.getElementById("onDemandSeekRange");
 const onDemandSeekCurrent = document.getElementById("onDemandSeekCurrent");
 const onDemandSeekTotal = document.getElementById("onDemandSeekTotal");
@@ -2033,6 +2199,7 @@ const onDemandQueue = document.getElementById("onDemandQueue");
 const onDemandQueueTitle = document.getElementById("onDemandQueueTitle");
 const onDemandQueueList = document.getElementById("onDemandQueueList");
 const onDemandSeasonFilter = document.getElementById("onDemandSeasonFilter");
+const onDemandQueueSearch = document.getElementById("onDemandQueueSearch");
 const nowPlaying = document.getElementById("nowPlaying");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
@@ -2083,6 +2250,7 @@ const bluntScore = document.getElementById("bluntScore");
 const bluntLeaderboardList = document.getElementById("bluntLeaderboardList");
 const bluntAuthHint = document.getElementById("bluntAuthHint");
 const blazeOverlay = document.getElementById("blazeOverlay");
+const blazeFilterLayer = document.getElementById("blazeFilterLayer");
 
 let cookieCountValue = 0;
 let cookiePollTimer = null;
@@ -2295,7 +2463,7 @@ function startBlazeEffect(){
     const hue = e * (20 + 20 * Math.sin(t * 0.07));
     const sat = 1 + e * (0.45 + 0.25 * Math.sin(t * 0.11 + 1.0));
     const con = 1 + e * (0.04 + 0.06 * Math.sin(t * 0.08 + 2.1));
-    document.body.style.filter = `url(#blaze-wave-filter) hue-rotate(${hue.toFixed(2)}deg) saturate(${sat.toFixed(3)}) contrast(${con.toFixed(3)})`;
+    blazeFilterLayer.style.filter = `url(#blaze-wave-filter) hue-rotate(${hue.toFixed(2)}deg) saturate(${sat.toFixed(3)}) contrast(${con.toFixed(3)})`;
 
     blazeRafId = requestAnimationFrame(animateBlaze);
   }
@@ -2304,7 +2472,7 @@ function startBlazeEffect(){
 
   setTimeout(() => {
     if(blazeOverlay) blazeOverlay.classList.remove("active");
-    document.body.style.filter = "";
+    blazeFilterLayer.style.filter = "";
     if(feDisplace) feDisplace.setAttribute("scale", "0");
     if(blazeRafId){ cancelAnimationFrame(blazeRafId); blazeRafId = null; }
   }, totalDur * 1000);
@@ -2924,6 +3092,7 @@ let onDemandLocalSeekFallbackTimer = null;
 let onDemandLocalSeekInProgress = false;
 let onDemandDesiredSeekSeconds = null;
 let onDemandDesiredPreferServer = false;
+let lastProgressSaveTime = 0;
 let authToken = "";
 let authUsername = "";
 let authBusy = false;
@@ -3203,6 +3372,7 @@ function flushOnDemandSeekIntent(){
 }
 
 function startOnDemandLoadingUI(label="Preparing on-demand stream..."){
+  if(playerControls) playerControls.style.display = "none";
   if(!onDemandLoader) return;
   onDemandProgressVisual = 0;
   onDemandProgressTarget = 12;
@@ -3239,6 +3409,8 @@ function stopOnDemandLoadingUI(){
   if(onDemandLoader) onDemandLoader.style.display = "none";
   if(onDemandLoaderFill) onDemandLoaderFill.style.width = "0%";
   if(onDemandLoaderMeta) onDemandLoaderMeta.textContent = "0%";
+  // Restore player controls if a video is actually loaded
+  if(playerControls && video && video.style.display !== "none") playerControls.style.display = "block";
 }
 
 function failOnDemandLoad(item, message){
@@ -3828,20 +4000,22 @@ function refreshOpenFolderChronoPrompt(){
       const total = Math.max(1, Number((resume && resume.total)) || 1);
       const rawTitle = String((resume && resume.display_title) || (resume && resume.current_file) || "Next episode").trim();
       const formatted = formatDisplayPath(rawTitle, "file") || "Next episode";
+      const savedSeek = Number((resume && resume.seek_seconds)) || 0;
+      const seekSuffix = savedSeek > 2 ? ` @ ${formatClock(savedSeek)}` : "";
       // Use season info directly from backend (episode_in_season, season_total, season_folder)
       const epInSeason = resume && resume.episode_in_season;
       const seasonTotal = resume && resume.season_total;
       const seasonFolder = resume && resume.season_folder;
       if(epInSeason && seasonTotal && seasonFolder){
-        chronoBtn.textContent = `📚 Resume ${seasonFolder} EP - ${epInSeason}/${seasonTotal} (${index}/${total})`;
-        chronoBtn.title = `Will play next: ${formatted}`;
-        if(chronoPos) chronoPos.textContent = `Current chronological position: ${seasonFolder} — EP ${epInSeason}/${seasonTotal} (overall: ${index}/${total})`;
-        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+        chronoBtn.textContent = `📚 Resume ${seasonFolder} EP - ${epInSeason}/${seasonTotal} (${index}/${total})${seekSuffix}`;
+        chronoBtn.title = `Will play next: ${formatted}${savedSeek > 2 ? ` (from ${formatClock(savedSeek)})` : ""}`;
+        if(chronoPos) chronoPos.textContent = `Current chronological position: ${seasonFolder} — EP ${epInSeason}/${seasonTotal} (overall: ${index}/${total})${seekSuffix}`;
+        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}${savedSeek > 2 ? ` — resuming at ${formatClock(savedSeek)}` : ""}`;
       } else {
-        chronoBtn.textContent = `📚 Resume ${index}/${total}`;
-        chronoBtn.title = `Will play next: ${formatted}`;
-        if(chronoPos) chronoPos.textContent = `Current chronological position: ${index}/${total}`;
-        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}`;
+        chronoBtn.textContent = `📚 Resume ${index}/${total}${seekSuffix}`;
+        chronoBtn.title = `Will play next: ${formatted}${savedSeek > 2 ? ` (from ${formatClock(savedSeek)})` : ""}`;
+        if(chronoPos) chronoPos.textContent = `Current chronological position: ${index}/${total}${seekSuffix}`;
+        if(chronoHint) chronoHint.textContent = `Next up: ${formatted}${savedSeek > 2 ? ` — resuming at ${formatClock(savedSeek)}` : ""}`;
       }
     })
     .catch(() => {
@@ -4415,8 +4589,10 @@ function formatClock(totalSeconds){
 }
 
 function setOnDemandSeekbarVisible(visible){
-  if(!onDemandSeekbar) return;
-  onDemandSeekbar.style.display = visible ? "block" : "none";
+  // Controls the integrated player overlay (shown when video is playing in browse mode)
+  if(playerControls) playerControls.style.display = visible ? "block" : "none";
+  // Queue panel below video — show/hide in sync (queue content may still be empty inside)
+  if(onDemandSeekbar) onDemandSeekbar.style.display = visible ? "block" : "none";
   requestAnimationFrame(() => {
     positionPlaybackUiUnderStream();
     positionChatUnderStream();
@@ -4469,6 +4645,7 @@ function setPendingNextEpisode(pending){
 
 function setOnDemandQueuePreview(preview){
   onDemandQueuePreview = Array.isArray(preview) ? preview : [];
+  if(onDemandQueueSearch) onDemandQueueSearch.value = "";
   if(!onDemandQueue || !onDemandQueueList) return;
 
   if(!onDemandQueuePreview.length){
@@ -4511,14 +4688,17 @@ function setOnDemandQueuePreview(preview){
         opt.textContent = key;
         onDemandSeasonFilter.appendChild(opt);
       }
-      // Restore or default to current episode's season
-      const curEntry = onDemandQueuePreview.find(e => e.is_current);
-      const curSeason = curEntry ? (String(curEntry.season_folder || "").trim() || noSeasonKey) : noSeasonKey;
+      // Restore previous selection, or default based on play mode:
+      // chronological → current episode's season; shuffle → All Seasons
       const validValues = ["__all__", ...Array.from(seasonMap.keys())];
       if(prevSeason && validValues.includes(prevSeason)){
         onDemandSeasonFilter.value = prevSeason;
+      } else if(onDemandPlayMode === "chronological"){
+        const currentEntry = onDemandQueuePreview.find(e => e.is_current);
+        const currentSeason = currentEntry ? String((currentEntry.season_folder) || "").trim() : "";
+        onDemandSeasonFilter.value = (currentSeason && validValues.includes(currentSeason)) ? currentSeason : "__all__";
       } else {
-        onDemandSeasonFilter.value = curSeason !== noSeasonKey ? curSeason : "__all__";
+        onDemandSeasonFilter.value = "__all__";
       }
     } else {
       onDemandSeasonFilter.style.display = "none";
@@ -4538,12 +4718,19 @@ function renderQueueList(){
     : "__all__";
 
   // Filter entries to active season
-  const filtered = activeSeason === "__all__"
+  const seasonFiltered = activeSeason === "__all__"
     ? onDemandQueuePreview
     : onDemandQueuePreview.filter(entry => {
         const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
         return season === activeSeason;
       });
+
+  // Filter by search query
+  const queueSearchTerm = (onDemandQueueSearch ? onDemandQueueSearch.value : "").trim().toLowerCase();
+  const filtered = !queueSearchTerm ? seasonFiltered : seasonFiltered.filter(entry => {
+    const label = String((entry && entry.display_title) || (entry && entry.current_file) || "").toLowerCase();
+    return label.includes(queueSearchTerm);
+  });
 
   // Compute per-season episode counts for index badges
   const seasonCounts = {};
@@ -4614,13 +4801,15 @@ function renderQueueList(){
   onDemandQueue.style.display = "block";
   if(contentRoot) contentRoot.classList.add("queue-open");
 
-  // Scroll current episode to the TOP of the visible queue window.
-  // Previous episodes are above it and accessible by scrolling up.
+  // Scroll so the current episode is visible with one row of context above it.
   if(currentRow){
     requestAnimationFrame(() => {
       const container = onDemandQueueList;
-      const rowTop = currentRow.offsetTop;
-      container.scrollTop = rowTop;
+      const containerRect = container.getBoundingClientRect();
+      const rowRect = currentRow.getBoundingClientRect();
+      const rowRelativeTop = rowRect.top - containerRect.top + container.scrollTop;
+      const rowHeight = currentRow.offsetHeight || 30;
+      container.scrollTop = Math.max(0, rowRelativeTop - rowHeight);
       lastQueueCurrentPosition = rowTop;
       positionPlaybackUiUnderStream();
       positionChatUnderStream();
@@ -4713,6 +4902,18 @@ function startBufferPoll(){
       }
     } catch(_){}
   }, 1500);
+}
+
+function saveEpisodeProgress(){
+  if(!authToken || onDemandPlayMode !== "chronological" || onDemandDurationSeconds <= 0) return;
+  if(activeSlot === null || pendingOnDemand || pendingSeekRequest) return;
+  const currentAbs = onDemandBaseOffsetSeconds + (Number(video.currentTime) || 0);
+  if(currentAbs <= 2) return; // don't save at the very start
+  fetch("/api/save_episode_progress", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seek_seconds: currentAbs, token: authToken }),
+  }).catch(() => {});
 }
 
 function requestOnDemandSeek(targetSeconds, preferServer=false){
@@ -5357,6 +5558,46 @@ searchInput.addEventListener("keydown", (e) => {
   }
 });
 
+// Prevent native <video controls> from swallowing keyboard shortcuts.
+// e.preventDefault() stops the browser's built-in video key handlers (space =
+// play/pause, f = fullscreen, etc.) while still bubbling to the document
+// handler below that manages everything.
+video.addEventListener("keydown", (e) => {
+  const handled = ["f","F"," ","ArrowLeft","ArrowRight","m","M","n","N","Escape"];
+  if(handled.includes(e.key) || e.code === "Space"){
+    e.preventDefault();
+    // event bubbles up to document keydown handler automatically
+  }
+});
+
+// Blur video after any mouse click so the native controls don't retain focus.
+// Without this, pressing Space after clicking play/pause re-triggers the
+// focused native button instead of going through our document keydown handler.
+video.addEventListener("click", () => {
+  requestAnimationFrame(() => { if(document.activeElement === video) video.blur(); });
+  // Click anywhere on the video to toggle play/pause in browse mode
+  if(mode === "browse" && activeSlot !== null && !pendingOnDemand && !pendingSeekRequest){
+    if(video.paused) video.play().catch(() => {});
+    else video.pause();
+  }
+});
+
+// Prevent the video element from ever holding keyboard focus. The browser's
+// native controls (play/pause, fullscreen) grab focus when clicked via shadow
+// DOM — which intercepts subsequent keypresses before our document handler.
+// Immediately blurring on focus ensures all keyboard events always reach the
+// document handler.
+video.addEventListener("focus", () => { video.blur(); });
+
+// When the browser enters or exits fullscreen (including via native controls),
+// blur the video so keyboard events aren't swallowed by its native controls.
+document.addEventListener("fullscreenchange", () => {
+  if(document.activeElement === video) video.blur();
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if(document.activeElement === video) video.blur();
+});
+
 document.addEventListener("keydown", (e) => {
   const activeEl = document.activeElement;
   if(e.key === "Escape"){
@@ -5377,7 +5618,8 @@ document.addEventListener("keydown", (e) => {
   }
 
   const tag = ((document.activeElement && document.activeElement.tagName) || "").toUpperCase();
-  const typing = tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable);
+  const activeIsRange = tag === "INPUT" && document.activeElement && document.activeElement.type === "range";
+  const typing = (tag === "INPUT" && !activeIsRange) || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable);
 
   if(e.key === "/" && document.activeElement !== searchInput){
     e.preventDefault();
@@ -5387,15 +5629,17 @@ document.addEventListener("keydown", (e) => {
     stopAndShowHome();
   } else if((e.key === "f" || e.key === "F") && !typing){
     e.preventDefault();
-    if(document.fullscreenElement){
-      document.exitFullscreen().catch(() => {});
-    } else if(mediaStage && mediaStage.style.display !== "none"){
-      if(mediaStage.requestFullscreen) mediaStage.requestFullscreen().catch(() => {});
+    if(document.fullscreenElement || document.webkitFullscreenElement){
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+    } else if(video && video.style.display !== "none"){
+      const req = video.requestFullscreen || video.webkitRequestFullscreen;
+      if(req) req.call(video).catch(() => {});
     }
   } else if((e.key === "m" || e.key === "M") && !typing){
     e.preventDefault();
     if(mediaStage && mediaStage.style.display !== "none"){
       video.muted = !video.muted;
+      updateMuteUI();
       setStatus(video.muted ? "🔇 Muted" : "🔊 Unmuted");
       setTemporaryOnDemandPreview(video.muted ? "🔇 Muted" : "🔊 Unmuted", 2200);
     }
@@ -5409,8 +5653,70 @@ document.addEventListener("keydown", (e) => {
         video.pause();
       }
     }
+  } else if((e.key === "n" || e.key === "N") && !typing){
+    if(mode === "browse" && onDemandEpisodeTotal > 1 && onDemandNextBtn && !onDemandNextBtn.disabled && onDemandNextBtn.style.display !== "none"){
+      e.preventDefault();
+      goToNextOnDemandEpisode();
+      setTemporaryOnDemandPreview("⏭ Next Episode", 1200);
+    }
+  } else if((e.key === "ArrowLeft" || e.key === "ArrowRight") && !typing){
+    if(mode === "browse" && mediaStage && mediaStage.style.display !== "none" && onDemandDurationSeconds > 0){
+      e.preventDefault();
+      const skipAmount = 10;
+      const currentAbs = onDemandBaseOffsetSeconds + (Number(video.currentTime) || 0);
+      const target = e.key === "ArrowRight"
+        ? Math.min(onDemandDurationSeconds, currentAbs + skipAmount)
+        : Math.max(0, currentAbs - skipAmount);
+      requestOnDemandSeek(target);
+      setTemporaryOnDemandPreview(e.key === "ArrowRight" ? `⏩ +${skipAmount}s` : `⏪ -${skipAmount}s`, 1200);
+    }
   }
 });
+
+(function(){
+  const MIN_W = 160, MAX_W = 600;
+  const handle = document.getElementById("sidebarResizeHandle");
+  let dragging = false, startX = 0, startW = 0;
+
+  const savedW = parseInt(localStorage.getItem("sidebarWidth"), 10);
+  if(savedW && savedW >= MIN_W && savedW <= MAX_W){
+    document.documentElement.style.setProperty("--sidebar-width", savedW + "px");
+  }
+
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add("dragging");
+    startX = e.clientX;
+    startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width"), 10) || 300;
+    handle.setPointerCapture(e.pointerId);
+  });
+
+  handle.addEventListener("pointermove", (e) => {
+    if(!dragging) return;
+    const newW = Math.min(MAX_W, Math.max(MIN_W, startW + (e.clientX - startX)));
+    document.documentElement.style.setProperty("--sidebar-width", newW + "px");
+    requestAnimationFrame(() => { positionPlaybackUiUnderStream(); positionChatUnderStream(); });
+  });
+
+  const stopDrag = (e) => {
+    if(!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+    const finalW = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width"), 10);
+    if(finalW) localStorage.setItem("sidebarWidth", finalW);
+  };
+  handle.addEventListener("pointerup", stopDrag);
+  handle.addEventListener("pointercancel", stopDrag);
+
+  handle.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    const defaultW = window.matchMedia("(max-width: 780px)").matches ? 260 : 300;
+    document.documentElement.style.setProperty("--sidebar-width", defaultW + "px");
+    localStorage.removeItem("sidebarWidth");
+    requestAnimationFrame(() => { positionPlaybackUiUnderStream(); positionChatUnderStream(); });
+  });
+})();
 
 video.addEventListener("timeupdate", () => {
   if(mode !== "browse") return;
@@ -5425,6 +5731,12 @@ video.addEventListener("timeupdate", () => {
     return;
   }
   updateOnDemandSeekbar(onDemandBaseOffsetSeconds + lastStablePlaybackTime);
+  // Throttled progress save every 8 seconds for chronological resume
+  const now = Date.now();
+  if(onDemandPlayMode === "chronological" && now - lastProgressSaveTime > 8000){
+    lastProgressSaveTime = now;
+    saveEpisodeProgress();
+  }
 });
 
 video.addEventListener("seeking", () => {
@@ -5487,6 +5799,108 @@ if(onDemandSeasonFilter){
   });
 }
 
+if(onDemandQueueSearch){
+  onDemandQueueSearch.addEventListener("input", () => {
+    renderQueueList();
+  });
+  // Prevent global shortcuts (space, arrows, n, f, etc.) from firing while typing in the search box
+  onDemandQueueSearch.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if(e.key === "Escape"){
+      onDemandQueueSearch.value = "";
+      renderQueueList();
+      onDemandQueueSearch.blur();
+    }
+  });
+}
+
+/* ---------- Integrated player controls ---------- */
+const playerPlayPauseBtn = document.getElementById("playerPlayPauseBtn");
+const playerMuteBtn = document.getElementById("playerMuteBtn");
+const playerVolumeSlider = document.getElementById("playerVolumeSlider");
+const playerFullscreenBtn = document.getElementById("playerFullscreenBtn");
+const playerAutoplayLabel = document.getElementById("playerAutoplayLabel");
+
+function updatePlayPauseIcon(){
+  if(!playerPlayPauseBtn) return;
+  playerPlayPauseBtn.innerHTML = video.paused ? "&#9654;" : "&#9646;&#9646;";
+}
+
+if(playerPlayPauseBtn){
+  playerPlayPauseBtn.addEventListener("click", () => {
+    if(video.paused) video.play().catch(() => {});
+    else video.pause();
+  });
+}
+
+video.addEventListener("play", updatePlayPauseIcon);
+video.addEventListener("pause", updatePlayPauseIcon);
+
+if(playerMuteBtn){
+  playerMuteBtn.addEventListener("click", () => {
+    video.muted = !video.muted;
+    updateMuteUI();
+    playerMuteBtn.blur();
+  });
+}
+
+function updateMuteUI(){
+  if(playerMuteBtn) playerMuteBtn.innerHTML = video.muted ? "&#128264;" : "&#128266;";
+  if(playerVolumeSlider) playerVolumeSlider.value = video.muted ? "0" : String(video.volume);
+}
+
+if(playerVolumeSlider){
+  playerVolumeSlider.addEventListener("input", () => {
+    video.volume = Number(playerVolumeSlider.value);
+    video.muted = Number(playerVolumeSlider.value) === 0;
+    if(playerMuteBtn) playerMuteBtn.innerHTML = video.muted ? "&#128264;" : "&#128266;";
+  });
+  playerVolumeSlider.addEventListener("pointerup", () => { playerVolumeSlider.blur(); });
+  playerVolumeSlider.addEventListener("keyup", () => { playerVolumeSlider.blur(); });
+}
+
+if(playerFullscreenBtn){
+  playerFullscreenBtn.addEventListener("click", () => {
+    const target = mediaStage || document.documentElement;
+    if(!document.fullscreenElement){
+      target.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  });
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if(playerFullscreenBtn){
+    playerFullscreenBtn.innerHTML = document.fullscreenElement ? "&#x2715;" : "&#x26F6;";
+  }
+});
+
+// Show controls overlay on hover, auto-hide 2.5 s after last movement
+let playerControlsHideTimer = null;
+function showPlayerControls(){
+  if(!playerControls || playerControls.style.display === "none" || !playerControls.style.display) return;
+  playerControls.style.opacity = "1";
+  clearTimeout(playerControlsHideTimer);
+  playerControlsHideTimer = setTimeout(() => {
+    if(playerControls && !video.paused) playerControls.style.opacity = "0";
+  }, 2500);
+}
+
+mediaStage.addEventListener("mousemove", showPlayerControls);
+mediaStage.addEventListener("mouseenter", showPlayerControls);
+mediaStage.addEventListener("mouseleave", () => {
+  clearTimeout(playerControlsHideTimer);
+  if(playerControls && !video.paused) playerControls.style.opacity = "0";
+});
+
+// Always show controls when paused
+video.addEventListener("pause", () => {
+  if(playerControls) playerControls.style.opacity = "1";
+  clearTimeout(playerControlsHideTimer);
+});
+video.addEventListener("play", () => { showPlayerControls(); });
+
 /* ---------- Helpers ---------- */
 function resetPlayer() {
   if(hls){ hls.destroy(); hls=null; }
@@ -5532,6 +5946,7 @@ function resetPlayer() {
   onDemandDurationSeconds = 0;
   onDemandScrubbing = false;
   onDemandBaseOffsetSeconds = 0;
+  lastProgressSaveTime = 0;
   setOnDemandPlayMode("single");
   setOnDemandEpisodeState(1, 1);
   setOnDemandQueuePreview([]);
@@ -5541,6 +5956,12 @@ function resetPlayer() {
   if(onDemandSeekHint) onDemandSeekHint.textContent = "Click anywhere to jump and buffer";
   setOnDemandSeekbarVisible(false);
   updateOnDemandSeekbar(0);
+  // Reset player controls to browse defaults
+  if(playerSeekRow) playerSeekRow.style.display = "";
+  if(playerLiveTag) playerLiveTag.style.display = "none";
+  if(playerAutoplayLabel) playerAutoplayLabel.style.display = "";
+  if(playerControls) { playerControls.style.opacity = ""; clearTimeout(playerControlsHideTimer); }
+  updatePlayPauseIcon();
 }
 
 function stopCurrentStream(){
@@ -5638,6 +6059,20 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(hideTimeline) video.classList.add("hide-timeline");
   else video.classList.remove("hide-timeline");
   video.classList.toggle("live-channel", Boolean(isChannel));
+
+  // Configure integrated player controls for this mode
+  if(playerControls){
+    playerControls.style.display = "block";
+    playerControls.style.opacity = "1";
+    clearTimeout(playerControlsHideTimer);
+  }
+  if(playerSeekRow) playerSeekRow.style.display = isChannel ? "none" : "";
+  if(playerLiveTag) playerLiveTag.style.display = isChannel ? "" : "none";
+  const playerTimeDisplay = document.getElementById("playerTimeDisplay");
+  if(playerTimeDisplay) playerTimeDisplay.style.display = isChannel ? "none" : "";
+  if(playerAutoplayLabel) playerAutoplayLabel.style.display = isChannel ? "none" : "";
+  if(onDemandSeekHint) onDemandSeekHint.style.display = isChannel ? "none" : "";
+  updatePlayPauseIcon();
 
   if(Hls.isSupported()){
     hls = new Hls(isChannel ? {} : { autoStartLoad: false, startPosition: 0 });
@@ -6025,7 +6460,7 @@ function wireUpFolderPlayButtons(i, chronoPath){
       activeSlot = d.slot;
       pendingOnDemand = false;
       currentOnDemandPath = d.source_path || "";
-      onDemandBaseOffsetSeconds = 0;
+      onDemandBaseOffsetSeconds = d.resume_seek_seconds > 0 ? d.resume_seek_seconds : 0;
       setOnDemandDuration(d.duration_seconds);
       setOnDemandPlayMode(d.play_mode || playMode || "shuffle");
       setOnDemandEpisodeState(d.episode_index, d.episode_total);

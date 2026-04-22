@@ -1,5 +1,36 @@
 # MAXISTREAMS Patch Notes
 
+## v2.1.0 - Custom Player Controls & Queue Polish
+**Release: April 2026**
+
+### ✨ New Features
+- **Custom video player controls** — Replaced native browser controls with a fully custom overlay (seekbar, play/pause, time display, mute, volume slider, fullscreen) that sits directly on the video
+- **Channel live tag** — Custom controls show a live `● LIVE` tag in place of the seekbar when watching a channel stream
+- **In-video auto-hide controls** — Player controls fade out 2.5 s after the mouse stops moving; always visible when paused
+- **Click video to pause/play** — Clicking anywhere on the video in browse mode toggles playback
+- **Queue search** — Search box in the queue header filters the episode list in real time; Escape clears and blurs
+- **N key → Next Episode** — Pressing N skips to the next episode (same as the Next Episode button)
+- **M key mute sync** — M key now correctly updates the mute icon and volume slider, not just the audio state
+
+### 🖥️ UI Improvements
+- **Next Episode button** moved into the queue header, next to the season dropdown, for easier access
+- **Season dropdown** sits to the right of the Next Episode button; both are grouped flush-right in the queue header
+- **Chronological queue** now defaults season filter to the current episode's season on first open
+- **Shuffle queue** always defaults season filter to "All Seasons"
+- **Queue height** increased from 190 px to 260 px for more visible episodes at once
+- **Queue scroll** now shows one row of context above the current episode instead of snapping it to the very top
+- **Media stream position** moved slightly higher on screen (reduced top margin)
+
+### 🐛 Fixes
+- **Sidebar resize repositions all UI** — Dragging or double-clicking the sidebar now correctly repositions the seekbar, queue, and chat below the stream
+- **Volume slider focus trap** — Clicking the volume slider then pressing a key no longer blocks keyboard shortcuts; slider blurs itself after use
+- **Mute button retaining focus** — Mute button now blurs after click so subsequent key presses aren't swallowed
+- **Range inputs excluded from typing check** — Volume/seek sliders no longer count as a text input, allowing M, N, Space etc. to work while a slider is focused
+- **Controls hidden during episode load** — Player controls are hidden while the next episode is buffering and restore once playback begins
+- **Season filter default** — Removed stale `curSeason` logic that could cause the wrong season to be pre-selected on queue open
+
+---
+
 ## v2.0.0 - Browse Mode Overhaul, Themes & Blunt Clicker
 **Release: April 2026**
 

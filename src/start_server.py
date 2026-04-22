@@ -352,7 +352,11 @@ def load_folder_resume_map():
                 idx = max(0, int(value.get("index", 0) or 0))
             except (TypeError, ValueError):
                 idx = 0
-            cleaned[folder_key] = {"index": idx, "last_played": float(value.get("last_played", 0) or 0)}
+            cleaned[folder_key] = {
+                "index": idx,
+                "last_played": float(value.get("last_played", 0) or 0),
+                "seek_seconds": max(0.0, float(value.get("seek_seconds", 0) or 0)),
+            }
         else:
             try:
                 idx = int(value)
@@ -388,19 +392,27 @@ def get_folder_resume_index(folder_key, identity="guest"):
     return max(0, int(val or 0))
 
 
-def set_folder_resume_index(folder_key, index, identity="guest"):
+def set_folder_resume_index(folder_key, index, identity="guest", seek_seconds=0):
     if not folder_key:
         return
     key = make_resume_map_key(folder_key, identity)
     safe_index = max(0, int(index or 0))
+    safe_seek = max(0.0, float(seek_seconds or 0))
     with FOLDER_RESUME_LOCK:
-        existing = FOLDER_RESUME_MAP.get(key)
         last_played = time.time()
-        if isinstance(existing, dict):
-            # preserve original first_played if available
-            pass
-        FOLDER_RESUME_MAP[key] = {"index": safe_index, "last_played": last_played}
+        FOLDER_RESUME_MAP[key] = {"index": safe_index, "last_played": last_played, "seek_seconds": safe_seek}
     save_folder_resume_map()
+
+
+def get_folder_resume_seek_seconds(folder_key, identity="guest"):
+    if not folder_key:
+        return 0.0
+    key = make_resume_map_key(folder_key, identity)
+    with FOLDER_RESUME_LOCK:
+        val = FOLDER_RESUME_MAP.get(key)
+    if isinstance(val, dict):
+        return max(0.0, float(val.get("seek_seconds", 0) or 0))
+    return 0.0
 
 
 def get_recently_played(identity, limit=5):
@@ -2588,6 +2600,46 @@ class Handler(SimpleHTTPRequestHandler):
             }).encode())
             return
 
+        if self.path == "/api/save_episode_progress":
+            token = str(body.get("token") or "").strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required"}).encode())
+                return
+            ip = self.client_address[0]
+            slot = None
+            for s, info in sessions.items():
+                if info.get("ip") == ip:
+                    slot = s
+                    break
+            if slot is None or slot not in sessions:
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "No active session"}).encode())
+                return
+            session_info = sessions[slot]
+            folder_key = session_info.get("folder_key", "")
+            play_mode = session_info.get("play_mode", "")
+            if not folder_key or play_mode != "chronological":
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Not in chronological mode"}).encode())
+                return
+            episode_index = int(session_info.get("shuffle_index", 0) or 0)
+            resume_identity = session_info.get("resume_identity", f"ip:{ip}")
+            seek_seconds = max(0.0, float(body.get("seek_seconds") or 0))
+            set_folder_resume_index(folder_key, episode_index, resume_identity, seek_seconds=seek_seconds)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
         if self.path == "/api/folder_resume_status":
             folder_path = body.get("path")
             real_folder = safe_path(folder_path)
@@ -2622,6 +2674,7 @@ class Handler(SimpleHTTPRequestHandler):
 
             next_file = files[resume_index]
             display_title = build_display_title(next_file)
+            resume_seek_seconds = get_folder_resume_seek_seconds(folder_key, resume_identity)
 
             # Compute season-aware position info
             season_dir = os.path.dirname(next_file)
@@ -2649,6 +2702,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_in_season": episode_in_season,
                 "season_total": season_total,
                 "play_mode": "chronological",
+                "seek_seconds": resume_seek_seconds,
             }).encode())
             return
 
@@ -2743,6 +2797,7 @@ class Handler(SimpleHTTPRequestHandler):
         shuffle_meta = None
         stream_files = files
         start_index = 0
+        resume_seek_seconds = 0.0
         if self.path == "/api/play_folder":
             folder_key = normalize_folder_key(real)
             user_key, _ = auth_get_user_by_token(token)
@@ -2752,6 +2807,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if resume_index >= len(files):
                     resume_index = 0
                 start_index = max(0, resume_index)
+                resume_seek_seconds = get_folder_resume_seek_seconds(folder_key, resume_identity)
             stream_files = [files[start_index]]
             shuffle_meta = {
                 "shuffle_files": files,
@@ -2761,13 +2817,14 @@ class Handler(SimpleHTTPRequestHandler):
                 "resume_identity": resume_identity,
             }
             if play_mode == "chronological":
-                set_folder_resume_index(folder_key, start_index, resume_identity)
+                set_folder_resume_index(folder_key, start_index, resume_identity, seek_seconds=resume_seek_seconds)
 
         duration_seconds = get_media_duration_seconds(stream_files[0])
         playlist_path, slot = start_ffmpeg(
             stream_files,
             get_slot_for_ip(ip),
             ip,
+            seek_seconds=resume_seek_seconds if self.path == "/api/play_folder" else 0,
             duration_seconds=duration_seconds,
             session_meta=shuffle_meta,
         )
@@ -2791,6 +2848,7 @@ class Handler(SimpleHTTPRequestHandler):
             "episode_total": len(files) if self.path == "/api/play_folder" else 1,
             "queue_preview": queue_preview,
             "play_mode": play_mode if self.path == "/api/play_folder" else "single",
+            "resume_seek_seconds": resume_seek_seconds if self.path == "/api/play_folder" else 0,
         }).encode())
 
 if __name__ == "__main__":

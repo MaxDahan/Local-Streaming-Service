@@ -24,6 +24,11 @@ output/folder_resume.json
 chat_history/
 backup-channels.json
 
+# Temporary import/media ingestion scripts and logs
+src/import_eli.sh
+output/import_eli.log
+output/import_progress.log
+
 # Python/cache/editor noise
 __pycache__/
 *.py[cod]
