@@ -3356,6 +3356,8 @@ function setOnDemandPlayMode(mode="single"){
     else if(normalized === "shuffle") onDemandQueueTitle.textContent = "Shuffled Queue";
     else onDemandQueueTitle.textContent = "Queue";
   }
+  // Hide autoplay toggle for single-file playback — there's no next episode
+  if(playerAutoplayLabel) playerAutoplayLabel.style.display = normalized === "single" ? "none" : "";
 }
 
 function flushOnDemandSeekIntent(){
@@ -4591,7 +4593,7 @@ function formatClock(totalSeconds){
 function setOnDemandSeekbarVisible(visible){
   // Controls the integrated player overlay (shown when video is playing in browse mode)
   if(playerControls) playerControls.style.display = visible ? "block" : "none";
-  // Queue panel below video — show/hide in sync (queue content may still be empty inside)
+  // Queue panel — also controlled by setOnDemandQueuePreview (hides it when empty)
   if(onDemandSeekbar) onDemandSeekbar.style.display = visible ? "block" : "none";
   requestAnimationFrame(() => {
     positionPlaybackUiUnderStream();
@@ -4646,10 +4648,13 @@ function setPendingNextEpisode(pending){
 function setOnDemandQueuePreview(preview){
   onDemandQueuePreview = Array.isArray(preview) ? preview : [];
   if(onDemandQueueSearch) onDemandQueueSearch.value = "";
+  // Reset season filter to force correct default on new queue load
+  if(onDemandSeasonFilter) onDemandSeasonFilter.value = "__all__";
   if(!onDemandQueue || !onDemandQueueList) return;
 
   if(!onDemandQueuePreview.length){
     onDemandQueue.style.display = "none";
+    if(onDemandSeekbar) onDemandSeekbar.style.display = "none";
     if(contentRoot) contentRoot.classList.remove("queue-open");
     onDemandQueueList.innerHTML = "";
     if(onDemandSeasonFilter) onDemandSeasonFilter.style.display = "none";
@@ -4746,12 +4751,15 @@ function renderQueueList(){
     entry._season_pos = seasonPos[season];
   });
 
-  function entryIndexBadge(entry){
+  function entryIndexBadge(entry, listIndex, listTotal){
     const season = String((entry && entry.season_folder) || "").trim() || noSeasonKey;
+    // In All Seasons view for shuffle: show position in the visible list
+    if(activeSeason === "__all__" && onDemandPlayMode === "shuffle"){
+      return `${listIndex + 1}/${listTotal}`;
+    }
     const total = seasonCounts[season] || entry.total;
     const pos = entry._season_pos || entry.position;
     if(season !== noSeasonKey){
-      // Try to get Ep number from display_title for the label
       const t = String((entry && entry.display_title) || "");
       let m = t.match(/S\d{1,2}E(\d{1,3})/i);
       const epNum = m ? parseInt(m[1],10) : pos;
@@ -4779,7 +4787,7 @@ function renderQueueList(){
 
   // The backend now sends entries in correct order (index 0 → N-1).
   // Previous episodes are ABOVE current in the array — no reordering needed.
-  filtered.forEach(entry => {
+  filtered.forEach((entry, listIndex) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = `on-demand-queue-item${entry.is_current ? " current" : ""}`;
@@ -4787,7 +4795,7 @@ function renderQueueList(){
     row.onclick = () => goToOnDemandQueueEpisode(entry.position);
     const idx = document.createElement("span");
     idx.className = "on-demand-queue-item-index";
-    idx.textContent = entryIndexBadge(entry);
+    idx.textContent = entryIndexBadge(entry, listIndex, filtered.length);
     const lbl = document.createElement("span");
     lbl.className = "on-demand-queue-item-label";
     lbl.textContent = entryLabel(entry);
@@ -6070,7 +6078,7 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(playerLiveTag) playerLiveTag.style.display = isChannel ? "" : "none";
   const playerTimeDisplay = document.getElementById("playerTimeDisplay");
   if(playerTimeDisplay) playerTimeDisplay.style.display = isChannel ? "none" : "";
-  if(playerAutoplayLabel) playerAutoplayLabel.style.display = isChannel ? "none" : "";
+  if(playerAutoplayLabel) playerAutoplayLabel.style.display = (isChannel || onDemandPlayMode === "single") ? "none" : "";
   if(onDemandSeekHint) onDemandSeekHint.style.display = isChannel ? "none" : "";
   updatePlayPauseIcon();
 
@@ -6199,7 +6207,7 @@ function loadChannels(){
 }
 
 /* ---------- Browse filesystem ---------- */
-function makeBrowseCard(name, path, sub, progressPct, onclick){
+function makeBrowseCard(name, path, sub, progressPct, onclick, isFolder = true){
   const card = document.createElement("div");
   card.className = "browse-card";
   const cover = document.createElement("div");
@@ -6207,9 +6215,11 @@ function makeBrowseCard(name, path, sub, progressPct, onclick){
   const img = document.createElement("img");
   img.src = `/api/folder_cover?path=${encodeURIComponent(path)}`;
   img.alt = "";
-  img.onerror = () => { img.style.display = "none"; };
+  img.onerror = () => { img.style.display = "none"; placeholder.style.display = ""; };
   const placeholder = document.createElement("span");
   placeholder.className = "browse-card-cover-placeholder";
+  placeholder.style.display = "none";
+  placeholder.textContent = isFolder ? "📁" : "🎬";
   cover.appendChild(img);
   cover.appendChild(placeholder);
   const body = document.createElement("div");
@@ -6253,13 +6263,9 @@ function loadBrowseDashboard(items){
     items.forEach(i => {
       if(i.type !== "folder") return;
       const card = makeBrowseCard(i.name, i.path, null, null, () => {
-        // Click on library card = same as clicking sidebar item
-        const sidebarItem = [...list.querySelectorAll(".item.folder")].find(el => el.textContent === i.name);
-        if(sidebarItem) sidebarItem.click();
-        else {
-          // Synthesize a folder click
-          triggerFolderOpen(i);
-        }
+        searchInput.value = "";
+        currentPath = i.path;
+        loadFolder(i.path);
       });
       browseLibraryCards.appendChild(card);
     });
@@ -6410,7 +6416,8 @@ function loadFolderSubgrid(folderPath){
                     }).catch(()=>failOnDemandLoad(null,"⚠️ Could not start file stream."));
                 }
               }
-            }
+            },
+            isFolder
           );
           subgridEl.appendChild(card);
         });
@@ -6471,6 +6478,12 @@ function wireUpFolderPlayButtons(i, chronoPath){
         loadingImage.style.display="none";
         const playTitle = formatDisplayPath(d.display_title || i.path, "file");
         playHLS(d.playlist,true,playTitle,true,sidebarItem,false,d.slot);
+        // Navigate left sidebar up to parent folder after playback starts
+        const sidebarParentPath = i.path.split("/").slice(0,-1).join("/");
+        if(sidebarParentPath && sidebarParentPath !== currentPath){
+          currentPath = sidebarParentPath;
+          loadFolder(sidebarParentPath, true);
+        }
       }, requestToken, {
         timeoutMs: 45000,
         onProgress: (segCount, elapsedMs) => updateOnDemandLoadingProgress(segCount, 3, elapsedMs),
@@ -6493,21 +6506,23 @@ function wireUpFolderPlayButtons(i, chronoPath){
   if(chronoBtn) chronoBtn.onclick = () => startFolderPlayback("chronological");
 }
 
-function loadFolder(path){
+function loadFolder(path, sidebarOnly = false){
   const token = listLoadToken;
   fetch(`/api/list?path=${encodeURIComponent(path)}`)
     .then(r=>r.json())
     .then(items=>{
       if(mode !== "browse" || token !== listLoadToken) return;
       list.innerHTML="";
-      homeText.style.display="none";
-      stopVideo();
 
       const isRoot = path === mediaRoot;
-      if(isRoot){
-        loadBrowseDashboard(items);
-      } else {
-        hideBrowseDashboard();
+      if(!sidebarOnly){
+        homeText.style.display="none";
+        stopVideo();
+        if(isRoot){
+          loadBrowseDashboard(items);
+        } else {
+          hideBrowseDashboard();
+        }
       }
 
       if(path!==mediaRoot){
@@ -6617,7 +6632,7 @@ function loadFolder(path){
       });
       applyListFilter();
 
-      if(!isRoot){
+      if(!sidebarOnly && !isRoot){
         const folderName = path.split("/").pop();
         homeText.innerHTML = buildFolderPromptHTML(folderName, path);
         homeText.style.display = "block";
