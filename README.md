@@ -44,6 +44,22 @@ Then encode to streaming-friendly 720p:
 
 Encoded files are written to `media/converted/` with matching folder structure.
 
+### 3b. Fetch cover art (optional)
+
+After encoding, download cover art for each show from TVMaze (free, no API key needed):
+
+```bash
+python3 fetch_covers.py
+```
+
+This scans every folder in `media/converted/` and downloads a `cover.jpg` (or `.png`/`.webp`) into any folder that doesn't already have one. It uses TVMaze for TV shows; a name override map inside the script handles common naming mismatches (e.g. `Bobs Burgers` → `Bob's Burgers`). Folders like `Movies` or `Music-Videos` are skipped by default.
+
+To add a manual override for a show TVMaze can't find, add an entry to `TVMAZE_OVERRIDES` at the top of `fetch_covers.py`:
+
+```python
+"Your Folder Name": "Exact TVMaze Show Title",
+```
+
 ### 4. Configure channels
 
 Edit `channels.json` so each channel points to folders that exist under `media/converted/`.
