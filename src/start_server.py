@@ -202,6 +202,12 @@ PRESENCE_MAX_ENTRIES = 5000
 PRESENCE_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 PRESENCE_MAP = {}
 
+# Event-driven viewer counts with TTL fallback (handles dead connections)
+VIEWER_LOCK = Lock()
+VIEWER_TTL_SECONDS = 90  # drop viewer if no heartbeat within this window
+CLIENT_CHANNEL = {}  # {client_id: {"channel_id": str, "ts": int}}
+VIEWER_CHANNEL_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
 # Global cookie clicker counter
 COOKIE_COUNT = 0
 COOKIE_LOCK = Lock()
@@ -213,6 +219,17 @@ BLUNT_STORAGE_PATH = os.path.join(BASE_DIR, "output", "blunt_count.json")
 FOLDER_RESUME_LOCK = Lock()
 FOLDER_RESUME_PATH = os.path.join(BASE_DIR, "output", "folder_resume.json")
 FOLDER_RESUME_MAP = {}
+# Suggestions board
+SUGGESTIONS_LOCK = Lock()
+SUGGESTIONS_PATH = os.path.join(BASE_DIR, "output", "suggestions.json")
+SUGGESTIONS_LIST = []  # list of dicts: {id, username, text, ts, resolved, resolved_by, resolved_ts}
+SUGGESTIONS_NEXT_ID = 1
+SUGGESTIONS_MAX = 500
+SUGGESTION_MAX_LENGTH = 500
+# Favorites
+FAVORITES_LOCK = Lock()
+FAVORITES_PATH = os.path.join(BASE_DIR, "output", "favorites.json")
+FAVORITES_MAP = {}  # dict: {identity: [path, ...]}
 AUTH_LOCK = Lock()
 USERS_STORAGE_PATH = os.path.join(BASE_DIR, "src", "configurations", "users.json")
 AUTH_DB = {"users": {}, "sessions": {}}
@@ -291,6 +308,77 @@ def save_blunt_count():
         print(f"⚠️ Failed to save blunt count: {e}")
 
 
+def load_suggestions():
+    global SUGGESTIONS_LIST, SUGGESTIONS_NEXT_ID
+    try:
+        with open(SUGGESTIONS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        items = data.get("suggestions", [])
+        cleaned = []
+        max_id = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                sid = int(item.get("id", 0))
+            except (TypeError, ValueError):
+                sid = 0
+            text = str(item.get("text", "")).strip()
+            username = str(item.get("username", "")).strip() or "Anonymous"
+            if not text:
+                continue
+            entry = {
+                "id": sid,
+                "username": username,
+                "text": text,
+                "ts": int(item.get("ts", 0) or 0),
+                "resolved": bool(item.get("resolved", False)),
+                "resolved_by": str(item.get("resolved_by", "") or ""),
+                "resolved_ts": int(item.get("resolved_ts", 0) or 0),
+            }
+            cleaned.append(entry)
+            if sid > max_id:
+                max_id = sid
+        SUGGESTIONS_LIST = cleaned
+        SUGGESTIONS_NEXT_ID = max_id + 1
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        SUGGESTIONS_LIST = []
+        SUGGESTIONS_NEXT_ID = 1
+
+
+def save_suggestions():
+    try:
+        os.makedirs(os.path.dirname(SUGGESTIONS_PATH), exist_ok=True)
+        write_json_atomic(SUGGESTIONS_PATH, {"suggestions": SUGGESTIONS_LIST})
+    except OSError as e:
+        print(f"⚠️ Failed to save suggestions: {e}")
+
+
+def load_favorites():
+    global FAVORITES_MAP
+    try:
+        with open(FAVORITES_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            cleaned = {}
+            for k, v in data.items():
+                if isinstance(k, str) and isinstance(v, list):
+                    cleaned[k] = [str(p) for p in v if isinstance(p, str)]
+            FAVORITES_MAP = cleaned
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        FAVORITES_MAP = {}
+
+
+def save_favorites():
+    try:
+        os.makedirs(os.path.dirname(FAVORITES_PATH), exist_ok=True)
+        with FAVORITES_LOCK:
+            snapshot = {k: list(v) for k, v in FAVORITES_MAP.items()}
+        write_json_atomic(FAVORITES_PATH, snapshot)
+    except OSError as e:
+        print(f"⚠️ Failed to save favorites: {e}")
+
+
 def get_blunt_leaderboard(limit=5):
     entries = []
     with AUTH_LOCK:
@@ -310,6 +398,32 @@ def get_blunt_leaderboard(limit=5):
             entries.append({"username": username, "hits": hits})
 
     entries.sort(key=lambda item: (-item["hits"], item["username"].lower()))
+    return entries[:max(1, int(limit or 5))]
+
+
+def get_snake_leaderboard(limit=5):
+    entries = []
+    with AUTH_LOCK:
+        users = AUTH_DB.get("users", {})
+        for info in users.values():
+            if not isinstance(info, dict):
+                continue
+            username = str(info.get("username") or "").strip()
+            if not username:
+                continue
+            try:
+                highscore = max(0, int(info.get("snake_highscore", 0) or 0))
+            except (TypeError, ValueError):
+                highscore = 0
+            if highscore <= 0:
+                continue
+            try:
+                wins = max(0, int(info.get("snake_wins", 0) or 0))
+            except (TypeError, ValueError):
+                wins = 0
+            entries.append({"username": username, "highscore": highscore, "wins": wins})
+
+    entries.sort(key=lambda item: (-item["highscore"], item["username"].lower()))
     return entries[:max(1, int(limit or 5))]
 
 
@@ -392,6 +506,8 @@ def get_folder_resume_index(folder_key, identity="guest"):
     return max(0, int(val or 0))
 
 
+RECENTLY_PLAYED_LIMIT = 20
+
 def set_folder_resume_index(folder_key, index, identity="guest", seek_seconds=0):
     if not folder_key:
         return
@@ -430,7 +546,7 @@ def get_recently_played(identity, limit=5):
             else:
                 idx = max(0, int(val or 0))
                 last_played = 0.0
-            if idx > 0:
+            if last_played > 0:
                 entries.append({"folder_key": folder_key, "resume_index": idx, "last_played": last_played})
     entries.sort(key=lambda e: -e["last_played"])
     return entries[:max(1, int(limit or 5))]
@@ -944,6 +1060,58 @@ def get_presence_snapshot(requester_user_key=""):
     }
 
 
+def _prune_stale_viewers_locked(now):
+    """Remove CLIENT_CHANNEL entries older than VIEWER_TTL_SECONDS. Must be called under VIEWER_LOCK."""
+    cutoff = now - VIEWER_TTL_SECONDS
+    for cid in list(CLIENT_CHANNEL.keys()):
+        if CLIENT_CHANNEL[cid]["ts"] <= cutoff:
+            del CLIENT_CHANNEL[cid]
+
+
+def viewer_join(client_id, channel_id):
+    """Join or heartbeat a channel. Updates timestamp on same-channel to keep TTL alive."""
+    clean_client_id = str(client_id or "").strip()
+    if not clean_client_id or not PRESENCE_CLIENT_ID_RE.fullmatch(clean_client_id):
+        return
+    clean_channel_id = str(channel_id or "").strip()[:64]
+    if not clean_channel_id or not VIEWER_CHANNEL_ID_RE.fullmatch(clean_channel_id):
+        return
+    now = int(time.time())
+    with VIEWER_LOCK:
+        _prune_stale_viewers_locked(now)
+        existing = CLIENT_CHANNEL.get(clean_client_id)
+        if existing and existing["channel_id"] == clean_channel_id:
+            # Same channel — just refresh the timestamp (heartbeat)
+            existing["ts"] = now
+            return
+        # Moving to a different channel or joining fresh
+        old_channel = existing["channel_id"] if existing else None
+        CLIENT_CHANNEL[clean_client_id] = {"channel_id": clean_channel_id, "ts": now}
+        if old_channel:
+            pass  # count comes from CLIENT_CHANNEL length, not a separate counter
+
+
+def viewer_leave(client_id):
+    """Remove a client from their current channel."""
+    clean_client_id = str(client_id or "").strip()
+    if not clean_client_id:
+        return
+    with VIEWER_LOCK:
+        CLIENT_CHANNEL.pop(clean_client_id, None)
+
+
+def get_viewer_counts():
+    """Return {channel_id: count} pruning stale entries first."""
+    now = int(time.time())
+    counts = {}
+    with VIEWER_LOCK:
+        _prune_stale_viewers_locked(now)
+        for entry in CLIENT_CHANNEL.values():
+            cid = entry["channel_id"]
+            counts[cid] = counts.get(cid, 0) + 1
+    return counts
+
+
 def chat_file_path(channel):
     channel_text = str(channel or "").strip()
     slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", channel_text).strip("._-") or "channel"
@@ -1046,7 +1214,7 @@ for phrase in TITLE_RULES.get("noise_phrases", []):
 
 
 EPISODE_MARKER_RE = re.compile(
-    r"\b(?:S(?P<season>\d{1,2})E(?P<episodes>\d{1,2}(?:\s*(?:-|–|E)\s*E?\d{1,2})*)|(?P<xseason>\d{1,2})x(?P<xepisodes>\d{1,2}(?:\s*[-–]\s*\d{1,2})*))\b",
+    r"\b(?:S(?P<season>\d{1,2})E(?P<episodes>\d{1,2}(?:\s*[-–]?\s*E\d{1,2})*)|(?P<xseason>\d{1,2})x(?P<xepisodes>\d{1,2}(?:\s*[-–]\s*\d{1,2})*))\b",
     re.IGNORECASE,
 )
 
@@ -1215,7 +1383,7 @@ def format_episode_label(match):
     episode_numbers = re.findall(r"\d{1,2}", raw_episodes)
     if not episode_numbers:
         return match.group(0).upper()
-    return "-".join(f"E{number.zfill(2)}" for number in episode_numbers)
+    return f"E{episode_numbers[0].zfill(2)}"
 
 
 def prettify_media_name(name, parent=None, episode_index=None):
@@ -1442,8 +1610,24 @@ class Handler(SimpleHTTPRequestHandler):
             # Serve index.html from src/
             index_path = os.path.join(BASE_DIR, "src", "index.html")
             if os.path.exists(index_path):
+                stat = os.stat(index_path)
+                mtime = int(stat.st_mtime)
+                etag = f'"{mtime}"'
+                from email.utils import formatdate
+                last_modified = formatdate(stat.st_mtime, usegmt=True)
+                # Support conditional requests (normal refresh = 304, hard refresh = 200)
+                client_etag = self.headers.get("If-None-Match", "")
+                if client_etag == etag:
+                    self.send_response(304)
+                    self.send_header("ETag", etag)
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    return
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
+                self.send_header("ETag", etag)
+                self.send_header("Last-Modified", last_modified)
+                self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 with open(index_path, "rb") as f:
                     self.wfile.write(f.read())
@@ -1565,6 +1749,40 @@ class Handler(SimpleHTTPRequestHandler):
                 "username": user_info.get("username") if isinstance(user_info, dict) else None,
             }).encode())
             return
+
+        if parsed.path == "/api/suggestions":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            is_admin = bool(user_key and auth_is_user_enabled(user_info) and auth_is_user_admin(user_info))
+            with SUGGESTIONS_LOCK:
+                snapshot = list(SUGGESTIONS_LIST)
+            # Non-admins don't see resolved entries
+            if not is_admin:
+                snapshot = [s for s in snapshot if not s.get("resolved")]
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"suggestions": snapshot, "is_admin": is_admin, "username": str(user_info.get("username") or "") if isinstance(user_info, dict) else ""}).encode())
+            return
+        if parsed.path == "/api/favorites":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not auth_is_user_enabled(user_info):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"paths": []}).encode())
+                return
+            identity = normalize_resume_identity(str(user_info.get("username", user_key) or user_key))
+            with FAVORITES_LOCK:
+                paths = list(FAVORITES_MAP.get(identity, []))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"paths": paths}).encode())
+            return
         if parsed.path == "/api/admin/health":
             qs = parse_qs(parsed.query)
             token = str(qs.get("token", [""])[0]).strip()
@@ -1651,7 +1869,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"entries": []}).encode())
                 return
             identity = f"user:{user_key}"
-            raw_entries = get_recently_played(identity, limit=8)
+            raw_entries = get_recently_played(identity, limit=RECENTLY_PLAYED_LIMIT)
             result = []
             for entry in raw_entries:
                 fk = entry["folder_key"]
@@ -1667,13 +1885,13 @@ class Handler(SimpleHTTPRequestHandler):
                             all_files.append(os.path.join(root, n))
                 all_files = sorted(all_files, key=natural_sort_key)
                 total = len(all_files)
-                # Season info for the resume position
+                # Season info for the resume position (resume_idx is 0-based)
                 resume_idx = entry["resume_index"]
                 season_name = None
                 episode_in_season = None
                 season_total = None
-                if 0 < resume_idx <= total:
-                    current_file = all_files[resume_idx - 1]
+                if 0 <= resume_idx < total:
+                    current_file = all_files[resume_idx]
                     parent_dir = os.path.dirname(current_file)
                     has_seasons = parent_dir != real
                     if has_seasons:
@@ -1776,6 +1994,32 @@ class Handler(SimpleHTTPRequestHandler):
                 "authenticated": bool(user_key),
             }).encode())
             return
+        if parsed.path == "/api/snake":
+            qs = parse_qs(parsed.query)
+            token = str(qs.get("token", [""])[0]).strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            user_highscore = 0
+            user_wins = 0
+            if user_key and isinstance(user_info, dict):
+                try:
+                    user_highscore = max(0, int(user_info.get("snake_highscore", 0) or 0))
+                except (TypeError, ValueError):
+                    user_highscore = 0
+                try:
+                    user_wins = max(0, int(user_info.get("snake_wins", 0) or 0))
+                except (TypeError, ValueError):
+                    user_wins = 0
+            leaderboard = get_snake_leaderboard(5)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "leaderboard": leaderboard,
+                "your_highscore": user_highscore,
+                "your_wins": user_wins,
+                "authenticated": bool(user_key),
+            }).encode())
+            return
         if parsed.path == "/api/chat":
             qs = parse_qs(parsed.query)
             channel = str(qs.get("channel", [""])[0]).strip()
@@ -1830,6 +2074,7 @@ class Handler(SimpleHTTPRequestHandler):
                 )
 
             snapshot = get_presence_snapshot(user_key)
+            snapshot["viewer_counts"] = get_viewer_counts()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -2099,6 +2344,49 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"count": count, "your_hits": user_hits}).encode())
             return
 
+        if self.path.startswith("/api/snake/score"):
+            parsed_snake = urlparse(self.path)
+            qs_snake = parse_qs(parsed_snake.query)
+            token = str(qs_snake.get("token", [""])[0]).strip()
+            user_key, _ = auth_get_user_by_token(token)
+            if not user_key:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required to save snake score"}).encode())
+                return
+            try:
+                score = max(0, int(qs_snake.get("score", ["0"])[0]))
+            except (TypeError, ValueError):
+                score = 0
+            won = qs_snake.get("won", ["0"])[0] in ("1", "true", "yes")
+            new_highscore = 0
+            new_wins = 0
+            with AUTH_LOCK:
+                users = AUTH_DB.get("users", {})
+                current = users.get(user_key)
+                if not isinstance(current, dict):
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                    return
+                updated = dict(current)
+                old_highscore = max(0, int(updated.get("snake_highscore", 0) or 0))
+                if score > old_highscore:
+                    updated["snake_highscore"] = score
+                new_highscore = max(old_highscore, score)
+                if won:
+                    updated["snake_wins"] = max(0, int(updated.get("snake_wins", 0) or 0)) + 1
+                new_wins = max(0, int(updated.get("snake_wins", 0) or 0))
+                users[user_key] = updated
+            save_auth_db()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "your_highscore": new_highscore, "your_wins": new_wins}).encode())
+            return
+
         length = int(self.headers.get("Content-Length", 0))
         try:
             raw_body = self.rfile.read(length) if length > 0 else b"{}"
@@ -2128,6 +2416,8 @@ class Handler(SimpleHTTPRequestHandler):
                     "created_ts": int(time.time()),
                     "last_rename_ts": 0,
                     "cookie_clicks": 0,
+                    "snake_highscore": 0,
+                    "snake_wins": 0,
                 }
             save_auth_db()
             token = auth_create_session(user_key)
@@ -2198,6 +2488,28 @@ class Handler(SimpleHTTPRequestHandler):
             user_key, _ = auth_get_user_by_token(token)
             if client_id:
                 remove_presence(client_id, user_key=user_key)
+                viewer_leave(client_id)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/viewer/join":
+            client_id = normalize_presence_client_id(body.get("client_id") or "")
+            channel_id = str(body.get("channel_id") or "").strip()[:64]
+            if client_id and channel_id:
+                viewer_join(client_id, channel_id)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"viewer_counts": get_viewer_counts()}).encode())
+            return
+
+        if self.path == "/api/viewer/leave":
+            client_id = normalize_presence_client_id(body.get("client_id") or "")
+            if client_id:
+                viewer_leave(client_id)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -2706,6 +3018,258 @@ class Handler(SimpleHTTPRequestHandler):
             }).encode())
             return
 
+        if self.path == "/api/suggestions/add":
+            token = str(body.get("token") or "").strip()
+            text = str(body.get("text") or "").strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not isinstance(user_info, dict):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required to submit suggestions"}).encode())
+                return
+            if not text:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Suggestion text is required"}).encode())
+                return
+            text = re.sub(r"\s+", " ", text)[:SUGGESTION_MAX_LENGTH]
+            username = str(user_info.get("username") or "Anonymous").strip()
+            global SUGGESTIONS_NEXT_ID
+            with SUGGESTIONS_LOCK:
+                if len(SUGGESTIONS_LIST) >= SUGGESTIONS_MAX:
+                    # Remove oldest resolved ones first, then oldest unresolved
+                    resolved = [s for s in SUGGESTIONS_LIST if s.get("resolved")]
+                    if resolved:
+                        SUGGESTIONS_LIST.remove(resolved[0])
+                    else:
+                        del SUGGESTIONS_LIST[0]
+                entry = {
+                    "id": SUGGESTIONS_NEXT_ID,
+                    "username": username,
+                    "text": text,
+                    "ts": int(time.time()),
+                    "resolved": False,
+                    "resolved_by": "",
+                    "resolved_ts": 0,
+                }
+                SUGGESTIONS_NEXT_ID += 1
+                SUGGESTIONS_LIST.append(entry)
+                snapshot = list(SUGGESTIONS_LIST)
+            try:
+                save_suggestions()
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "suggestion": entry}).encode())
+            return
+
+        if self.path == "/api/suggestions/resolve":
+            token = str(body.get("token") or "").strip()
+            sid = int(body.get("id") or 0)
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not auth_is_user_enabled(user_info):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required"}).encode())
+                return
+            is_admin = auth_is_user_admin(user_info)
+            username = str(user_info.get("username") or "anonymous").strip()
+            with SUGGESTIONS_LOCK:
+                target = next((s for s in SUGGESTIONS_LIST if s["id"] == sid), None)
+                # Only admin or the suggestion's original author may resolve
+                if target and (is_admin or target.get("username") == username):
+                    target["resolved"] = not target.get("resolved", False)
+                    if target["resolved"]:
+                        target["resolved_by"] = username
+                        target["resolved_ts"] = int(time.time())
+                    else:
+                        target["resolved_by"] = ""
+                        target["resolved_ts"] = 0
+                elif not target:
+                    pass  # not found, no-op
+                else:
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not allowed"}).encode())
+                    return
+                snapshot = list(SUGGESTIONS_LIST)
+            try:
+                save_suggestions()
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "suggestions": snapshot}).encode())
+            return
+
+        if self.path == "/api/suggestions/delete":
+            token = str(body.get("token") or "").strip()
+            sid = int(body.get("id") or 0)
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not auth_is_user_enabled(user_info):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required"}).encode())
+                return
+            is_admin = auth_is_user_admin(user_info)
+            username = str(user_info.get("username") or "anonymous").strip()
+            with SUGGESTIONS_LOCK:
+                target = next((s for s in SUGGESTIONS_LIST if s["id"] == sid), None)
+                if target and (is_admin or target.get("username") == username):
+                    SUGGESTIONS_LIST[:] = [s for s in SUGGESTIONS_LIST if s["id"] != sid]
+                elif not target:
+                    pass  # not found, no-op
+                else:
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Not allowed"}).encode())
+                    return
+                snapshot = list(SUGGESTIONS_LIST)
+            try:
+                save_suggestions()
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "suggestions": snapshot}).encode())
+            return
+
+        if self.path == "/api/favorites/toggle":
+            token = str(body.get("token") or "").strip()
+            path = str(body.get("path") or "").strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not auth_is_user_enabled(user_info):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required"}).encode())
+                return
+            if not path:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "path required"}).encode())
+                return
+            identity = normalize_resume_identity(str(user_info.get("username", user_key) or user_key))
+            with FAVORITES_LOCK:
+                current = list(FAVORITES_MAP.get(identity, []))
+                if path in current:
+                    current.remove(path)
+                    favorited = False
+                else:
+                    current.append(path)
+                    favorited = True
+                FAVORITES_MAP[identity] = current
+            try:
+                save_favorites()
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"paths": current, "favorited": favorited}).encode())
+            return
+
+        if self.path == "/api/remove_recent":
+            token = str(body.get("token") or "").strip()
+            path = str(body.get("path") or "").strip()
+            user_key, user_info = auth_get_user_by_token(token)
+            if not user_key or not auth_is_user_enabled(user_info):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Login required"}).encode())
+                return
+            if not path:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "path required"}).encode())
+                return
+            identity = f"user:{user_key}"
+            key = make_resume_map_key(path, identity)
+            with FOLDER_RESUME_LOCK:
+                FOLDER_RESUME_MAP.pop(key, None)
+            save_folder_resume_map()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            return
+
+        if self.path == "/api/play_virtual_channel":
+            # Virtual sub-channel: shuffle across multiple named media folders
+            folders = body.get("folders")
+            if not isinstance(folders, list) or not folders:
+                self.send_error(400)
+                return
+            ip = self.client_address[0]
+            files = []
+            for folder_name in folders:
+                folder_name = str(folder_name).strip()
+                if not folder_name:
+                    continue
+                candidate = os.path.join(MEDIA_ROOT, folder_name)
+                real_folder = os.path.realpath(candidate)
+                if not real_folder.startswith(MEDIA_ROOT):
+                    continue
+                if not os.path.isdir(real_folder):
+                    continue
+                for root, _, names in os.walk(real_folder):
+                    for n in names:
+                        if n.lower().endswith((".mp4", ".mkv")):
+                            files.append(os.path.join(root, n))
+            if not files:
+                self.send_error(404)
+                return
+            random.shuffle(files)
+            first_file = files[0]
+            duration_seconds = get_media_duration_seconds(first_file)
+            shuffle_meta = {
+                "shuffle_files": files,
+                "shuffle_index": 0,
+                "play_mode": "shuffle",
+                "folder_key": "",
+                "resume_identity": f"ip:{ip}",
+            }
+            playlist_path, slot = start_ffmpeg(
+                [first_file],
+                get_slot_for_ip(ip),
+                ip,
+                seek_seconds=0,
+                duration_seconds=duration_seconds,
+                session_meta=shuffle_meta,
+            )
+            display_title = build_display_title(first_file)
+            queue_preview = build_shuffle_queue_preview(files, 0)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "playlist": f"/on_demand/{slot}/output.m3u8",
+                "slot": slot,
+                "display_title": display_title,
+                "source_path": os.path.relpath(first_file, BASE_DIR),
+                "duration_seconds": duration_seconds,
+                "current_file": prettify_media_name(os.path.basename(first_file)),
+                "episode_index": 1,
+                "episode_total": len(files),
+                "queue_preview": queue_preview,
+                "play_mode": "shuffle",
+                "resume_seek_seconds": 0,
+            }).encode())
+            return
+
         if self.path == "/api/chat/send":
             channel = str(body.get("channel", "")).strip()
             username = str(body.get("username", "")).strip() or "Anonymous"
@@ -2820,11 +3384,18 @@ class Handler(SimpleHTTPRequestHandler):
                 set_folder_resume_index(folder_key, start_index, resume_identity, seek_seconds=resume_seek_seconds)
 
         duration_seconds = get_media_duration_seconds(stream_files[0])
+        # play_file can optionally start at a seek position (used by refresh restore)
+        play_file_seek = 0.0
+        if self.path == "/api/play_file":
+            try:
+                play_file_seek = max(0.0, float(body.get("seek_seconds", 0) or 0))
+            except (TypeError, ValueError):
+                pass
         playlist_path, slot = start_ffmpeg(
             stream_files,
             get_slot_for_ip(ip),
             ip,
-            seek_seconds=resume_seek_seconds if self.path == "/api/play_folder" else 0,
+            seek_seconds=resume_seek_seconds if self.path == "/api/play_folder" else play_file_seek,
             duration_seconds=duration_seconds,
             session_meta=shuffle_meta,
         )
@@ -2848,7 +3419,7 @@ class Handler(SimpleHTTPRequestHandler):
             "episode_total": len(files) if self.path == "/api/play_folder" else 1,
             "queue_preview": queue_preview,
             "play_mode": play_mode if self.path == "/api/play_folder" else "single",
-            "resume_seek_seconds": resume_seek_seconds if self.path == "/api/play_folder" else 0,
+            "resume_seek_seconds": resume_seek_seconds if self.path == "/api/play_folder" else play_file_seek,
         }).encode())
 
 if __name__ == "__main__":
@@ -2856,6 +3427,8 @@ if __name__ == "__main__":
     load_blunt_count()
     load_chat_history()
     load_folder_resume_map()
+    load_suggestions()
+    load_favorites()
     load_auth_db()
     # Re-sync global blunt count from per-user hits to fix any historical drift
     with AUTH_LOCK:

@@ -12,8 +12,8 @@ fi
 
 echo "🛑 Stopping all channels listed in $CHANNELS_FILE..."
 
-# Extract "id" fields and loop over them
-jq -r '.[].id' "$CHANNELS_FILE" | while read -r channel_id; do
+# Extract ALL channel IDs recursively and stop each
+jq -r '.. | objects | select(.id? and .folders?) | .id' "$CHANNELS_FILE" | while read -r channel_id; do
   echo "🔻 Stopping stream for channel: $channel_id"
   "$SRC_DIR/stop_stream.sh" "$channel_id"
 done

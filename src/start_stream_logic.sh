@@ -33,8 +33,8 @@ echo "🔹 Channel dir: $CHANNEL_DIR"
 echo "🔹 Output playlist: $OUTPUT_PLAYLIST"
 echo "🔹 Playlist file: $PLAYLIST_FILE"
 
-# Load folders from channels.json safely
-mapfile -t FOLDERS < <(jq -r --arg id "$CHANNEL" '.[] | select(.id==$id) | .folders[]' "$BASE_DIR/channels.json")
+# Load folders from channels.json safely (search all nesting levels)
+mapfile -t FOLDERS < <(jq -r --arg id "$CHANNEL" '.. | objects | select(.id==$id) | .folders[]?' "$BASE_DIR/channels.json")
 
 echo "🔹 Folders for channel $CHANNEL:"
 for f in "${FOLDERS[@]}"; do
@@ -126,7 +126,7 @@ while true; do
       -f hls \
       -hls_time 6 \
       -hls_list_size 30 \
-      -hls_flags program_date_time \
+      -hls_flags program_date_time+delete_segments \
       -hls_segment_filename "${SEGMENT_PREFIX}%d.ts" \
       "$OUTPUT_PLAYLIST" 2>&1
   else

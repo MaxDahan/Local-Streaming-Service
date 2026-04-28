@@ -1,5 +1,33 @@
 # MAXISTREAMS Patch Notes
 
+## v2.2.0 - Snake Game, Viewer Counts & Polish
+**Release: April 2026**
+
+### ✨ New Features
+- **Snake Game** — Added a 🐍 floating dock button (right of blunt clicker) that opens a full-screen transparent Snake overlay playable on top of any stream
+- **Snake Leaderboard** — Top 5 players by high score shown on hover; win count tracked per user; top scorer's name displayed as the dock label
+- **Snake persisted stats** — High score and win count saved per account; new accounts initialize at 0
+- **Live viewer count badges** — Each channel button in the sidebar shows a 👁 eyeball icon + count to the left of the channel name when anyone is watching; hidden when count is zero
+- **Channel viewer counts load in parallel** — `channels.json` and `/api/presence` are fetched simultaneously so badges appear the moment the sidebar renders with no extra round-trip
+- **Dock minimize buttons** — Each clicker dock (🚬 blunt, 🍪 cookie, 🐍 snake) has a `−`/`+` pill below it; clicking it animates the icon off-screen while keeping the score and leaderboard accessible; state persists in localStorage
+- **C key → Cookie Clicker** — Pressing C now triggers a cookie click (when not typing and Snake overlay is closed)
+
+### 🖥️ UI Improvements
+- **Snake overlay is fully transparent** — No background or grid; snake and apple use drop shadows to stay visible over any content
+- **Cursor auto-hides over stream** — Mouse cursor now disappears after 2.5 s of inactivity while hovering the video area, not just when in fullscreen
+- **Spongebob theme button image fixed** — Typo in filename (`buttong.png` → `button.png`) prevented the theme toggle button from displaying
+
+### ⚡ Performance & Caching
+- **Smart ETag caching** — Server now sends `ETag` + `Cache-Control: no-cache`; normal F5 returns `304 Not Modified` (instant, no flash); hard refresh bypasses cache for a fresh `200`
+
+### 🐛 Fixes
+- **Theme FOUC on normal refresh fixed** — Theme colors now stay consistent on F5; the early inline script's CSS vars are preserved until the theme manifest hydrates, preventing a flash of grey/default colors
+- **Snake arrow keys no longer seek video** — Arrow key inputs are captured and stopped from bubbling while the Snake overlay is open; video seeking resumes normally after closing
+- **Channel restore highlight fixed** — On page refresh, the currently-playing channel button is now correctly highlighted; previously broke due to viewer badge digits in `textContent` and async render timing
+- **Channel item restore after loading** — Clicking a channel then cancelling/restoring now correctly rebuilds the badge + name DOM structure instead of leaving plain text
+
+---
+
 ## v2.1.0 - Custom Player Controls & Queue Polish
 **Release: April 2026**
 
