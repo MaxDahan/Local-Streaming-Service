@@ -7423,12 +7423,28 @@ video.addEventListener("keydown", (e) => {
 // Blur video after any mouse click so the native controls don't retain focus.
 // Without this, pressing Space after clicking play/pause re-triggers the
 // focused native button instead of going through our document keydown handler.
+let videoClickTimer = null;
 video.addEventListener("click", () => {
   requestAnimationFrame(() => { if(document.activeElement === video) video.blur(); });
-  // Click anywhere on the video to toggle play/pause in browse mode
+  // Delay play/pause so a double-click can cancel it before it fires
   if(mode === "browse" && activeSlot !== null && !pendingOnDemand && !pendingSeekRequest){
-    if(video.paused) video.play().catch(() => {});
-    else video.pause();
+    clearTimeout(videoClickTimer);
+    videoClickTimer = setTimeout(() => {
+      if(video.paused) video.play().catch(() => {});
+      else video.pause();
+    }, 200);
+  }
+});
+
+// Double-click on the video to toggle fullscreen (cancels the pending click)
+video.addEventListener("dblclick", () => {
+  clearTimeout(videoClickTimer);
+  const target = mediaStage || document.documentElement;
+  if(document.fullscreenElement || document.webkitFullscreenElement){
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+  } else {
+    const req = target.requestFullscreen || target.webkitRequestFullscreen;
+    if(req) req.call(target).catch(() => {});
   }
 });
 
@@ -7471,7 +7487,7 @@ document.addEventListener("keydown", (e) => {
   const activeIsRange = tag === "INPUT" && document.activeElement && document.activeElement.type === "range";
   const typing = (tag === "INPUT" && !activeIsRange) || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable);
 
-  if(e.key === "/" && document.activeElement !== searchInput){
+  if(e.key === "/" && document.activeElement !== searchInput && !typing){
     e.preventDefault();
     searchInput.focus();
     searchInput.select();

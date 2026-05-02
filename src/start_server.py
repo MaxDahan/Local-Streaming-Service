@@ -232,6 +232,7 @@ FAVORITES_PATH = os.path.join(BASE_DIR, "output", "favorites.json")
 FAVORITES_MAP = {}  # dict: {identity: [path, ...]}
 AUTH_LOCK = Lock()
 USERS_STORAGE_PATH = os.path.join(BASE_DIR, "src", "configurations", "users.json")
+SNAKE_SCORES_PATH = os.path.join(BASE_DIR, "output", "snake_scores.json")
 AUTH_DB = {"users": {}, "sessions": {}}
 RENAME_COOLDOWN_SECONDS = 24 * 60 * 60
 AUTH_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
@@ -399,6 +400,59 @@ def get_blunt_leaderboard(limit=5):
 
     entries.sort(key=lambda item: (-item["hits"], item["username"].lower()))
     return entries[:max(1, int(limit or 5))]
+
+
+def load_snake_scores():
+    try:
+        with open(SNAKE_SCORES_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        scores = data.get("scores", {})
+        if not isinstance(scores, dict):
+            return
+        with AUTH_LOCK:
+            users = AUTH_DB.get("users", {})
+            for user_key, entry in scores.items():
+                if not isinstance(entry, dict) or user_key not in users:
+                    continue
+                try:
+                    hs = max(0, int(entry.get("highscore", 0) or 0))
+                except (TypeError, ValueError):
+                    hs = 0
+                try:
+                    wins = max(0, int(entry.get("wins", 0) or 0))
+                except (TypeError, ValueError):
+                    wins = 0
+                users[user_key]["snake_highscore"] = max(hs, users[user_key].get("snake_highscore", 0))
+                users[user_key]["snake_wins"] = max(wins, users[user_key].get("snake_wins", 0))
+    except (OSError, json.JSONDecodeError):
+        pass
+
+
+def save_snake_scores():
+    try:
+        scores = {}
+        with AUTH_LOCK:
+            users = AUTH_DB.get("users", {})
+            for user_key, info in users.items():
+                if not isinstance(info, dict):
+                    continue
+                try:
+                    hs = max(0, int(info.get("snake_highscore", 0) or 0))
+                except (TypeError, ValueError):
+                    hs = 0
+                try:
+                    wins = max(0, int(info.get("snake_wins", 0) or 0))
+                except (TypeError, ValueError):
+                    wins = 0
+                if hs > 0 or wins > 0:
+                    scores[user_key] = {"highscore": hs, "wins": wins}
+        os.makedirs(os.path.dirname(SNAKE_SCORES_PATH), exist_ok=True)
+        tmp = SNAKE_SCORES_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"scores": scores}, ensure_ascii=False, indent=2))
+        os.replace(tmp, SNAKE_SCORES_PATH)
+    except OSError as e:
+        print(f"Warning: Failed to save snake scores: {e}")
 
 
 def get_snake_leaderboard(limit=5):
@@ -665,6 +719,8 @@ def load_auth_db():
             "last_rename_ts": last_rename_ts,
             "cookie_clicks": max(0, int(info.get("cookie_clicks", 0) or 0)),
             "blunt_hits": max(0, int(info.get("blunt_hits", 0) or 0)),
+            "snake_highscore": max(0, int(info.get("snake_highscore", 0) or 0)),
+            "snake_wins": max(0, int(info.get("snake_wins", 0) or 0)),
             "is_admin": bool(info.get("is_admin") or info.get("isAdmin")),
             "enabled": bool(info.get("enabled", True)),
         }
@@ -2381,6 +2437,7 @@ class Handler(SimpleHTTPRequestHandler):
                 new_wins = max(0, int(updated.get("snake_wins", 0) or 0))
                 users[user_key] = updated
             save_auth_db()
+            save_snake_scores()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -3430,6 +3487,7 @@ if __name__ == "__main__":
     load_suggestions()
     load_favorites()
     load_auth_db()
+    load_snake_scores()
     # Re-sync global blunt count from per-user hits to fix any historical drift
     with AUTH_LOCK:
         _user_hit_total = sum(
@@ -3447,6 +3505,7 @@ if __name__ == "__main__":
         print("\n🛑 Shutting down — saving cookie count...")
         save_cookie_count()
         save_blunt_count()
+        save_snake_scores()
         save_folder_resume_map()
         save_auth_db()
         raise SystemExit(0)
@@ -3455,6 +3514,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, _shutdown_handler)
     atexit.register(save_cookie_count)
     atexit.register(save_blunt_count)
+    atexit.register(save_snake_scores)
     atexit.register(save_folder_resume_map)
     atexit.register(save_auth_db)
 
