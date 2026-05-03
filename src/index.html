@@ -7828,7 +7828,7 @@ video.addEventListener("pause", () => {
   showCursor();
   clearTimeout(cursorHideTimer);
 });
-video.addEventListener("play", () => { showPlayerControls(); });
+video.addEventListener("play", () => { showPlayerControls(); clearTimeout(cursorHideTimer); cursorHideTimer = setTimeout(hideCursorIfFullscreen, 2500); });
 
 video.addEventListener("enterpictureinpicture", () => {
   if(playerControls) playerControls.style.display = "none";
