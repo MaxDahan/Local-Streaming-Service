@@ -10,7 +10,14 @@
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 RAW_DIR="$BASE_DIR/media/raw"
-CONVERTED_DIR="$BASE_DIR/media/converted"
+CONFIG_FILE="$BASE_DIR/src/configurations/config.json"
+CONVERTED_DIR="$(jq -r 'if (.media_roots | type) == "array" and (.media_roots | length) > 0 then .media_roots[0] elif .media_root and .media_root != "null" then .media_root else empty end' "$CONFIG_FILE" 2>/dev/null)"
+if [ -z "$CONVERTED_DIR" ] || [ "$CONVERTED_DIR" = "null" ]; then
+  CONVERTED_DIR="$BASE_DIR/media/converted"
+fi
+if [[ "$CONVERTED_DIR" != /* ]]; then
+  CONVERTED_DIR="$BASE_DIR/$CONVERTED_DIR"
+fi
 LOG_FILE="$BASE_DIR/output/encode.log"
 
 # Encoding settings — must stay in sync with stream output format

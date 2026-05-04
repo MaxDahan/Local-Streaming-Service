@@ -165,7 +165,28 @@ def load_title_cleanup_rules(path):
 
 
 CONFIG = load_config()
-MEDIA_ROOT = os.path.realpath(CONFIG.get("media_root", os.path.join(BASE_DIR, "media", "converted")))
+
+def _load_media_roots(cfg):
+    roots = []
+    mr_list = cfg.get("media_roots")
+    if isinstance(mr_list, list):
+        for r in mr_list:
+            if isinstance(r, str) and r.strip():
+                p = r.strip()
+                if not os.path.isabs(p):
+                    p = os.path.join(BASE_DIR, p)
+                resolved = os.path.realpath(p)
+                if resolved not in roots:
+                    roots.append(resolved)
+    if not roots:
+        r = cfg.get("media_root", os.path.join(BASE_DIR, "media", "converted"))
+        if not os.path.isabs(r):
+            r = os.path.join(BASE_DIR, r)
+        roots.append(os.path.realpath(r))
+    return roots
+
+MEDIA_ROOTS = _load_media_roots(CONFIG)
+MEDIA_ROOT = MEDIA_ROOTS[0]  # primary root kept for backward-compat
 ON_DEMAND_DIR = os.path.join(BASE_DIR, "on_demand")
 try:
     MAX_SESSIONS = int(CONFIG.get("max_sessions", 5))
@@ -350,7 +371,9 @@ def load_suggestions():
 def save_suggestions():
     try:
         os.makedirs(os.path.dirname(SUGGESTIONS_PATH), exist_ok=True)
-        write_json_atomic(SUGGESTIONS_PATH, {"suggestions": SUGGESTIONS_LIST})
+        with SUGGESTIONS_LOCK:
+            snapshot = list(SUGGESTIONS_LIST)
+        write_json_atomic(SUGGESTIONS_PATH, {"suggestions": snapshot})
     except OSError as e:
         print(f"⚠️ Failed to save suggestions: {e}")
 
@@ -939,7 +962,7 @@ def get_admin_health_snapshot():
     except OSError:
         load_avg = [0.0, 0.0, 0.0]
 
-    disk = _read_disk_stats(MEDIA_ROOT)
+    disk = _read_disk_stats(next((r for r in MEDIA_ROOTS if os.path.isdir(r)), MEDIA_ROOT))
 
     payload = {
         "cpuPercent": cpu_percent,
@@ -1322,10 +1345,16 @@ def get_file_index(path):
 
 
 def safe_path(path):
-    real = os.path.realpath(os.path.join(BASE_DIR, path))
-    if not real.startswith(MEDIA_ROOT):
+    if not path:
         return None
-    return real
+    if os.path.isabs(path):
+        real = os.path.realpath(path)
+    else:
+        real = os.path.realpath(os.path.join(BASE_DIR, path))
+    for root in MEDIA_ROOTS:
+        if real == root or real.startswith(root + os.sep):
+            return real
+    return None
 
 
 def get_media_duration_seconds(path):
@@ -1467,7 +1496,14 @@ def prettify_media_name(name, parent=None, episode_index=None):
     return normalized
 
 
-def build_display_title(path, root=MEDIA_ROOT):
+def build_display_title(path, root=None):
+    if root is None:
+        for candidate in MEDIA_ROOTS:
+            if path == candidate or path.startswith(candidate + os.sep):
+                root = candidate
+                break
+        if root is None:
+            root = MEDIA_ROOT
     rel_path = os.path.relpath(path, root)
     parts = []
     current = root
@@ -1700,7 +1736,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
-                "media_root": os.path.relpath(MEDIA_ROOT, BASE_DIR),
+                "media_root": "__root__",
+                "media_roots": MEDIA_ROOTS,
                 "max_sessions": MAX_SESSIONS,
                 "themes": themes_config,
             }).encode())
@@ -1887,25 +1924,49 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
+
+            if not rel_path or rel_path == "__root__":
+                items = []
+                seen_names = set()
+                for media_root in MEDIA_ROOTS:
+                    if not os.path.isdir(media_root):
+                        continue
+                    for name in sorted(os.listdir(media_root), key=natural_sort_key):
+                        if name.startswith(".") or name in seen_names:
+                            continue
+                        seen_names.add(name)
+                        p = os.path.join(media_root, name)
+                        item_type = "folder" if os.path.isdir(p) else "file"
+                        items.append({
+                            "name": name,
+                            "display_name": name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(media_root)),
+                            "display_title": build_display_title(p),
+                            "path": p,
+                            "type": item_type,
+                        })
+                items.sort(key=lambda x: natural_sort_key(x["name"]))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(items).encode())
+                return
+
             full = safe_path(rel_path)
             if not full or not os.path.isdir(full):
                 self.send_error(400)
                 return
 
             items = []
-            file_count = 0
             for name in sorted(os.listdir(full), key=natural_sort_key):
                 if name.startswith("."):
                     continue
                 p = os.path.join(full, name)
                 item_type = "folder" if os.path.isdir(p) else "file"
-                if item_type == "file":
-                    file_count += 1
                 items.append({
                     "name": name,
                     "display_name": name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(full)),
                     "display_title": build_display_title(p),
-                    "path": os.path.relpath(p, BASE_DIR),
+                    "path": p,
                     "type": item_type,
                 })
 
@@ -3276,11 +3337,14 @@ class Handler(SimpleHTTPRequestHandler):
                 folder_name = str(folder_name).strip()
                 if not folder_name:
                     continue
-                candidate = os.path.join(MEDIA_ROOT, folder_name)
-                real_folder = os.path.realpath(candidate)
-                if not real_folder.startswith(MEDIA_ROOT):
-                    continue
-                if not os.path.isdir(real_folder):
+                real_folder = None
+                for media_root in MEDIA_ROOTS:
+                    candidate = os.path.join(media_root, folder_name)
+                    resolved = os.path.realpath(candidate)
+                    if resolved.startswith(media_root + os.sep) and os.path.isdir(resolved):
+                        real_folder = resolved
+                        break
+                if not real_folder:
                     continue
                 for root, _, names in os.walk(real_folder):
                     for n in names:
@@ -3502,11 +3566,13 @@ if __name__ == "__main__":
             save_blunt_count()
 
     def _shutdown_handler(signum, frame):
-        print("\n🛑 Shutting down — saving cookie count...")
+        print("\n🛑 Shutting down — saving all data...")
         save_cookie_count()
         save_blunt_count()
         save_snake_scores()
         save_folder_resume_map()
+        save_favorites()
+        save_suggestions()
         save_auth_db()
         raise SystemExit(0)
 
@@ -3516,7 +3582,46 @@ if __name__ == "__main__":
     atexit.register(save_blunt_count)
     atexit.register(save_snake_scores)
     atexit.register(save_folder_resume_map)
+    atexit.register(save_favorites)
+    atexit.register(save_suggestions)
     atexit.register(save_auth_db)
+
+    def _autosave_loop(interval=120):
+        """Periodically flush all persistent state to disk (guards against unexpected power loss)."""
+        while True:
+            time.sleep(interval)
+            try:
+                save_cookie_count()
+            except Exception:
+                pass
+            try:
+                save_blunt_count()
+            except Exception:
+                pass
+            try:
+                save_snake_scores()
+            except Exception:
+                pass
+            try:
+                save_folder_resume_map()
+            except Exception:
+                pass
+            try:
+                save_favorites()
+            except Exception:
+                pass
+            try:
+                save_suggestions()
+            except Exception:
+                pass
+            try:
+                save_auth_db()
+            except Exception:
+                pass
+
+    _autosave_thread = threading.Thread(target=_autosave_loop, daemon=True, name="autosave")
+    _autosave_thread.start()
+    print("💾 Autosave thread started (every 2 minutes)")
 
     os.chdir(BASE_DIR)
     server = ThreadingHTTPServer(("0.0.0.0", 80), Handler)  # binds all interfaces

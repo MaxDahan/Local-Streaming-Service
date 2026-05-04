@@ -12,7 +12,26 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-CONVERTED_DIR = "/mnt/usb/Streaming/media/converted"
+import json as _json
+
+def _load_media_roots():
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "src", "configurations", "config.json")
+    try:
+        with open(config_path) as _f:
+            cfg = _json.load(_f)
+        roots = cfg.get("media_roots")
+        if isinstance(roots, list) and roots:
+            return [r for r in roots if isinstance(r, str) and r.strip()]
+        legacy = cfg.get("media_root")
+        if legacy and legacy != "null":
+            base = os.path.dirname(os.path.realpath(__file__))
+            return [legacy if os.path.isabs(legacy) else os.path.join(base, legacy)]
+    except Exception:
+        pass
+    return [os.path.join(os.path.dirname(os.path.realpath(__file__)), "media", "converted")]
+
+MEDIA_ROOTS = _load_media_roots()
+CONVERTED_DIR = MEDIA_ROOTS[0]  # primary root for backward-compat
 
 # Shows that won't be on TVMaze — map to a direct search query or skip
 TVMAZE_OVERRIDES = {
@@ -127,22 +146,34 @@ def download_image(url, dest_path):
 
 
 def main():
-    shows = sorted(os.listdir(CONVERTED_DIR))
+    # Collect all show folders across all media roots
+    seen = set()
+    all_shows = []
+    for media_root in MEDIA_ROOTS:
+        if not os.path.isdir(media_root):
+            continue
+        for show in sorted(os.listdir(media_root)):
+            if show in seen:
+                continue
+            seen.add(show)
+            all_shows.append((show, media_root))
+    all_shows.sort(key=lambda x: x[0])
+
     missing = []
-    for show in shows:
-        folder = os.path.join(CONVERTED_DIR, show)
+    for show, media_root in all_shows:
+        folder = os.path.join(media_root, show)
         if not os.path.isdir(folder):
             continue
         if not get_existing_cover(folder):
-            missing.append(show)
+            missing.append((show, media_root))
 
     print(f"Found {len(missing)} shows missing cover art.\n")
 
     success = 0
     failed = []
 
-    for show in missing:
-        folder = os.path.join(CONVERTED_DIR, show)
+    for show, media_root in missing:
+        folder = os.path.join(media_root, show)
         dest_base = os.path.join(folder, "cover")
 
         print(f"[{show}]")

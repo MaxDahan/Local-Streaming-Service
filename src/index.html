@@ -4696,7 +4696,8 @@ let configuredDefaultTheme = "default";
 
 let hls = null;
 let mode = "channels";
-let mediaRoot = "media/converted";
+let mediaRoot = "__root__";
+let mediaRoots = [];
 let currentPath = mediaRoot;
 const originalHomeHTML = homeText.innerHTML;
 
@@ -6306,6 +6307,11 @@ function loadConfig(){
         mediaRoot = config.media_root;
         currentPath = mediaRoot;
       }
+      if(Array.isArray(config.media_roots) && config.media_roots.length){
+        mediaRoots = config.media_roots;
+      } else if(mediaRoot && mediaRoot !== "__root__"){
+        mediaRoots = [mediaRoot];
+      }
 
       const cfgThemes = config.themes || {};
       configuredThemes = normalizeThemeList(cfgThemes.available);
@@ -6962,7 +6968,14 @@ function formatEpisodeTitle(name, type="file"){
 function formatDisplayPath(value, type="file"){
   if(!value) return "";
 
-  const cleaned = String(value).replace(/^media\/converted\//, "");
+  let cleaned = String(value);
+  for(const root of mediaRoots){
+    if(cleaned.startsWith(root + "/")){
+      cleaned = cleaned.slice(root.length + 1);
+      break;
+    }
+  }
+  cleaned = cleaned.replace(/^media\/converted\//, "");
   const parts = cleaned.split("/").map(part => part.trim()).filter(Boolean);
 
   if(!parts.length) return formatEpisodeTitle(cleaned, type);
@@ -8707,7 +8720,14 @@ function loadFolderSubgrid(folderPath){
 }
 
 function getRootFolderPath(path) {
-  const rootParts = mediaRoot.split("/").length;
+  for(const root of mediaRoots){
+    if(path.startsWith(root + "/")){
+      const rel = path.slice(root.length + 1);
+      const firstSeg = rel.split("/")[0];
+      return root + "/" + firstSeg;
+    }
+  }
+  const rootParts = (mediaRoot === "__root__" || !mediaRoot) ? 2 : mediaRoot.split("/").length;
   const parts = path.split("/");
   if (parts.length <= rootParts + 1) return path;
   return parts.slice(0, rootParts + 1).join("/");

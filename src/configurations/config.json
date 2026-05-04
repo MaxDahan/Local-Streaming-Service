@@ -1,6 +1,9 @@
 {
   "max_sessions": 10,
-  "media_root": "media/converted",
+  "media_roots": [
+    "/mnt/ssd1/media",
+    "/mnt/ssd2/media"
+  ],
   "title_cleanup_config": "src/configurations/title_cleanup.json",
   "themes": {
     "default": "default",

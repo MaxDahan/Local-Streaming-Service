@@ -16,16 +16,26 @@ SEGMENT_PREFIX="$OUTPUT_DIR/${CHANNEL}_"
 mkdir -p "$OUTPUT_DIR"
 PLAYLIST_FILE="$CHANNEL_DIR/current_playlist.txt"
 CONFIG_FILE="$BASE_DIR/src/configurations/config.json"
-MEDIA_ROOT="$(jq -r '.media_root // empty' "$CONFIG_FILE" 2>/dev/null)"
+# Load media roots: supports media_roots array and legacy media_root string.
+mapfile -t MEDIA_ROOTS_ARRAY < <(jq -r '
+  if (.media_roots | type) == "array" then .media_roots[]
+  elif .media_root then .media_root
+  else empty end
+' "$CONFIG_FILE" 2>/dev/null)
 
-if [ -z "$MEDIA_ROOT" ] || [ "$MEDIA_ROOT" = "null" ]; then
-  MEDIA_ROOT="$BASE_DIR/media/converted"
+if [ ${#MEDIA_ROOTS_ARRAY[@]} -eq 0 ]; then
+  MEDIA_ROOTS_ARRAY=("$BASE_DIR/media/converted")
 fi
 
-# Support clone-anywhere configs by resolving relative media_root from repo base.
-if [[ "$MEDIA_ROOT" != /* ]]; then
-  MEDIA_ROOT="$BASE_DIR/$MEDIA_ROOT"
-fi
+# Resolve any relative paths against BASE_DIR
+for i in "${!MEDIA_ROOTS_ARRAY[@]}"; do
+  root="${MEDIA_ROOTS_ARRAY[$i]}"
+  if [[ "$root" != /* ]]; then
+    MEDIA_ROOTS_ARRAY[$i]="$BASE_DIR/$root"
+  fi
+done
+
+MEDIA_ROOT="${MEDIA_ROOTS_ARRAY[0]}"
 
 echo "🔹 Base dir: $BASE_DIR"
 echo "🔹 Media root: $MEDIA_ROOT"
@@ -52,10 +62,18 @@ rm -f "$OUTPUT_DIR"/*.ts
 echo "🧹 Cleaned old .ts files"
 declare -a show_names=()
 for folder in "${FOLDERS[@]}"; do
-  MEDIA_DIR="$MEDIA_ROOT/$folder"
-  echo "🔹 Checking folder: '$MEDIA_DIR'"
+  MEDIA_DIR=""
+  for root in "${MEDIA_ROOTS_ARRAY[@]}"; do
+    candidate="$root/$folder"
+    if [ -d "$candidate" ]; then
+      MEDIA_DIR="$candidate"
+      break
+    fi
+  done
 
-  if [ -d "$MEDIA_DIR" ]; then
+  echo "🔹 Checking folder: '$folder' -> '${MEDIA_DIR:-NOT FOUND}'"
+
+  if [ -n "$MEDIA_DIR" ]; then
     echo "   ✅ Folder exists. Collecting mp4 files..."
     declare -a files=()
     while IFS= read -r -d '' file; do
