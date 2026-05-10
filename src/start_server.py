@@ -187,6 +187,52 @@ def _load_media_roots(cfg):
 
 MEDIA_ROOTS = _load_media_roots(CONFIG)
 MEDIA_ROOT = MEDIA_ROOTS[0]  # primary root kept for backward-compat
+
+# ---------------------------------------------------------------------------
+# Episode name lookup cache — populated from episode_names.json sidecars
+# written by fetch_episode_names.py.  Maps absolute file path -> display name.
+# ---------------------------------------------------------------------------
+def _load_episode_name_cache(media_roots):
+    cache = {}
+    for root in media_roots:
+        if not os.path.isdir(root):
+            continue
+        for show_name in os.listdir(root):
+            show_folder = os.path.join(root, show_name)
+            if not os.path.isdir(show_folder):
+                continue
+            sidecar = os.path.join(show_folder, "episode_names.json")
+            if not os.path.isfile(sidecar):
+                continue
+            try:
+                with open(sidecar, encoding="utf-8") as f:
+                    data = json.load(f)
+                files_map = data.get("files") or {}
+                for rel_path, display_name in files_map.items():
+                    if display_name:
+                        abs_path = os.path.normpath(os.path.join(show_folder, rel_path))
+                        cache[abs_path] = display_name
+            except Exception:
+                pass
+    return cache
+
+EPISODE_NAME_CACHE = _load_episode_name_cache(MEDIA_ROOTS)
+
+# Movie genre folder names (lowercase) -> genre_key used in the browser client
+MOVIE_GENRE_FOLDERS = {
+    "movies": "all",
+    "movies - 420": "420",
+    "movies - action": "action",
+    "movies - anime": "anime",
+    "movies - comedy": "comedy",
+    "movies - crime": "crime",
+    "movies - documentaries": "documentary",
+    "movies - horror": "horror",
+    "movies - kids": "kids",
+    "movies - sci-fi": "scifi",
+    "movies - western": "western",
+    "trailers": "trailers",
+}
 ON_DEMAND_DIR = os.path.join(BASE_DIR, "on_demand")
 try:
     MAX_SESSIONS = int(CONFIG.get("max_sessions", 5))
@@ -1446,6 +1492,7 @@ def build_shuffle_queue_preview(shuffle_files, current_index, preview_count=None
                 os.path.basename(path),
                 parent=os.path.basename(parent_dir),
                 episode_index=get_file_index(path),
+                path=path,
             ),
         })
     return preview
@@ -1471,7 +1518,11 @@ def format_episode_label(match):
     return f"E{episode_numbers[0].zfill(2)}"
 
 
-def prettify_media_name(name, parent=None, episode_index=None):
+def prettify_media_name(name, parent=None, episode_index=None, path=None):
+    if path:
+        cached = EPISODE_NAME_CACHE.get(os.path.normpath(path))
+        if cached:
+            return cached
     stem = os.path.splitext(name)[0]
     normalized = clean_title_fragment(re.sub(r"[._]+", " ", stem))
 
@@ -1516,7 +1567,7 @@ def build_display_title(path, root=None):
             prev_part = part
         else:
             idx = get_file_index(current)
-            parts.append(prettify_media_name(part, parent=prev_part, episode_index=idx))
+            parts.append(prettify_media_name(part, parent=prev_part, episode_index=idx, path=current))
 
     return " / ".join(part for part in parts if part)
 
@@ -1921,6 +1972,82 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"users": rows}).encode())
             return
+        if parsed.path == "/api/movies_flat":
+            movies = []
+            seen_paths = set()
+            for media_root in MEDIA_ROOTS:
+                if not os.path.isdir(media_root):
+                    continue
+                try:
+                    folder_names = sorted(os.listdir(media_root), key=natural_sort_key)
+                except Exception:
+                    continue
+                for folder_name in folder_names:
+                    lname = folder_name.lower()
+                    if lname not in MOVIE_GENRE_FOLDERS:
+                        continue
+                    genre_key = MOVIE_GENRE_FOLDERS[lname]
+                    genre_folder = os.path.join(media_root, folder_name)
+                    if not os.path.isdir(genre_folder):
+                        continue
+                    try:
+                        movie_names = sorted(os.listdir(genre_folder), key=natural_sort_key)
+                    except Exception:
+                        continue
+                    for movie_name in movie_names:
+                        if movie_name.startswith("."):
+                            continue
+                        movie_path = os.path.join(genre_folder, movie_name)
+                        if movie_path in seen_paths:
+                            continue
+                        seen_paths.add(movie_path)
+                        item_type = "folder" if os.path.isdir(movie_path) else "file"
+                        if item_type == "file" and not movie_name.lower().endswith(".mp4"):
+                            continue
+                        # Flatten single-file movie subfolders: if the folder contains
+                        # exactly one .mp4, expose it as a file entry so clicking plays
+                        # the movie directly instead of opening an empty-looking subfolder.
+                        if item_type == "folder":
+                            try:
+                                inner = [f for f in os.listdir(movie_path)
+                                         if f.lower().endswith((".mp4", ".mkv"))]
+                            except OSError:
+                                inner = []
+                            if len(inner) == 1:
+                                single_file = os.path.join(movie_path, inner[0])
+                                # Reformat "YYYY - Title" → "Title (YYYY)" for display
+                                _fy = re.match(r'^(\d{4})\s*[-\u2013]?\s*(.+)$', movie_name)
+                                if _fy:
+                                    display_name = f"{_fy.group(2).strip()} ({_fy.group(1)})"
+                                else:
+                                    display_name = movie_name
+                                movies.append({
+                                    "name": movie_name,
+                                    "display_name": display_name,
+                                    "display_title": build_display_title(single_file),
+                                    "path": single_file,
+                                    "cover_path": movie_path,
+                                    "type": "file",
+                                    "genre_key": genre_key,
+                                    "genre_folder": folder_name,
+                                })
+                                continue
+                        display_name = prettify_media_name(movie_name, parent=folder_name) if item_type == "file" else movie_name
+                        movies.append({
+                            "name": movie_name,
+                            "display_name": display_name,
+                            "display_title": build_display_title(movie_path),
+                            "path": movie_path,
+                            "type": item_type,
+                            "genre_key": genre_key,
+                            "genre_folder": folder_name,
+                        })
+            movies.sort(key=lambda x: natural_sort_key(x["name"]))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(movies).encode())
+            return
         if parsed.path == "/api/list":
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
@@ -1939,7 +2066,7 @@ class Handler(SimpleHTTPRequestHandler):
                         item_type = "folder" if os.path.isdir(p) else "file"
                         items.append({
                             "name": name,
-                            "display_name": name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(media_root)),
+                            "display_name": name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(media_root), path=p),
                             "display_title": build_display_title(p),
                             "path": p,
                             "type": item_type,
@@ -1956,15 +2083,37 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_error(400)
                 return
 
+            # Load season_labels from sibling episode_names.json (e.g. Avatar book names)
+            season_label_map = {}
+            ep_sidecar = os.path.join(full, "episode_names.json")
+            if os.path.isfile(ep_sidecar):
+                try:
+                    with open(ep_sidecar, encoding="utf-8") as _f:
+                        _sd = json.load(_f)
+                    season_label_map = _sd.get("season_labels") or {}
+                except Exception:
+                    pass
+            _season_num_re = re.compile(r'[Ss]eason\s+(\d+)')
+
             items = []
             for name in sorted(os.listdir(full), key=natural_sort_key):
                 if name.startswith("."):
                     continue
                 p = os.path.join(full, name)
                 item_type = "folder" if os.path.isdir(p) else "file"
+                if item_type == "folder" and season_label_map:
+                    _m = _season_num_re.search(name)
+                    if _m:
+                        s_num = _m.group(1)
+                        book_label = season_label_map.get(s_num)
+                        display_name = f"Season {s_num} - {book_label}" if book_label else name
+                    else:
+                        display_name = name
+                else:
+                    display_name = name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(full), path=p)
                 items.append({
                     "name": name,
-                    "display_name": name if item_type == "folder" else prettify_media_name(name, parent=os.path.basename(full)),
+                    "display_name": display_name,
                     "display_title": build_display_title(p),
                     "path": p,
                     "type": item_type,
@@ -2037,17 +2186,36 @@ class Handler(SimpleHTTPRequestHandler):
             qs = parse_qs(parsed.query)
             rel_path = qs.get("path", [""])[0]
             real = safe_path(rel_path)
-            if not real or not os.path.isdir(real):
+            if not real:
                 self.send_error(404)
                 return
             cover_names = ["cover.jpg", "cover.jpeg", "cover.png", "cover.webp",
                            "poster.jpg", "poster.jpeg", "poster.png", "folder.jpg", "folder.png"]
             found = None
-            for cn in cover_names:
-                candidate = os.path.join(real, cn)
-                if os.path.isfile(candidate):
-                    found = candidate
-                    break
+            if os.path.isdir(real):
+                for cn in cover_names:
+                    candidate = os.path.join(real, cn)
+                    if os.path.isfile(candidate):
+                        found = candidate
+                        break
+            elif os.path.isfile(real):
+                # For individual media files, look for a sidecar image with the same stem
+                stem = os.path.splitext(real)[0]
+                for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    candidate = stem + ext
+                    if os.path.isfile(candidate):
+                        found = candidate
+                        break
+                # Fallback: check parent folder for cover.* (covers single-file subfolders
+                # that were flattened to file entries in movies_flat but still have
+                # their cover stored inside the subfolder)
+                if not found:
+                    parent_dir = os.path.dirname(real)
+                    for cn in cover_names:
+                        candidate = os.path.join(parent_dir, cn)
+                        if os.path.isfile(candidate):
+                            found = candidate
+                            break
             if not found:
                 self.send_error(404)
                 return
@@ -2869,7 +3037,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "display_title": display_title,
                 "source_path": os.path.relpath(first_file, BASE_DIR),
                 "duration_seconds": duration_seconds,
-                "current_file": prettify_media_name(os.path.basename(first_file), parent=os.path.basename(os.path.dirname(first_file)), episode_index=get_file_index(first_file)),
+                "current_file": prettify_media_name(os.path.basename(first_file), parent=os.path.basename(os.path.dirname(first_file)), episode_index=get_file_index(first_file), path=first_file),
                 "episode_index": int(session_meta.get("shuffle_index", 0)) + 1 if isinstance(session_meta.get("shuffle_files"), list) and session_meta.get("shuffle_files") else 1,
                 "episode_total": len(session_meta.get("shuffle_files") or files),
                 "queue_preview": queue_preview,
@@ -2940,7 +3108,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "display_title": display_title,
                 "source_path": os.path.relpath(next_file, BASE_DIR),
                 "duration_seconds": duration_seconds,
-                "current_file": prettify_media_name(os.path.basename(next_file), parent=os.path.basename(os.path.dirname(next_file)), episode_index=get_file_index(next_file)),
+                "current_file": prettify_media_name(os.path.basename(next_file), parent=os.path.basename(os.path.dirname(next_file)), episode_index=get_file_index(next_file), path=next_file),
                 "episode_index": next_idx + 1,
                 "episode_total": len(valid_files),
                 "wrapped": next_idx == 0 and len(valid_files) > 1,
@@ -3022,7 +3190,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "display_title": display_title,
                 "source_path": os.path.relpath(selected_file, BASE_DIR),
                 "duration_seconds": duration_seconds,
-                "current_file": prettify_media_name(os.path.basename(selected_file), parent=os.path.basename(os.path.dirname(selected_file)), episode_index=get_file_index(selected_file)),
+                "current_file": prettify_media_name(os.path.basename(selected_file), parent=os.path.basename(os.path.dirname(selected_file)), episode_index=get_file_index(selected_file), path=selected_file),
                 "episode_index": selected_idx + 1,
                 "episode_total": len(valid_files),
                 "queue_preview": queue_preview,
@@ -3127,6 +3295,7 @@ class Handler(SimpleHTTPRequestHandler):
                     os.path.basename(next_file),
                     parent=os.path.basename(os.path.dirname(next_file)),
                     episode_index=get_file_index(next_file),
+                    path=next_file,
                 ),
                 "season_folder": season_folder_name if has_seasons else None,
                 "episode_in_season": episode_in_season,
@@ -3382,7 +3551,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "display_title": display_title,
                 "source_path": os.path.relpath(first_file, BASE_DIR),
                 "duration_seconds": duration_seconds,
-                "current_file": prettify_media_name(os.path.basename(first_file)),
+                "current_file": prettify_media_name(os.path.basename(first_file), path=first_file),
                 "episode_index": 1,
                 "episode_total": len(files),
                 "queue_preview": queue_preview,
@@ -3535,7 +3704,7 @@ class Handler(SimpleHTTPRequestHandler):
             "display_title": display_title,
             "source_path": os.path.relpath(stream_files[0], BASE_DIR),
             "duration_seconds": duration_seconds,
-            "current_file": prettify_media_name(os.path.basename(stream_files[0]), parent=os.path.basename(os.path.dirname(stream_files[0])), episode_index=get_file_index(stream_files[0])),
+            "current_file": prettify_media_name(os.path.basename(stream_files[0]), parent=os.path.basename(os.path.dirname(stream_files[0])), episode_index=get_file_index(stream_files[0]), path=stream_files[0]),
             "episode_index": start_index + 1,
             "episode_total": len(files) if self.path == "/api/play_folder" else 1,
             "queue_preview": queue_preview,

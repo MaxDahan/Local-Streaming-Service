@@ -177,6 +177,26 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
 .channel-group-header:hover .item { border-radius:10px 0 0 10px; }
 .channel-children { padding-left:14px; overflow:hidden; }
 .channel-children.collapsed { display:none; }
+/* ── Content-area back button ──────────────────────────── */
+#contentBackBtn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 120;
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent 10%);
+  color: var(--text-main);
+  border: 1px solid var(--border-input);
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  opacity: 0.92;
+}
+#contentBackBtn:hover { background: var(--item-hover-bg); opacity: 1; transform: scale(1.05); }
+
 .content {
   flex:1;
   position:relative;
@@ -458,6 +478,23 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   color:var(--text-muted);
   font-size:12px;
   line-height:1.35;
+}
+.folder-cat-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:8px 0 16px;
+}
+.folder-cat-tag {
+  display:inline-block;
+  padding:4px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.04em;
+  background:color-mix(in srgb, var(--accent-strong) 18%, var(--bg-card) 82%);
+  border:1px solid color-mix(in srgb, var(--accent-strong) 35%, transparent 65%);
+  color:var(--accent-strong);
 }
 .folder-chrono-card {
   margin:18px 0 0;
@@ -2237,7 +2274,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 .browse-random-btn:active { transform:scale(0.96); }
 .browse-cat-tabs {
   display:flex; flex-wrap:wrap; gap:8px;
-  margin: 12px 0 18px;
+  margin: 6px 0 14px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.07);
 }
@@ -2254,6 +2291,30 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 }
 .browse-cat-tab:hover { background:var(--item-hover-bg); }
 .browse-cat-tab.active { background:var(--item-playing-bg, #e67e22); color:#fff; border-color:transparent; font-weight:700; }
+/* Top-level section tabs (All Media / Shows / Movies) */
+.browse-section-tabs {
+  display:flex; flex-wrap:wrap; gap:8px;
+  margin: 12px 0 4px;
+}
+.browse-section-tab {
+  padding:9px 22px;
+  border-radius:10px;
+  border:1px solid var(--border-card);
+  background:var(--bg-card);
+  color:var(--text-main);
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+  transition:background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+}
+.browse-section-tab:hover { background:var(--item-hover-bg); border-color:var(--item-hover-border); }
+.browse-section-tab.active {
+  background:var(--accent-grad);
+  color:var(--accent-text);
+  border-color:transparent;
+  font-weight:700;
+  transform:none;
+}
 .browse-section {
   margin-bottom:28px;
 }
@@ -2664,6 +2725,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
 </div>
 
 <div class="content home-mode">
+  <button id="contentBackBtn" style="display:none" title="Go back" onclick="navigateBack()">&#8592; Back</button>
   <div class="home-text" id="homeText">
     <h2>Welcome to MAXISTREAMS!</h2>
     <p class="home-overview">Maxistreams is your private all-in-one streaming space for live channels and on-demand folders, built to feel fast, simple, and personal. For the full experience, create an account and log in to unlock cookie clicking, live chat, chronological checkpoints, and theme sync between sessions and devices.</p>
@@ -2721,18 +2783,38 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   <div id="browseDashboard">
     <div class="browse-dashboard-header">
       <h2>📂 Library</h2>
-      <p>Click a show to browse, or double-click to navigate into it.</p>
+      <p>Browse shows and movies from your media library.</p>
       <button class="browse-random-btn" id="browseRandomBtn" type="button">🎲 Random Show</button>
     </div>
+    <!-- Top-level section selector: All / Shows / Movies -->
+    <div class="browse-section-tabs" id="browseSectionTabs">
+      <button class="browse-section-tab active" data-section="all">All Media</button>
+      <button class="browse-section-tab" data-section="shows">📺 Shows &amp; Series</button>
+      <button class="browse-section-tab" data-section="movies">🎬 Movies</button>
+    </div>
+    <!-- Show sub-genre tabs (visible when section = all or shows) -->
     <div class="browse-cat-tabs" id="browseCatTabs">
       <button class="browse-cat-tab active" data-cat="all">All</button>
-      <button class="browse-cat-tab" data-cat="shows">Shows</button>
+      <button class="browse-cat-tab" data-cat="shows">Sitcoms &amp; Drama</button>
       <button class="browse-cat-tab" data-cat="cartoons">Cartoons</button>
       <button class="browse-cat-tab" data-cat="anime">Anime</button>
-      <button class="browse-cat-tab" data-cat="movies">Movies</button>
       <button class="browse-cat-tab" data-cat="docs">Docs</button>
       <button class="browse-cat-tab" data-cat="comedy">Comedy</button>
       <button class="browse-cat-tab" data-cat="music">Music</button>
+    </div>
+    <!-- Movie sub-genre tabs (visible when section = movies) -->
+    <div class="browse-cat-tabs" id="browseMovieCatTabs" style="display:none">
+      <button class="browse-cat-tab active" data-cat="all">All Movies</button>
+      <button class="browse-cat-tab" data-cat="action">Action</button>
+      <button class="browse-cat-tab" data-cat="horror">Horror</button>
+      <button class="browse-cat-tab" data-cat="scifi">Sci-Fi</button>
+      <button class="browse-cat-tab" data-cat="comedy">Comedy</button>
+      <button class="browse-cat-tab" data-cat="crime">Crime</button>
+      <button class="browse-cat-tab" data-cat="kids">Kids</button>
+      <button class="browse-cat-tab" data-cat="western">Western</button>
+      <button class="browse-cat-tab" data-cat="anime">Anime</button>
+      <button class="browse-cat-tab" data-cat="420">420</button>
+      <button class="browse-cat-tab" data-cat="documentary">Documentary</button>
     </div>
     <div class="browse-section" id="browseRecentSection">
       <p class="browse-section-title">Recently Played <button class="browse-section-hide-btn" id="browseRecentHideBtn">Hide</button></p>
@@ -2747,9 +2829,17 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <p class="browse-section-title">⭐ Favorites <button class="browse-section-hide-btn" id="browseFavHideBtn">Hide</button></p>
       <div class="browse-cards" id="browseFavoritesCards"></div>
     </div>
-    <div class="browse-section">
+    <!-- Shows/all library section -->
+    <div class="browse-section" id="browseShowsSection">
       <p class="browse-section-title" id="browseLibrarySectionTitle">All Media</p>
       <div class="browse-cards" id="browseLibraryCards"></div>
+    </div>
+    <!-- Movies section: shows individual movies (visible when section = movies) -->
+    <div class="browse-section" id="browseMoviesSection" style="display:none">
+      <p class="browse-section-title" id="browseMoviesSectionTitle">All Movies</p>
+      <div class="browse-cards" id="browseMoviesCards">
+        <p class="browse-subgrid-loading">Loading movies...</p>
+      </div>
     </div>
   </div>
   <div id="mediaStage" class="media-stage">
@@ -4093,6 +4183,8 @@ function initSuggestionsBoard(){
 /* ── Favorites ───────────────────────────────────────── */
 let userFavoritePaths = new Set();
 let browseLibraryItems = []; // cache of all folder items from last loadBrowseDashboard call
+let browseActiveSection = "all"; // "all" | "shows" | "movies"
+let browseMoviesCache = null;    // cached flat movie list from /api/movies_flat
 
 function syncFavoriteStars(){
   const loggedIn = Boolean(authToken && authUsername);
@@ -4730,6 +4822,9 @@ let onDemandProgressTarget = 0;
 let onDemandProgressTimer = null;
 let currentOnDemandPath = "";
 let currentFolderPlayPath = "";
+// Navigation history stack — each entry is a state to restore when back is clicked
+const navStack = [];
+let navStackSuppressNext = false; // set true to skip one auto-push
 let pendingSeekRequest = false;
 let lastStablePlaybackTime = 0;
 let onDemandDurationSeconds = 0;
@@ -7209,40 +7304,66 @@ function applyListFilter(){
   const items = Array.from(list.querySelectorAll(".item"));
   let visibleCount = 0;
 
+  const atRoot = (mode === "browse" && currentPath === mediaRoot);
   items.forEach(item => {
+    // Root browse items are fully managed by filterSidebarForSection (section+genre+text)
+    if(atRoot && item.dataset.browseCategory) return;
     const text = (item.dataset.filterText || item.textContent || "").toLowerCase();
     const isParent = item.textContent.trim() === "..";
     const visible = !filter || isParent || text.includes(filter);
     item.style.display = visible ? "" : "none";
     if(visible) visibleCount++;
   });
+  if(atRoot){
+    filterSidebarForSection();
+    list.querySelectorAll(".item[data-browse-category]").forEach(item => {
+      if(item.style.display !== "none") visibleCount++;
+    });
+  }
 
   // Also filter right-side subgrid cards in browse mode
-  if(mode === "browse" && filter){
-    const subgridCards = document.querySelectorAll("#browseSubgridCards .browse-card");
-    subgridCards.forEach(card => {
-      if(card.classList.contains("browse-card-back")) return; // always show back card
-      const nameEl = card.querySelector(".browse-card-name");
-      const text = (nameEl ? nameEl.textContent : "").toLowerCase();
-      card.style.display = text.includes(filter) ? "" : "none";
-    });
-    // Filter library cards on browse dashboard (leave recently played untouched)
-    if(browseLibraryCards){
-      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+  if(mode === "browse"){
+    const catTabs = document.getElementById("browseCatTabs");
+    const activeTab = catTabs ? catTabs.querySelector(".browse-cat-tab.active") : null;
+    const activeCat = activeTab ? (activeTab.dataset.cat || "all") : "all";
+
+    if(filter){
+      const subgridCards = document.querySelectorAll("#browseSubgridCards .browse-card");
+      subgridCards.forEach(card => {
+        if(card.classList.contains("browse-card-back")) return; // always show back card
         const nameEl = card.querySelector(".browse-card-name");
         const text = (nameEl ? nameEl.textContent : "").toLowerCase();
         card.style.display = text.includes(filter) ? "" : "none";
       });
-    }
-  } else if(mode === "browse"){
-    // Clear any filter on subgrid cards and library cards
-    document.querySelectorAll("#browseSubgridCards .browse-card").forEach(card => {
-      card.style.display = "";
-    });
-    if(browseLibraryCards){
-      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+    } else {
+      document.querySelectorAll("#browseSubgridCards .browse-card").forEach(card => {
         card.style.display = "";
       });
+    }
+
+    // Filter library cards on browse dashboard (leave recently played untouched)
+    // Apply both category filter and text filter together
+    if(browseLibraryCards && browseActiveSection !== "movies"){
+      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+        // In "shows" section, hide movie genre folders
+        if(browseActiveSection === "shows" && card.dataset.category === "movies"){
+          card.style.display = "none";
+          return;
+        }
+        const catMatch = activeCat === "all" || card.dataset.category === activeCat;
+        if(filter){
+          const nameEl = card.querySelector(".browse-card-name");
+          const text = (nameEl ? nameEl.textContent : "").toLowerCase();
+          card.style.display = (catMatch && text.includes(filter)) ? "" : "none";
+        } else {
+          card.style.display = catMatch ? "" : "none";
+        }
+      });
+    }
+
+    // Also re-filter movies section if active
+    if(browseActiveSection === "movies" && browseMoviesCache !== null){
+      renderMoviesCards(browseMoviesCache);
     }
   }
 
@@ -7272,6 +7393,17 @@ function resetContentScrollTop(){
 
 function stopAndShowHome(){
   resetContentScrollTop();
+  // Push what we're leaving so back button can return
+  if(mode === "channels" && currentChannelId){
+    pushNav({type:"channel", channelId:currentChannelId, channelLabel:currentChannelLabel});
+  } else if(mode === "browse"){
+    if(currentFolderPlayPath && onDemandPlayMode && onDemandPlayMode !== "single"){
+      pushNav({type:"folder_play", path:currentFolderPlayPath, playMode:onDemandPlayMode,
+               folderLabel:currentFolderPlayPath.split("/").pop()});
+    } else {
+      pushNav({type:"browse", path:currentPath, section:browseActiveSection});
+    }
+  }
   searchInput.value = "";
   applyListFilter();
   stopVideo();
@@ -7299,6 +7431,10 @@ function stopAndShowHome(){
 
 function playChannel(channel, sidebarItem=null){
   resetContentScrollTop();
+  // Push previous channel so back button can return to it
+  if(currentChannelId && currentChannelId !== String((channel && channel.id) || "")){
+    pushNav({type:"channel", channelId:currentChannelId, channelLabel:currentChannelLabel});
+  }
   stopVideo();
   if(contentRoot) contentRoot.classList.remove("home-mode");
   currentOnDemandPath = "";
@@ -8024,6 +8160,7 @@ function restoreSidebarItem(item){
 function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=null, isChannel=false, slot=null){
   if(hls){ hls.destroy(); hls = null; }
   video.removeAttribute("src");
+  video.load(); // flush stale buffered ranges from previous stream
 
   if(slot) {
     activeSlot = slot;
@@ -8187,6 +8324,24 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
 
 /* ---------- Mode switching ---------- */
 function setMode(m){
+  // Save current position before switching
+  if(m !== mode){
+    if(mode === "channels"){
+      // Switching away from channels — push current channel (or home if nothing playing)
+      if(currentChannelId){
+        pushNav({type:"channel", channelId:currentChannelId, channelLabel:currentChannelLabel});
+      } else {
+        pushNav({type:"home"});
+      }
+    } else if(mode === "browse"){
+      if(currentFolderPlayPath && onDemandPlayMode && onDemandPlayMode !== "single"){
+        pushNav({type:"folder_play", path:currentFolderPlayPath, playMode:onDemandPlayMode,
+                 folderLabel:currentFolderPlayPath.split("/").pop()});
+      } else {
+        pushNav({type:"browse", path:currentPath, section:browseActiveSection});
+      }
+    }
+  }
   resetContentScrollTop();
   searchInput.value = "";
   mode = m;
@@ -8379,11 +8534,64 @@ function makeBrowseCard(name, path, sub, progressPct, onclick, isFolder = true, 
 }
 
 const BROWSE_CATEGORY_MAP = {
+  // Cartoons
+  "12 oz. Mouse": "cartoons", "Aaahh Real Monsters": "cartoons", "Adventure Time": "cartoons",
+  "Aeon Flux": "cartoons", "Amazing World Of Gumball": "cartoons", "American Dad": "cartoons",
+  "Angry Beavers": "cartoons", "Animaniacs": "cartoons", "A Pup Named Scooby-Doo": "cartoons",
+  "Aqua Teen Hunger Force": "cartoons", "Avatar The Last Airbender": "cartoons",
+  "Back To The Future": "cartoons", "Be Cool Scooby-Doo": "cartoons",
+  "Beavis and Butthead": "cartoons", "Ben 10": "cartoons", "Betty Boop": "cartoons",
+  "Bill and Teds Excellent Adventures": "cartoons", "Bobs Burgers": "cartoons",
+  "Bravest Warriors": "cartoons", "Bugs Bunny": "cartoons", "CatDog": "cartoons",
+  "Chowder": "cartoons", "Clone High": "cartoons", "Codename Kids Next Door": "cartoons",
+  "Courage The Cowardly Dog": "cartoons", "Danny Phantom": "cartoons", "Daria": "cartoons",
+  "Dexters Laboratory": "cartoons", "Donald Duck": "cartoons", "Downtown": "cartoons",
+  "Drawn Together": "cartoons", "DuckTales": "cartoons", "Ed Edd n Eddy": "cartoons",
+  "El Tigre": "cartoons", "Fairly OddParents": "cartoons", "Family Guy": "cartoons",
+  "Fantastic Four": "cartoons", "Felix The Cat": "cartoons", "Flapjack": "cartoons",
+  "Freak Brothers": "cartoons", "Futurama": "cartoons", "Gravity Falls": "cartoons",
+  "He-Man": "cartoons", "Hey Arnold": "cartoons", "Hilda": "cartoons",
+  "Home Movies": "cartoons", "Invader Zim": "cartoons", "Kung-Fu Panda": "cartoons",
+  "Liquid Television": "cartoons", "Lobo": "cartoons", "Looney Tunes": "cartoons",
+  "MAD": "cartoons", "Megas XLR": "cartoons", "Midnight Gospel": "cartoons",
+  "Moral Orel": "cartoons", "My Little Pony": "cartoons", "Ninjago": "cartoons",
+  "OK KO": "cartoons", "Over The Garden Wall": "cartoons", "Phineas and Ferb": "cartoons",
+  "Pinky and the Brain": "cartoons", "Planet Sheen": "cartoons", "Pokemon": "cartoons",
+  "Popeye": "cartoons", "Powerpuff Girls": "cartoons", "Regular Show": "cartoons",
+  "Ren and Stimpy": "cartoons", "Return to the Planet of the Apes": "cartoons",
+  "Rick and Morty": "cartoons", "Robot Chicken": "cartoons", "Robotomy": "cartoons",
+  "Rockos Modern Life": "cartoons", "Rugrats": "cartoons", "Samurai Jack": "cartoons",
+  "Scooby Doo Mystery Incorporated": "cartoons", "Scooby-Doo Where Are You": "cartoons",
+  "Shivering Truth": "cartoons", "Smiling Friends": "cartoons", "Snoopy In Space": "cartoons",
+  "Solar Opposites": "cartoons", "South Park": "cartoons",
+  "Space Ghost Coast To Coast": "cartoons", "Spongebob Squarepants": "cartoons",
+  "Star Wars Clone Wars": "cartoons", "Star Wars Tales of the Jedi": "cartoons",
+  "Star Wars The Clone Wars": "cartoons", "Steven Universe": "cartoons",
+  "Sym-Bionic Titan": "cartoons", "Teen Titans": "cartoons", "Teen Titans Go": "cartoons",
+  "Teenage Mutant Ninja Turtles": "cartoons",
+  "The 13 Ghosts of Scooby-Doo": "cartoons", "The Batman": "cartoons",
+  "The Big Lez Show": "cartoons", "The Boondocks": "cartoons", "The Brak Show": "cartoons",
+  "The Cleveland Show": "cartoons", "The Flintstones": "cartoons",
+  "The Grim Adventures of Billy and Mandy": "cartoons", "The Jetsons": "cartoons",
+  "The Maxx": "cartoons", "The New Adventures Of Superman": "cartoons",
+  "The New Scooby-Doo": "cartoons", "The Oblongs": "cartoons",
+  "The Simpsons": "cartoons", "The Transformers": "cartoons",
+  "Thundercats": "cartoons", "Todd McFarlanes Spawn": "cartoons",
+  "Tom and Jerry": "cartoons", "Total Drama": "cartoons",
+  "Trailer Park Boys The Animated Series": "cartoons", "Ugly Americans": "cartoons",
+  "Vintage Cartoons": "cartoons", "Voltron": "cartoons",
+  "We Bare Bears": "cartoons", "Woody Woodpecker": "cartoons",
+  // Anime
+  "Cowboy Bebop": "anime", "Dragonball Z": "anime", "Golden Boy": "anime",
+  "Initial D": "anime", "Neon Genesis Evangelion": "anime", "Sailor Moon": "anime",
+  "Samurai Champloo": "anime", "Space Dandy": "anime", "Star Wars Visions": "anime",
+  "One Piece": "anime", "Attack On Titan": "anime", "Bleach": "anime", "Naruto": "anime",
   // Shows
-  "Better Off Ted": "shows", "Brooklyn Nine-Nine": "shows", "Community": "shows",
-  "How I Met Your Mother": "shows", "Mac Miller Show": "shows", "Malcolm In The Middle": "shows",
-  "Modern Family": "shows", "My Name Is Earl": "shows", "New Girl": "shows",
-  "That 70s Show": "shows", "The Office": "shows", "Trailer Park Boys": "shows",
+  "Archer": "shows", "Better Off Ted": "shows", "Brooklyn Nine-Nine": "shows",
+  "Community": "shows", "How I Met Your Mother": "shows", "Mac Miller Show": "shows",
+  "Malcolm In The Middle": "shows", "Max Headroom": "shows", "Modern Family": "shows",
+  "My Name Is Earl": "shows", "New Girl": "shows", "That 70s Show": "shows",
+  "The Office": "shows", "Trailer Park Boys": "shows", "Twilight Zone": "shows",
   "Breaking Bad": "shows", "The Wire": "shows", "Peaky Blinders": "shows",
   "Seinfeld": "shows", "Curb Your Enthusiasm": "shows",
   // Comedy
@@ -8393,13 +8601,8 @@ const BROWSE_CATEGORY_MAP = {
   "Portlandia": "comedy", "The Eric Andre Show": "comedy", "The Whitest Kids U Know": "comedy",
   "Top Gear": "comedy", "Workaholics": "comedy", "You Laugh You Lose": "comedy",
   "Tim And Eric": "comedy", "Nathan For You": "comedy",
-  // Anime
-  "Cowboy Bebop": "anime", "Dragonball Z": "anime", "Golden Boy": "anime",
-  "Initial D": "anime", "Neon Genesis Evangelion": "anime", "Sailor Moon": "anime",
-  "Samurai Champloo": "anime", "Space Dandy": "anime", "Star Wars Visions": "anime",
-  "One Piece": "anime", "Attack On Titan": "anime", "Bleach": "anime", "Naruto": "anime",
   // Docs
-  "BBC - Planet Earth": "docs", "Ancient Aliens": "docs", "Brain Games": "docs",
+  "Ancient Aliens": "docs", "BBC - Planet Earth": "docs", "Brain Games": "docs",
   "Cosmos A Personal Voyage": "docs", "Cosmos A Spacetime Odyssey": "docs",
   "Frozen Planet": "docs", "How Its Made": "docs", "How The Universe Works": "docs",
   "Life In Cold Blood": "docs", "Mind Field": "docs", "Mythbusters": "docs",
@@ -8407,18 +8610,34 @@ const BROWSE_CATEGORY_MAP = {
   // Music
   "Music-Videos": "music", "Music Videos": "music",
   // Movies
+  "Movies": "movies", "Movies - 420": "movies", "Movies - Action": "movies",
+  "Movies - Anime": "movies", "Movies - Comedy": "movies", "Movies - Crime": "movies",
+  "Movies - Documentaries": "movies", "Movies - Horror": "movies",
+  "Movies - Kids": "movies", "Movies - Sci-Fi": "movies", "Movies - Western": "movies",
   "Trailers": "movies",
 };
 function getBrowseCategory(name){
   if(BROWSE_CATEGORY_MAP[name]) return BROWSE_CATEGORY_MAP[name];
-  // Detect movies folder
+  // Fallback: detect movie folders by name pattern
   const lname = name.toLowerCase();
   if(lname.includes("movie") || lname.match(/\(\d{4}\)$/)) return "movies";
-  // Detect cartoons by known animated shows (everything animated not in anime/docs/comedy/shows)
-  const CARTOON_SHOWS = new Set(["12 oz. Mouse","A Pup Named Scooby-Doo","Aaahh Real Monsters","Adventure Time","Amazing World Of Gumball","American Dad","Angry Beavers","Animaniacs","Aqua Teen Hunger Force","Avatar The Last Airbender","Back To The Future","Be Cool Scooby-Doo","Beavis and Butthead","Ben 10","Betty Boop","Bill and Teds Excellent Adventures","Bobs Burgers","Bravest Warriors","Bugs Bunny","CatDog","Chowder","Clone High","Danny Phantom","Daria","Dexter's Laboratory","Doug","Ed Edd N Eddy","Family Guy","Fairly Odd Parents","Flapjack","Foster's Home","Futurama","Garfield","Gravity Falls","Hey Arnold","Invader Zim","Jimmy Neutron","Johnny Bravo","King of the Hill","Loud House","Looney Tunes","Megas XLR","Mike Tyson Mysteries","Moral Orel","My Little Pony","OK KO","Over The Garden Wall","Phineas and Ferb","Pink Panther","Power Puff Girls","Recess","Regular Show","Ren and Stimpy","Rocko's Modern Life","Rugrats","Scooby-Doo","Simpsons","South Park","SpongeBob","Star vs the Forces of Evil","Steven Universe","Sym-Bionic Titan","Teen Titans","The Boondocks","The Venture Brothers","Tom and Jerry","Total Drama","Ugly Americans","We Bare Bears","Wile E Coyote"]);
-  if(CARTOON_SHOWS.has(name)) return "cartoons";
   return "all";
 }
+// Maps movie folder name → movie cat-tab data-cat value
+const MOVIE_FOLDER_GENRE_MAP = {
+  "Movies - Action":       "action",
+  "Movies - 420":          "420",
+  "Movies - Anime":        "anime",
+  "Movies - Comedy":       "comedy",
+  "Movies - Crime":        "crime",
+  "Movies - Documentaries":"documentary",
+  "Movies - Horror":       "horror",
+  "Movies - Kids":         "kids",
+  "Movies - Sci-Fi":       "scifi",
+  "Movies - Western":      "western",
+  "Movies":                "all",
+  "Trailers":              "trailers",
+};
 
 function loadBrowseDashboard(items){
   if(!browseDashboard) return;
@@ -8431,7 +8650,7 @@ function loadBrowseDashboard(items){
   // Cache library items for favorites rendering
   browseLibraryItems = Array.isArray(items) ? items : [];
 
-  // Library cards from already-fetched items
+  // Library cards from already-fetched items (non-movie folders for shows section)
   if(browseLibraryCards){
     browseLibraryCards.innerHTML = "";
     items.forEach(i => {
@@ -8446,7 +8665,23 @@ function loadBrowseDashboard(items){
     });
   }
 
-  // Wire up category filter tabs
+  // Wire up top-level section tabs (All Media / Shows / Movies)
+  const sectionTabs = document.getElementById("browseSectionTabs");
+  if(sectionTabs){
+    sectionTabs.querySelectorAll(".browse-section-tab").forEach(t => t.classList.remove("active"));
+    const activeSectionTab = sectionTabs.querySelector(`[data-section="${browseActiveSection}"]`) || sectionTabs.querySelector('[data-section="all"]');
+    if(activeSectionTab) activeSectionTab.classList.add("active");
+    sectionTabs.querySelectorAll(".browse-section-tab").forEach(tab => {
+      tab.onclick = () => {
+        sectionTabs.querySelectorAll(".browse-section-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        browseActiveSection = tab.dataset.section;
+        updateBrowseSectionUI();
+      };
+    });
+  }
+
+  // Wire up show sub-genre filter tabs
   const catTabs = document.getElementById("browseCatTabs");
   const libTitle = document.getElementById("browseLibrarySectionTitle");
   if(catTabs){
@@ -8461,17 +8696,37 @@ function loadBrowseDashboard(items){
         tab.classList.add("active");
         const cat = tab.dataset.cat;
         if(libTitle){
-          const labels = {all:"All Media", shows:"Shows", cartoons:"Cartoons", anime:"Anime", movies:"Movies", docs:"Documentaries", comedy:"Comedy", music:"Music"};
+          const labels = {all:"All Media", shows:"Sitcoms & Drama", cartoons:"Cartoons", anime:"Anime", docs:"Documentaries", comedy:"Comedy", music:"Music"};
           libTitle.textContent = labels[cat] || "All Media";
         }
-        if(browseLibraryCards){
-          browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
-            card.style.display = (cat === "all" || card.dataset.category === cat) ? "" : "none";
-          });
-        }
+        applyListFilter();
       };
     });
   }
+
+  // Wire up movie sub-genre filter tabs
+  const movieCatTabs = document.getElementById("browseMovieCatTabs");
+  if(movieCatTabs){
+    movieCatTabs.querySelectorAll(".browse-cat-tab").forEach(t => t.classList.remove("active"));
+    const allMovieTab = movieCatTabs.querySelector('[data-cat="all"]');
+    if(allMovieTab) allMovieTab.classList.add("active");
+    movieCatTabs.querySelectorAll(".browse-cat-tab").forEach(tab => {
+      tab.onclick = () => {
+        movieCatTabs.querySelectorAll(".browse-cat-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const movieTitle = document.getElementById("browseMoviesSectionTitle");
+        if(movieTitle){
+          const mLabels = {all:"All Movies", action:"Action", horror:"Horror", scifi:"Sci-Fi", comedy:"Comedy", crime:"Crime", kids:"Kids", western:"Western", anime:"Anime", "420":"420", documentary:"Documentary"};
+          movieTitle.textContent = mLabels[tab.dataset.cat] || "Movies";
+        }
+        renderMoviesCards(browseMoviesCache || []);
+        filterSidebarForSection();
+      };
+    });
+  }
+
+  // Apply the saved section state
+  updateBrowseSectionUI();
 
   // Favorites section (requires auth, renders after library cards are built)
   fetchFavorites();
@@ -8525,6 +8780,269 @@ function loadBrowseDashboard(items){
       .catch(() => failOnDemandLoad(sidebarItem, "⚠️ Could not start random stream. Try again."));
     };
   }
+}
+
+/* ── Navigation history stack ────────────────────────────── */
+const _contentBackBtn = () => document.getElementById("contentBackBtn");
+
+function updateContentBackBtn(){
+  const btn = _contentBackBtn();
+  if(!btn) return;
+  btn.style.display = navStack.length > 0 ? "" : "none";
+  if(navStack.length > 0){
+    const top = navStack[navStack.length - 1];
+    const label = top.type === "channel"     ? `← ${top.channelLabel || "Channels"}`
+                : top.type === "home"        ? "← Home"
+                : top.type === "folder_play" ? `← ${top.folderLabel || top.path.split("/").pop()}`
+                : top.type === "browse"      ? (top.path === mediaRoot ? "← Library" : `← ${top.path.split("/").pop()}`)
+                : "← Back";
+    btn.textContent = label;
+  }
+}
+
+function pushNav(state){
+  if(navStackSuppressNext){ navStackSuppressNext = false; return; }
+  // Avoid duplicate pushes
+  const last = navStack[navStack.length - 1];
+  if(last && last.type === state.type && last.path === state.path && last.channelId === state.channelId) return;
+  navStack.push(state);
+  if(navStack.length > 12) navStack.shift();
+  updateContentBackBtn();
+}
+
+function navigateBack(){
+  const prev = navStack.pop();
+  updateContentBackBtn();
+  if(!prev) return;
+  navStackSuppressNext = true; // don't re-push while restoring
+  if(prev.type === "home"){
+    // Just go back to home/channels without re-playing anything
+    navStackSuppressNext = true;
+    if(mode !== "channels") setMode("channels");
+  } else if(prev.type === "channel"){
+    if(mode !== "channels"){
+      navStackSuppressNext = true;
+      setMode("channels");
+    }
+    if(prev.channelId){
+      // loadChannels is async; wait for it to populate channelItemMap then play
+      const tryPlay = (attempts=0) => {
+        const ch = (cachedChannels || []).find(c => String(c.id) === String(prev.channelId));
+        const sidebarEl = ch ? (channelItemMap.get(String(ch.id)) || null) : null;
+        if(ch){
+          playChannel(ch, sidebarEl);
+        } else if(attempts < 10){
+          setTimeout(() => tryPlay(attempts + 1), 300);
+        }
+      };
+      setTimeout(() => tryPlay(), mode !== "channels" ? 500 : 100);
+    }
+  } else if(prev.type === "folder_play"){
+    if(mode !== "browse"){ navStackSuppressNext = true; setMode("browse"); }
+    // Invalidate any loadFolder started by setMode so its async stopVideo() won't
+    // increment playRequestToken and stale our reqToken below.
+    listLoadToken++;
+    const reqToken = ++playRequestToken;
+    setTimeout(() => {
+      fetch("/api/play_folder", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({path: prev.path, play_mode: prev.playMode, token: authToken})
+      }).then(async r => {
+        if(r.status === 401){
+          let data = {}; try { data = await r.json(); } catch(_){}
+          throw new Error(data.error || "Login required for chronological checkpoints");
+        }
+        if(!r.ok) throw new Error("play_folder failed");
+        return r.json();
+      })
+        .then(d => {
+          if(reqToken !== playRequestToken) return;
+          activeSlot = d.slot;
+          currentFolderPlayPath = prev.path;
+          currentOnDemandPath = d.source_path || "";
+          setOnDemandDuration(d.duration_seconds);
+          setOnDemandPlayMode(d.play_mode || prev.playMode);
+          setOnDemandEpisodeState(d.episode_index, d.episode_total);
+          setOnDemandQueuePreview(d.queue_preview);
+          // Show player UI, hide browse dashboard
+          hideBrowseDashboard();
+          if(contentRoot) contentRoot.classList.add("playback-mode");
+          if(contentRoot) contentRoot.classList.remove("folder-prompt-mode");
+          if(contentRoot) contentRoot.classList.remove("browse-root-mode");
+          mediaStage.style.display = "flex";
+          // Populate the sidebar (the loadFolder from setMode was cancelled above)
+          currentPath = prev.path;
+          loadFolder(prev.path, true);
+          waitForSegments(d.playlist, 3, () => {
+            if(reqToken !== playRequestToken) return;
+            const title = formatDisplayPath(d.display_title || prev.path, "file");
+            playHLS(d.playlist, true, title, true, null, false, d.slot);
+          }, null, {timeoutMs: 30000, onProgress:()=>{}, onTimeout:()=>{}});
+        }).catch(err => {
+          if(reqToken !== playRequestToken) return;
+          setStatus("⚠️ " + (err && err.message ? err.message : "Could not resume queue"));
+        });
+    }, 0);
+  } else if(prev.type === "browse"){
+    if(mode !== "browse"){ navStackSuppressNext = true; setMode("browse"); }
+    if(prev.section) browseActiveSection = prev.section;
+    currentPath = prev.path;
+    loadFolder(prev.path);
+  }
+}
+
+/* ── Browse section switching (All / Shows / Movies) ────── */
+function filterSidebarForSection(){
+  if(currentPath !== mediaRoot) return;
+  const textFilter = searchInput.value.trim().toLowerCase();
+  const showsCatEl   = document.getElementById("browseCatTabs");
+  const activeShowTab = showsCatEl ? showsCatEl.querySelector(".browse-cat-tab.active") : null;
+  const activeShowCat = activeShowTab ? (activeShowTab.dataset.cat || "all") : "all";
+  const moviesCatEl   = document.getElementById("browseMovieCatTabs");
+  const activeMovieTab = moviesCatEl ? moviesCatEl.querySelector(".browse-cat-tab.active") : null;
+  const activeMovieCat = activeMovieTab ? (activeMovieTab.dataset.cat || "all") : "all";
+
+  list.querySelectorAll(".item[data-browse-category]").forEach(item => {
+    const cat   = item.dataset.browseCategory || "all";
+    const genre = item.dataset.browseGenre    || cat;
+    // Section filter
+    let sectionOk;
+    if(browseActiveSection === "movies"){
+      sectionOk = cat === "movies" && (activeMovieCat === "all" || genre === activeMovieCat);
+    } else if(browseActiveSection === "shows"){
+      sectionOk = cat !== "movies" && (activeShowCat === "all" || cat === activeShowCat);
+    } else {
+      // "all" section — shows genre tab applies; when a specific genre is selected, movies hide
+      sectionOk = activeShowCat === "all"
+        ? true
+        : (cat !== "movies" && cat === activeShowCat);
+    }
+    // Text filter
+    const text   = (item.dataset.filterText || item.textContent || "").toLowerCase();
+    const textOk = !textFilter || text.includes(textFilter);
+    item.style.display = (sectionOk && textOk) ? "" : "none";
+  });
+}
+
+function updateBrowseSectionUI(){
+  const showsCatTabs   = document.getElementById("browseCatTabs");
+  const movieCatTabs   = document.getElementById("browseMovieCatTabs");
+  const showsSection   = document.getElementById("browseShowsSection");
+  const moviesSection  = document.getElementById("browseMoviesSection");
+
+  if(browseActiveSection === "movies"){
+    if(showsCatTabs)  showsCatTabs.style.display  = "none";
+    if(movieCatTabs)  movieCatTabs.style.display  = "";
+    if(showsSection)  showsSection.style.display  = "none";
+    if(moviesSection) moviesSection.style.display = "";
+    loadMovieSection();
+  } else if(browseActiveSection === "shows"){
+    if(showsCatTabs)  showsCatTabs.style.display  = "";
+    if(movieCatTabs)  movieCatTabs.style.display  = "none";
+    if(showsSection)  showsSection.style.display  = "";
+    if(moviesSection) moviesSection.style.display = "none";
+    // Hide movie-genre folder cards in the shows library
+    if(browseLibraryCards){
+      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+        card.style.display = card.dataset.category === "movies" ? "none" : "";
+      });
+    }
+    applyListFilter();
+  } else {
+    // "all" — show everything, use show genre tabs
+    if(showsCatTabs)  showsCatTabs.style.display  = "";
+    if(movieCatTabs)  movieCatTabs.style.display  = "none";
+    if(showsSection)  showsSection.style.display  = "";
+    if(moviesSection) moviesSection.style.display = "none";
+    if(browseLibraryCards){
+      browseLibraryCards.querySelectorAll(".browse-card").forEach(card => {
+        card.style.display = "";
+      });
+    }
+    applyListFilter();
+  }
+  filterSidebarForSection();
+}
+
+function loadMovieSection(){
+  const moviesCards = document.getElementById("browseMoviesCards");
+  if(!moviesCards) return;
+  if(browseMoviesCache !== null){
+    renderMoviesCards(browseMoviesCache);
+    return;
+  }
+  moviesCards.innerHTML = '<p class="browse-subgrid-loading">Loading movies...</p>';
+  fetch("/api/movies_flat")
+    .then(r => r.ok ? r.json() : [])
+    .then(items => {
+      browseMoviesCache = items;
+      renderMoviesCards(items);
+    })
+    .catch(() => {
+      const mc = document.getElementById("browseMoviesCards");
+      if(mc) mc.innerHTML = '<p class="browse-subgrid-loading">Could not load movies.</p>';
+    });
+}
+
+function renderMoviesCards(items){
+  const moviesCards = document.getElementById("browseMoviesCards");
+  if(!moviesCards) return;
+  const movieCatTabs  = document.getElementById("browseMovieCatTabs");
+  const activeTab     = movieCatTabs ? movieCatTabs.querySelector(".browse-cat-tab.active") : null;
+  const activeCat     = activeTab ? (activeTab.dataset.cat || "all") : "all";
+  const searchFilter  = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+  moviesCards.innerHTML = "";
+
+  if(!items || !items.length){
+    moviesCards.innerHTML = '<p class="browse-subgrid-loading">No movies found.</p>';
+    return;
+  }
+
+  const filtered = items.filter(i => {
+    const genreMatch = activeCat === "all" || i.genre_key === activeCat;
+    const textMatch  = !searchFilter || (i.display_name || i.name).toLowerCase().includes(searchFilter);
+    return genreMatch && textMatch;
+  });
+
+  if(!filtered.length){
+    moviesCards.innerHTML = '<p class="browse-subgrid-loading">No movies match the current filter.</p>';
+    return;
+  }
+
+  filtered.forEach(i => {
+    const displayName = i.display_name || i.name;
+    const card = makeBrowseCard(displayName, i.path, i.genre_folder || null, null, () => {
+      if(i.type === "folder"){
+        searchInput.value = "";
+        currentPath = i.path;
+        loadFolder(i.path);
+      } else {
+        // Play .mp4 file directly
+        const reqToken = showSkeleton(null, "Loading stream...", true);
+        fetch("/api/play_file", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({path:i.path})})
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(d => {
+            if(reqToken !== playRequestToken){ pendingOnDemand=false; stopOnDemandLoadingUI(); return; }
+            activeSlot=d.slot; pendingOnDemand=false; currentOnDemandPath=d.source_path||i.path;
+            onDemandBaseOffsetSeconds=0; setOnDemandDuration(d.duration_seconds);
+            setOnDemandPlayMode(d.play_mode||"single");
+            setOnDemandEpisodeState(d.episode_index, d.episode_total);
+            setOnDemandQueuePreview(d.queue_preview);
+            updateLocationHash();
+            waitForSegments(d.playlist, 3, () => {
+              if(reqToken!==playRequestToken) return;
+              const pt = formatDisplayPath(d.display_title||displayName, "file");
+              playHLS(d.playlist, true, pt, false, null, false, d.slot);
+            }, reqToken, {timeoutMs:45000, onProgress:(sc,el)=>updateOnDemandLoadingProgress(sc,3,el), onTimeout:()=>failOnDemandLoad(null,"⚠️ Stream load timed out.")});
+          })
+          .catch(()=>failOnDemandLoad(null,"⚠️ Could not start file stream."));
+      }
+    }, i.type === "folder");
+    card.dataset.movieGenre = i.genre_key || "all";
+    moviesCards.appendChild(card);
+  });
 }
 
 function refreshRecentlyPlayed(){
@@ -8620,8 +9138,17 @@ function triggerFolderOpen(i){
 }
 
 function buildFolderPromptHTML(name, path){
+  const CAT_LABELS = {
+    cartoons: "🎨 Cartoons", anime: "⛩️ Anime", shows: "📺 Shows",
+    comedy: "😂 Comedy", docs: "🔬 Docs", movies: "🎬 Movies", music: "🎵 Music"
+  };
+  const cat = getBrowseCategory(name);
+  const tagHTML = (cat && cat !== "all" && CAT_LABELS[cat])
+    ? `<div class="folder-cat-tags"><span class="folder-cat-tag">${CAT_LABELS[cat]}</span></div>`
+    : "";
   return `
     <h2>📁 ${name}</h2>
+    ${tagHTML}
     <p>Choose how to play videos in <strong>${name}</strong></p>
     <div class="folder-play-actions">
       <button id="playFolderShuffleBtn" class="play-folder-btn">🔀 Shuffle Play</button>
@@ -8655,6 +9182,11 @@ function loadFolderSubgrid(folderPath){
         // Add ".." back card as first item
         const parentPath = folderPath.split("/").slice(0,-1).join("/");
         if(parentPath){
+          const grandParentPath = parentPath.split("/").slice(0,-1).join("/");
+          const parentIsMovieGenre = mediaRoots.includes(grandParentPath)
+            && getBrowseCategory(parentPath.split("/").pop()) === "movies";
+          // If the parent is one of the media roots (or a movie genre folder), go back to browse dashboard
+          const targetParent = (mediaRoots.includes(parentPath) || parentIsMovieGenre) ? mediaRoot : parentPath;
           const backCard = document.createElement("div");
           backCard.className = "browse-card browse-card-back";
           const backBody = document.createElement("div");
@@ -8664,14 +9196,14 @@ function loadFolderSubgrid(folderPath){
           backLabel.textContent = "← Back";
           const backSub = document.createElement("div");
           backSub.className = "browse-card-sub";
-          backSub.textContent = parentPath === mediaRoot ? "Library" : parentPath.split("/").pop();
+          backSub.textContent = (targetParent === mediaRoot) ? "Library" : targetParent.split("/").pop();
           backBody.appendChild(backLabel);
           backBody.appendChild(backSub);
           backCard.appendChild(backBody);
           backCard.onclick = () => {
             searchInput.value = "";
-            currentPath = parentPath;
-            loadFolder(parentPath);
+            currentPath = targetParent;
+            loadFolder(targetParent);
           };
           subgridEl.appendChild(backCard);
         }
@@ -8767,6 +9299,8 @@ function wireUpFolderPlayButtons(i, chronoPath){
       activeSlot = d.slot;
       pendingOnDemand = false;
       currentOnDemandPath = d.source_path || "";
+      // Save where we were browsing so back button can return to it
+      pushNav({type:"browse", path:currentPath, section:browseActiveSection});
       currentFolderPlayPath = effectivePath;
       onDemandBaseOffsetSeconds = d.resume_seek_seconds > 0 ? d.resume_seek_seconds : 0;
       setOnDemandDuration(d.duration_seconds);
@@ -8809,6 +9343,10 @@ function wireUpFolderPlayButtons(i, chronoPath){
 }
 
 function loadFolder(path, sidebarOnly = false){
+  // Push previous location before navigating to a new folder
+  if(!sidebarOnly && mode === "browse" && path !== currentPath && currentPath){
+    pushNav({type:"browse", path:currentPath, section:browseActiveSection});
+  }
   const token = listLoadToken;
   fetch(`/api/list?path=${encodeURIComponent(path)}`)
     .then(r=>r.json())
@@ -8831,7 +9369,13 @@ function loadFolder(path, sidebarOnly = false){
       if(path!==mediaRoot){
         const up=document.createElement("div");
         const parentPath = path.split("/").slice(0,-1).join("/");
-        const parentPreviewBase = formatDisplayPath(parentPath, "folder") || "Library";
+        const grandParentPath = parentPath.split("/").slice(0,-1).join("/");
+        // Treat movie genre sub-folders as transparent: back goes to browse root
+        const parentIsMovieGenre = mediaRoots.includes(grandParentPath)
+          && getBrowseCategory(parentPath.split("/").pop()) === "movies";
+        // If the parent is one of the media roots, go back to the virtual root (browse dashboard)
+        const targetPath = (mediaRoots.includes(parentPath) || parentIsMovieGenre) ? mediaRoot : parentPath;
+        const parentPreviewBase = (targetPath === mediaRoot) ? "Library" : (formatDisplayPath(parentPath, "folder") || "Library");
         const parentPreview = `${parentPreviewBase}/`;
         up.className="item folder";
         up.textContent="..";
@@ -8841,7 +9385,8 @@ function loadFolder(path, sidebarOnly = false){
         up.onmouseenter = () => setSelectionPreview(parentPreview);
         up.onclick=()=>{
           searchInput.value = "";
-          loadFolder(parentPath);
+          currentPath = targetPath;
+          loadFolder(targetPath);
         };
         list.appendChild(up);
       }
@@ -8857,6 +9402,12 @@ function loadFolder(path, sidebarOnly = false){
         div.title = previewTitle;
         div.dataset.filterText = `${displayName} ${i.name} ${previewTitle}`.trim();
         div.dataset.previewText = previewTitle;
+        // Tag with media category so sidebar can be filtered by section/genre
+        if(isRoot){
+          div.dataset.browseCategory = getBrowseCategory(i.name);
+          const mg = MOVIE_FOLDER_GENRE_MAP[i.name];
+          if(mg) div.dataset.browseGenre = mg;
+        }
         div.onmouseenter = () => setSelectionPreview(previewTitle || displayName);
 
         if(i.type==="folder"){
@@ -8910,6 +9461,8 @@ function loadFolder(path, sidebarOnly = false){
               activeSlot = d.slot;
               pendingOnDemand = false;
               currentOnDemandPath = d.source_path || i.path;
+              // Push current browse location so back button can return
+              pushNav({type:"browse", path:currentPath, section:browseActiveSection});
               onDemandBaseOffsetSeconds = 0;
               setOnDemandDuration(d.duration_seconds);
               setOnDemandPlayMode(d.play_mode || "single");
@@ -8934,7 +9487,12 @@ function loadFolder(path, sidebarOnly = false){
 
         list.appendChild(div);
       });
-      applyListFilter();
+      // applyListFilter handles text; filterSidebarForSection handles section+genre+text for root
+      if(isRoot){
+        filterSidebarForSection();
+      } else {
+        applyListFilter();
+      }
 
       if(!sidebarOnly && !isRoot){
         const folderName = path.split("/").pop();
