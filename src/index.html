@@ -7865,6 +7865,15 @@ if(playerPlayPauseBtn){
 video.addEventListener("play", updatePlayPauseIcon);
 video.addEventListener("pause", updatePlayPauseIcon);
 
+// Stall recovery: when the browser fires 'waiting' (ran out of buffered data),
+// restart hls.js segment loading from the current position so playback resumes
+// automatically instead of freezing until the user manually seeks forward.
+video.addEventListener("waiting", () => {
+  if(mode !== "browse" || pendingOnDemand || pendingSeekRequest) return;
+  if(!hls || typeof hls.startLoad !== "function") return;
+  try { hls.startLoad(video.currentTime); } catch(_){}
+});
+
 if(playerMuteBtn){
   playerMuteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
@@ -8312,6 +8321,15 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
     if(!isChannel){
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         hls.startLoad(0);
+      });
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if(!data.fatal) return;
+        if(data.type === Hls.ErrorTypes.MEDIA_ERROR){
+          try { hls.recoverMediaError(); } catch(_){}
+        } else {
+          // For other fatal errors, try restarting load from current position
+          try { hls.startLoad(video.currentTime); } catch(_){}
+        }
       });
       startBufferPoll();
     }
