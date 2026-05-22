@@ -7,27 +7,25 @@
       {
         "name": "Adult Cartoons",
         "id": "adult-cartoons",
-        "virtual": true,
         "folders": ["12 oz. Mouse", "Aeon Flux", "American Dad", "Aqua Teen Hunger Force", "Archer", "Beavis and Butthead", "Bobs Burgers", "Bravest Warriors", "Daria", "Downtown", "Drawn Together", "Family Guy", "Freak Brothers", "Futurama", "Home Movies", "Liquid Television", "Lobo", "Midnight Gospel", "Moral Orel", "Rick and Morty", "Robot Chicken", "Samurai Jack", "Shivering Truth", "Smiling Friends", "Solar Opposites", "South Park", "Space Ghost Coast To Coast", "The Big Lez Show", "The Boondocks", "The Brak Show", "The Cleveland Show", "The Maxx", "The Oblongs", "The Simpsons", "Todd McFarlanes Spawn", "Trailer Park Boys The Animated Series"],
         "subChannels": [
-          {"name": "Adult Swim",        "id": "adult-swim-ch",    "virtual": true, "folders": ["12 oz. Mouse", "Aqua Teen Hunger Force", "Home Movies", "Moral Orel", "Rick and Morty", "Robot Chicken", "Shivering Truth", "Smiling Friends", "Solar Opposites", "Space Ghost Coast To Coast", "The Boondocks", "The Brak Show"]},
-          {"name": "Fox Animation",     "id": "fox-animation-ch", "virtual": true, "folders": ["American Dad", "Bobs Burgers", "Family Guy", "Futurama", "The Cleveland Show", "The Simpsons"]},
-          {"name": "MTV / Comedy Ctrl", "id": "mtv-cc-ch",        "virtual": true, "folders": ["Aeon Flux", "Beavis and Butthead", "Daria", "Downtown", "Drawn Together", "Liquid Television", "South Park"]},
-          {"name": "More Adult",        "id": "more-adult-ch",    "virtual": true, "folders": ["Archer", "Bravest Warriors", "Freak Brothers", "Lobo", "Midnight Gospel", "The Big Lez Show", "The Maxx", "The Oblongs", "Todd McFarlanes Spawn", "Trailer Park Boys The Animated Series"]}
+          {"name": "Adult Swim",        "id": "adult-swim-ch", "folders": ["12 oz. Mouse", "Aqua Teen Hunger Force", "Home Movies", "Moral Orel", "Rick and Morty", "Robot Chicken", "Shivering Truth", "Smiling Friends", "Solar Opposites", "Space Ghost Coast To Coast", "The Boondocks", "The Brak Show"]},
+          {"name": "Fox Animation",     "id": "fox-animation-ch", "folders": ["American Dad", "Bobs Burgers", "Family Guy", "Futurama", "The Cleveland Show", "The Simpsons"]},
+          {"name": "MTV / Comedy Ctrl", "id": "mtv-cc-ch", "folders": ["Aeon Flux", "Beavis and Butthead", "Daria", "Downtown", "Drawn Together", "Liquid Television", "South Park"]},
+          {"name": "More Adult",        "id": "more-adult-ch", "folders": ["Archer", "Bravest Warriors", "Freak Brothers", "Lobo", "Midnight Gospel", "The Big Lez Show", "The Maxx", "The Oblongs", "Todd McFarlanes Spawn", "Trailer Park Boys The Animated Series"]}
         ]
       },
       {
         "name": "Kids Cartoons",
         "id": "kids-cartoons",
-        "virtual": true,
         "folders": ["A Pup Named Scooby-Doo", "Aaahh Real Monsters", "Adventure Time", "Amazing World Of Gumball", "Animaniacs", "Avatar The Last Airbender", "Back To The Future", "Be Cool Scooby-Doo", "Ben 10", "Bill and Teds Excellent Adventures", "CatDog", "Chowder", "Codename Kids Next Door", "Courage The Cowardly Dog", "Danny Phantom", "Dexters Laboratory", "DuckTales", "Ed Edd n Eddy", "El Tigre", "Fairly OddParents", "Fantastic Four", "Flapjack", "Gravity Falls", "He-Man", "Hey Arnold", "Hilda", "Invader Zim", "Kung-Fu Panda", "MAD", "Ninjago", "Over The Garden Wall", "Phineas and Ferb", "Pinky and the Brain", "Planet Sheen", "Pokemon", "Powerpuff Girls", "Regular Show", "Ren and Stimpy", "Robotomy", "Rockos Modern Life", "Rugrats", "Samurai Jack", "Scooby Doo Mystery Incorporated", "Scooby-Doo Where Are You", "Snoopy In Space", "Spongebob Squarepants", "Star Wars Clone Wars", "Star Wars The Clone Wars", "Steven Universe", "Teen Titans", "Teen Titans Go", "Teenage Mutant Ninja Turtles", "The 13 Ghosts of Scooby-Doo", "The Batman", "The Grim Adventures of Billy and Mandy", "The New Scooby-Doo", "Thundercats", "Voltron"],
         "subChannels": [
-          {"name": "Cartoon Network", "id": "cn-ch",        "virtual": true, "folders": ["Adventure Time", "Amazing World Of Gumball", "Ben 10", "Chowder", "Codename Kids Next Door", "Courage The Cowardly Dog", "Dexters Laboratory", "Ed Edd n Eddy", "Flapjack", "MAD", "Ninjago", "Over The Garden Wall", "Powerpuff Girls", "Regular Show", "Robotomy", "Samurai Jack", "Star Wars Clone Wars", "Steven Universe", "Teen Titans", "Teen Titans Go", "The Batman", "The Grim Adventures of Billy and Mandy"]},
-          {"name": "Nickelodeon",     "id": "nick-ch",      "virtual": true, "folders": ["Aaahh Real Monsters", "Angry Beavers", "Avatar The Last Airbender", "CatDog", "Danny Phantom", "El Tigre", "Fairly OddParents", "Hey Arnold", "Invader Zim", "Planet Sheen", "Rockos Modern Life", "Rugrats", "Spongebob Squarepants"]},
-          {"name": "Disney Channel",  "id": "disney-ch",    "virtual": true, "folders": ["Donald Duck", "DuckTales", "Gravity Falls", "Hilda", "Kung-Fu Panda", "Phineas and Ferb", "Snoopy In Space"]},
-          {"name": "Classic & Retro", "id": "classic-ch",   "virtual": true, "folders": ["Animaniacs", "Back To The Future", "Betty Boop", "Bill and Teds Excellent Adventures", "Bugs Bunny", "Fantastic Four", "Felix The Cat", "He-Man", "Looney Tunes", "Pinky and the Brain", "Popeye", "Return to the Planet of the Apes", "Teenage Mutant Ninja Turtles", "The Flintstones", "The Jetsons", "The New Adventures Of Superman", "The Transformers", "Thundercats", "Tom and Jerry", "Vintage Cartoons", "Voltron", "Woody Woodpecker"]},
-          {"name": "Scooby-Doo",      "id": "scooby-ch",    "virtual": true, "folders": ["A Pup Named Scooby-Doo", "Be Cool Scooby-Doo", "Scooby Doo Mystery Incorporated", "Scooby-Doo Where Are You", "The 13 Ghosts of Scooby-Doo", "The New Scooby-Doo"]},
-          {"name": "Star Wars",       "id": "star-wars-ch", "virtual": true, "folders": ["Star Wars Clone Wars", "Star Wars Tales of the Jedi", "Star Wars The Clone Wars", "Star Wars Visions"]}
+          {"name": "Cartoon Network", "id": "cn-ch", "folders": ["Adventure Time", "Amazing World Of Gumball", "Ben 10", "Chowder", "Codename Kids Next Door", "Courage The Cowardly Dog", "Dexters Laboratory", "Ed Edd n Eddy", "Flapjack", "MAD", "Ninjago", "Over The Garden Wall", "Powerpuff Girls", "Regular Show", "Robotomy", "Samurai Jack", "Star Wars Clone Wars", "Steven Universe", "Teen Titans", "Teen Titans Go", "The Batman", "The Grim Adventures of Billy and Mandy"]},
+          {"name": "Nickelodeon",     "id": "nick-ch", "folders": ["Aaahh Real Monsters", "Angry Beavers", "Avatar The Last Airbender", "CatDog", "Danny Phantom", "El Tigre", "Fairly OddParents", "Hey Arnold", "Invader Zim", "Planet Sheen", "Rockos Modern Life", "Rugrats", "Spongebob Squarepants"]},
+          {"name": "Disney Channel",  "id": "disney-ch", "folders": ["Donald Duck", "DuckTales", "Gravity Falls", "Hilda", "Kung-Fu Panda", "Phineas and Ferb", "Snoopy In Space"]},
+          {"name": "Classic & Retro", "id": "classic-ch", "folders": ["Animaniacs", "Back To The Future", "Betty Boop", "Bill and Teds Excellent Adventures", "Bugs Bunny", "Fantastic Four", "Felix The Cat", "He-Man", "Looney Tunes", "Pinky and the Brain", "Popeye", "Return to the Planet of the Apes", "Teenage Mutant Ninja Turtles", "The Flintstones", "The Jetsons", "The New Adventures Of Superman", "The Transformers", "Thundercats", "Tom and Jerry", "Vintage Cartoons", "Voltron", "Woody Woodpecker"]},
+          {"name": "Scooby-Doo",      "id": "scooby-ch", "folders": ["A Pup Named Scooby-Doo", "Be Cool Scooby-Doo", "Scooby Doo Mystery Incorporated", "Scooby-Doo Where Are You", "The 13 Ghosts of Scooby-Doo", "The New Scooby-Doo"]},
+          {"name": "Star Wars",       "id": "star-wars-ch", "folders": ["MetaNerdz Lore", "Star Wars Clone Wars", "Star Wars Tales of the Jedi", "Star Wars The Clone Wars", "Star Wars Visions", "The Stupendous Wave"]}
         ]
       }
     ]
@@ -50,10 +48,10 @@
   {
     "name": "Documentaries",
     "id": "documentaries",
-    "folders": ["Ancient Aliens", "BBC - Planet Earth", "Brain Games", "Cosmos A Personal Voyage", "Cosmos A Spacetime Odyssey", "Frozen Planet", "How Its Made", "How The Universe Works", "Life In Cold Blood", "Mind Field", "Mythbusters", "Planet Earth III", "The Blue Planet", "Through The Wormhole"],
+    "folders": ["Ancient Aliens", "BBC - Planet Earth", "Brain Games", "Brave Wilderness", "Cosmos A Personal Voyage", "Cosmos A Spacetime Odyssey", "Frozen Planet", "How Its Made", "How The Universe Works", "Kurzesagst", "Life In Cold Blood", "Mind Field", "Mythbusters", "Planet Earth III", "The Blue Planet", "Through The Wormhole", "Vsauce"],
     "subChannels": [
-      {"name": "Nature & Planet", "id": "docs-nature-ch",  "virtual": true, "folders": ["BBC - Planet Earth", "Frozen Planet", "Life In Cold Blood", "Planet Earth III", "The Blue Planet"]},
-      {"name": "Science & Space", "id": "docs-science-ch", "virtual": true, "folders": ["Ancient Aliens", "Brain Games", "Cosmos A Personal Voyage", "Cosmos A Spacetime Odyssey", "How The Universe Works", "Mind Field", "Mythbusters", "Through The Wormhole", "How Its Made"]}
+      {"name": "Nature & Planet", "id": "docs-nature-ch", "folders": ["BBC - Planet Earth", "Brave Wilderness", "Frozen Planet", "Life In Cold Blood", "Planet Earth III", "The Blue Planet"]},
+      {"name": "Science & Space", "id": "docs-science-ch", "folders": ["Ancient Aliens", "Brain Games", "Cosmos A Personal Voyage", "Cosmos A Spacetime Odyssey", "How Its Made", "How The Universe Works", "Kurzesagst", "Mind Field", "Mythbusters", "Through The Wormhole", "Vsauce"]}
     ]
   },
   {
@@ -61,21 +59,31 @@
     "id": "movies",
     "folders": ["Movies", "Movies - 420", "Movies - Action", "Movies - Anime", "Movies - Comedy", "Movies - Crime", "Movies - Documentaries", "Movies - Horror", "Movies - Kids", "Movies - Sci-Fi", "Movies - Western", "Trailers"],
     "subChannels": [
-      {"name": "Action",   "id": "movies-action-ch",  "virtual": true, "folders": ["Movies - Action"]},
-      {"name": "Comedy",   "id": "movies-comedy-ch",  "virtual": true, "folders": ["Movies - Comedy"]},
-      {"name": "Horror",   "id": "movies-horror-ch",  "virtual": true, "folders": ["Movies - Horror"]},
-      {"name": "Sci-Fi",   "id": "movies-scifi-ch",   "virtual": true, "folders": ["Movies - Sci-Fi"]},
-      {"name": "Crime",    "id": "movies-crime-ch",   "virtual": true, "folders": ["Movies - Crime"]},
-      {"name": "Kids",     "id": "movies-kids-ch",    "virtual": true, "folders": ["Movies - Kids"]},
-      {"name": "Western",  "id": "movies-western-ch", "virtual": true, "folders": ["Movies - Western"]},
-      {"name": "Anime",    "id": "movies-anime-ch",   "virtual": true, "folders": ["Movies - Anime"]},
-      {"name": "420",      "id": "movies-420-ch",     "virtual": true, "folders": ["Movies - 420"]}
+      {"name": "Action",   "id": "movies-action-ch", "folders": ["Movies - Action"]},
+      {"name": "Comedy",   "id": "movies-comedy-ch", "folders": ["Movies - Comedy"]},
+      {"name": "Horror",   "id": "movies-horror-ch", "folders": ["Movies - Horror"]},
+      {"name": "Sci-Fi",   "id": "movies-scifi-ch", "folders": ["Movies - Sci-Fi"]},
+      {"name": "Crime",    "id": "movies-crime-ch", "folders": ["Movies - Crime"]},
+      {"name": "Kids",     "id": "movies-kids-ch", "folders": ["Movies - Kids"]},
+      {"name": "Western",  "id": "movies-western-ch", "folders": ["Movies - Western"]},
+      {"name": "Anime",    "id": "movies-anime-ch", "folders": ["Movies - Anime"]},
+      {"name": "420",      "id": "movies-420-ch", "folders": ["Movies - 420"]}
     ]
   },
   {
     "name": "Oldschool Cartoons",
     "id": "oldschool-cartoons",
     "folders": ["Animaniacs", "Angry Beavers", "Betty Boop", "Bugs Bunny", "Donald Duck", "Felix The Cat", "He-Man", "Looney Tunes", "Popeye", "Return to the Planet of the Apes", "The Flintstones", "The Jetsons", "The Transformers", "Thundercats", "Tom and Jerry", "Vintage Cartoons", "Voltron", "Woody Woodpecker"]
+  },
+  {
+    "name": "YouTube",
+    "id": "youtube",
+    "folders": ["Angry Video Game Nerd", "Brave Wilderness", "Brick Technology", "Faze", "Kurzesagst", "Primitive Unique Tool", "Tom's Language Files", "Vsauce"],
+    "subChannels": [
+      {"name": "Science & Education", "id": "youtube-science-ch", "folders": ["Brave Wilderness", "Kurzesagst", "Tom's Language Files", "Vsauce"]},
+      {"name": "Gaming",             "id": "youtube-gaming-ch", "folders": ["Angry Video Game Nerd", "Faze"]},
+      {"name": "DIY & Craft",        "id": "youtube-diy-ch", "folders": ["Brick Technology", "Primitive Unique Tool"]}
+    ]
   },
   {
     "name": "Music Videos",
