@@ -54,13 +54,29 @@ process_file() {
     a_rate=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=sample_rate -of csv=p=0 "$input" 2>/dev/null)
 
     # Determine if video and audio are already stream-copy compatible
-    local video_ok=false audio_ok=false
+    local video_ok=false audio_ok=false video_kf_ok=false
     [[ "$vcodec" == "h264" && "${height:-0}" -le "$TARGET_RESOLUTION" ]] && video_ok=true
     [[ "$acodec" == "aac" && "$a_rate" == "$AUDIO_SAMPLE_RATE" ]] && audio_ok=true
 
+    # Check keyframe interval: must be ≤ hls_time (6s) so HLS can segment cleanly.
+    # A large GOP (e.g. libx264 default 250 frames ≈ 8–10s) causes the player to
+    # stall every segment boundary when using -c:v copy in the stream.
+    if $video_ok; then
+        local kf_max
+        kf_max=$(ffprobe -v quiet -read_intervals "%+60" -select_streams v:0 \
+            -show_frames -skip_frame noref -show_entries frame=pict_type,pts_time \
+            -of default "$input" 2>/dev/null \
+            | awk '/pts_time/{t=substr($0,10)+0} /pict_type=I/ && prev!=""{d=t-prev; if(d>max)max=d} /pict_type=I/{prev=t} END{printf "%.2f", max+0}')
+        if [[ -n "$kf_max" ]] && (( $(echo "$kf_max <= 6.5" | bc -l) )); then
+            video_kf_ok=true
+        else
+            echo "   ⚠️  Keyframe interval ${kf_max}s > 6s — video will be re-encoded to fix GOP"
+        fi
+    fi
+
     local tmp="${output}.tmp.mp4"
 
-    if $video_ok && $audio_ok; then
+    if $video_ok && $video_kf_ok && $audio_ok; then
         # Video and audio are already compatible — remux only, normalizing timescale
         echo "⚡ Remuxing (h264+aac @ ${height}p): $rel_path"
         ffmpeg -y -nostdin -i "$input" \
@@ -72,7 +88,7 @@ process_file() {
             -map_metadata 0 \
             "$tmp" 2>>"$LOG_FILE"
 
-    elif $video_ok && ! $audio_ok; then
+    elif $video_ok && $video_kf_ok && ! $audio_ok; then
         # Video fine, audio needs re-encode (wrong codec or sample rate)
         echo "⚡ Remux video + re-encode audio (${acodec} ${a_rate}Hz → aac ${AUDIO_SAMPLE_RATE}Hz): $rel_path"
         ffmpeg -y -nostdin -i "$input" \
@@ -84,6 +100,27 @@ process_file() {
             -map_metadata 0 \
             "$tmp" 2>>"$LOG_FILE"
 
+    elif $video_ok && ! $video_kf_ok; then
+        # Video codec/size is fine but keyframe interval is too large — re-encode video
+        # to fix GOP while preserving quality. Audio copied if already compatible.
+        local audio_flags
+        if $audio_ok; then
+            audio_flags="-c:a copy"
+        else
+            audio_flags="-c:a aac -b:a ${AUDIO_BITRATE} -ac 2 -ar ${AUDIO_SAMPLE_RATE}"
+        fi
+        echo "🔑 Re-encoding video (GOP fix, ${acodec} ${a_rate}Hz audio ${audio_flags}): $rel_path"
+        ffmpeg -y -nostdin -i "$input" \
+            -map 0:v:0 -map 0:a:0? \
+            -c:v libx264 -preset veryfast -crf 23 \
+            -g 48 -keyint_min 48 -sc_threshold 0 \
+            -pix_fmt yuv420p \
+            -video_track_timescale "$TARGET_TIMESCALE" \
+            $audio_flags \
+            -movflags +faststart \
+            -map_metadata 0 \
+            "$tmp" 2>>"$LOG_FILE"
+
     else
         # Full re-encode needed (wrong video codec or oversized)
         echo "🔹 Encoding (${vcodec}/${acodec} @ ${height:-?}p → h264/aac @ ${TARGET_RESOLUTION}p): $rel_path"
@@ -91,6 +128,7 @@ process_file() {
             -vf "scale=-2:${TARGET_RESOLUTION}:flags=lanczos,fps=${TARGET_FRAMERATE}" \
             -map 0:v:0 -map 0:a:0? \
             -c:v libx264 -preset veryfast -crf 23 \
+            -g 48 -keyint_min 48 -sc_threshold 0 \
             -pix_fmt yuv420p \
             -video_track_timescale "$TARGET_TIMESCALE" \
             -c:a aac -b:a "$AUDIO_BITRATE" -ac 2 -ar "$AUDIO_SAMPLE_RATE" \

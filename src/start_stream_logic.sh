@@ -140,7 +140,9 @@ while true; do
   echo "🎬 Launching FFmpeg..."
   if [ "$2" != "dry" ]; then
     ffmpeg -nostdin -re -f concat -safe 0 -i "$CHANNEL_DIR/current_playlist.txt" \
-      -c copy -bsf:v h264_mp4toannexb \
+      -c:v copy -bsf:v h264_mp4toannexb \
+      -c:a aac -b:a 192k \
+      -af "aresample=async=1000,aformat=sample_fmts=fltp:channel_layouts=stereo:sample_rates=48000" \
       -f hls \
       -hls_time 6 \
       -hls_list_size 30 \
