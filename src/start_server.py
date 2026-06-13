@@ -1672,6 +1672,7 @@ def start_ffmpeg(file_list, slot, ip, seek_seconds=0, duration_seconds=None, ses
         "current_file": file_list[0] if file_list else None,
         "seek_seconds": seek_seconds,
         "duration_seconds": duration_seconds,
+        "seg_version": int(time.time() * 1000),
     }
     if isinstance(session_meta, dict):
         session_record.update(session_meta)
@@ -2364,6 +2365,72 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(snapshot).encode())
+            return
+
+        # ── On-demand segment serving with cache versioning ──────────────────
+        # .ts segments: strip ?v=<token> query param and serve with a long
+        # immutable cache lifetime so the browser never re-downloads a segment
+        # it already has. The token changes every time a new ffmpeg encode
+        # starts (server seek), so stale cached segments from a previous
+        # session are never used by hls.js.
+        ts_match = re.match(r"^/on_demand/(\d+)/(seg_\d+\.ts)", parsed.path)
+        if ts_match:
+            slot_str, seg_name = ts_match.group(1), ts_match.group(2)
+            seg_path = os.path.join(ON_DEMAND_DIR, slot_str, seg_name)
+            if os.path.exists(seg_path):
+                try:
+                    with open(seg_path, "rb") as f:
+                        data = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "video/mp2t")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "public, max-age=86400, immutable")
+                    self.end_headers()
+                    self.wfile.write(data)
+                except OSError:
+                    self.send_error(404)
+                return
+            self.send_error(404)
+            return
+
+        # .m3u8 playlist: serve with ?v=<token> appended to each segment line
+        # so hls.js requests versioned URLs. Also send no-cache so hls.js
+        # always sees the latest playlist (new segments, ENDLIST tag, etc.).
+        m3u8_match = re.match(r"^/on_demand/(\d+)/output\.m3u8$", parsed.path)
+        if m3u8_match:
+            slot_str = m3u8_match.group(1)
+            m3u8_path = os.path.join(ON_DEMAND_DIR, slot_str, "output.m3u8")
+            if os.path.exists(m3u8_path):
+                try:
+                    with open(m3u8_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    # Find the session token for this slot
+                    try:
+                        slot_int = int(slot_str)
+                        seg_v = sessions.get(slot_int, {}).get("seg_version", 0)
+                    except (ValueError, KeyError):
+                        seg_v = 0
+                    # Append ?v=<token> to every segment line (lines that don't
+                    # start with # and are not empty)
+                    versioned_lines = []
+                    for line in content.splitlines():
+                        stripped = line.strip()
+                        if stripped and not stripped.startswith("#"):
+                            versioned_lines.append(stripped + f"?v={seg_v}")
+                        else:
+                            versioned_lines.append(line)
+                    versioned = "\n".join(versioned_lines) + "\n"
+                    data = versioned.encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    self.wfile.write(data)
+                except OSError:
+                    self.send_error(404)
+                return
+            self.send_error(404)
             return
 
         return super().do_GET()

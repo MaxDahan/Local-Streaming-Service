@@ -11,5 +11,7 @@ CHANNEL="$1"
 
 mkdir -p "$BASE_DIR/channels/$CHANNEL/output"
 
-nohup "$SCRIPT_DIR/cleanup.sh" "$CHANNEL" 2>&1 | tr -cd '\11\12\15\40-\176' >> "$BASE_DIR/channels/$CHANNEL/output/cleanup.log" &
-nohup "$SCRIPT_DIR/start_stream_logic.sh" "$CHANNEL" 2>&1 | tr -cd '\11\12\15\40-\176' >> "$BASE_DIR/channels/$CHANNEL/output/ffmpeg.log" &
+# Use 'bash' explicitly to avoid nohup direct-exec permission issues
+# (e.g. VS Code stripping execute bit on save, or AppArmor restrictions).
+nohup bash "$SCRIPT_DIR/cleanup.sh" "$CHANNEL" >> "$BASE_DIR/channels/$CHANNEL/output/cleanup.log" 2>&1 &
+nohup bash "$SCRIPT_DIR/start_stream_logic.sh" "$CHANNEL" >> "$BASE_DIR/channels/$CHANNEL/output/ffmpeg.log" 2>&1 &

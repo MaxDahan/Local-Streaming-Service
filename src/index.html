@@ -180,8 +180,8 @@ body { margin:0; font-family:Arial, sans-serif; background:var(--bg-body); color
 /* ── Content-area back button ──────────────────────────── */
 #contentBackBtn {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  top: 16px;
+  left: calc(var(--sidebar-width) + 16px);
   z-index: 120;
   background: color-mix(in srgb, var(--bg-card) 90%, transparent 10%);
   color: var(--text-main);
@@ -844,8 +844,9 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   border-radius:2px;
   background:linear-gradient(to right,
     color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
-    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
-    rgba(255,255,255,0.18) var(--buffered-pct,0%) 100%
+    rgba(255,255,255,0.72) var(--played-pct,0%) var(--downloaded-pct,var(--played-pct,0%)),
+    rgba(255,255,255,0.30) var(--downloaded-pct,var(--played-pct,0%)) var(--buffered-pct,0%),
+    rgba(255,255,255,0.12) var(--buffered-pct,0%) 100%
   );
 }
 #onDemandSeekRange::-webkit-slider-thumb {
@@ -862,8 +863,9 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   border-radius:2px;
   background:linear-gradient(to right,
     color-mix(in srgb, var(--accent-strong) 82%, #fff 18%) 0% var(--played-pct,0%),
-    rgba(255,255,255,0.38) var(--played-pct,0%) var(--buffered-pct,0%),
-    rgba(255,255,255,0.18) var(--buffered-pct,0%) 100%
+    rgba(255,255,255,0.72) var(--played-pct,0%) var(--downloaded-pct,var(--played-pct,0%)),
+    rgba(255,255,255,0.30) var(--downloaded-pct,var(--played-pct,0%)) var(--buffered-pct,0%),
+    rgba(255,255,255,0.12) var(--buffered-pct,0%) 100%
   );
 }
 #onDemandSeekRange::-moz-range-thumb {
@@ -4218,7 +4220,6 @@ function renderFavoritesSection(){
   favItems.forEach(i => {
     const card = makeBrowseCard(i.name, i.path, null, null, () => {
       searchInput.value = "";
-      currentPath = i.path;
       loadFolder(i.path);
     });
     browseFavoritesCards.appendChild(card);
@@ -4840,6 +4841,11 @@ let lastQueueCurrentPosition = -1;
 let onDemandBufferedSeconds = 0;
 let onDemandBufferPollInterval = null;
 let onDemandPendingSeekSeconds = null;
+let onDemandCurrentPlaylistUrl = null;
+let onDemandSegmentPrefetchController = null;
+let onDemandSegmentPrefetchInterval = null;
+let onDemandSegmentPrefetchDone = 0;
+let onDemandSegmentPrefetchTotal = 0;
 let currentOnDemandPreviewText = "";
 let onDemandPreviewRestoreTimer = null;
 let onDemandLocalSeekFallbackTimer = null;
@@ -6760,7 +6766,18 @@ function updateSeekbarBufferTrack(){
   const bufferEndAbs = Math.min(total, onDemandBaseOffsetSeconds + onDemandBufferedSeconds);
   const playedPct = Math.min(100, (playedAbs / total) * 100).toFixed(2);
   const bufPct   = Math.min(100, (bufferEndAbs / total) * 100).toFixed(2);
+
+  // Show prefetch-to-cache progress as the "downloaded" band.
+  // video.buffered only shows hls.js's short window near the playhead (not useful
+  // as a whole-movie indicator). The prefetch tracks how many segments are now
+  // sitting in the browser's HTTP cache, covering 0→100% of the file.
+  let downloadedPct = playedPct; // default: same as played if no prefetch yet
+  if(onDemandSegmentPrefetchTotal > 0){
+    downloadedPct = Math.min(100, (onDemandSegmentPrefetchDone / onDemandSegmentPrefetchTotal) * 100).toFixed(2);
+  }
+
   onDemandSeekRange.style.setProperty("--played-pct", playedPct + "%");
+  onDemandSeekRange.style.setProperty("--downloaded-pct", downloadedPct + "%");
   onDemandSeekRange.style.setProperty("--buffered-pct", bufPct + "%");
 }
 
@@ -6768,6 +6785,82 @@ function stopBufferPoll(){
   if(onDemandBufferPollInterval){
     clearInterval(onDemandBufferPollInterval);
     onDemandBufferPollInterval = null;
+  }
+}
+
+function stopSegmentPrefetch(){
+  if(onDemandSegmentPrefetchController){
+    onDemandSegmentPrefetchController.abort();
+    onDemandSegmentPrefetchController = null;
+  }
+  if(onDemandSegmentPrefetchInterval){
+    clearInterval(onDemandSegmentPrefetchInterval);
+    onDemandSegmentPrefetchInterval = null;
+  }
+  onDemandSegmentPrefetchDone = 0;
+  onDemandSegmentPrefetchTotal = 0;
+}
+
+async function startSegmentPrefetch(playlistUrl){
+  stopSegmentPrefetch();
+  if(!playlistUrl) return;
+  const controller = new AbortController();
+  onDemandSegmentPrefetchController = controller;
+  try {
+    const r = await fetch(playlistUrl, { signal: controller.signal });
+    if(!r.ok) return;
+    const text = await r.text();
+    const base = playlistUrl.substring(0, playlistUrl.lastIndexOf("/") + 1);
+    const segments = text.split("\n")
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith("#"))
+      .map(l => (l.startsWith("http") ? l : base + l));
+    onDemandSegmentPrefetchTotal = segments.length;
+    onDemandSegmentPrefetchDone = 0;
+
+    // Drive the seekbar update while polling is stopped
+    onDemandSegmentPrefetchInterval = setInterval(() => updateSeekbarBufferTrack(), 500);
+
+    // Wait 15 seconds before starting so hls.js can establish initial playback
+    // buffer without competing for bandwidth.
+    await new Promise(resolve => {
+      const t = setTimeout(resolve, 15000);
+      controller.signal.addEventListener("abort", () => { clearTimeout(t); resolve(); });
+    });
+    if(controller.signal.aborted) return;
+
+    // One request at a time — hls.js gets first priority on the connection.
+    // Use 'low' fetch priority where supported so the browser deprioritises
+    // these behind hls.js's segment requests.
+    for(let i = 0; i < segments.length; i++){
+      if(controller.signal.aborted) return;
+      try {
+        const opts = { signal: controller.signal };
+        if("priority" in Request.prototype || typeof Request !== "undefined"){
+          try { opts.priority = "low"; } catch(_){}
+        }
+        await fetch(segments[i], opts);
+      } catch(_){}
+      onDemandSegmentPrefetchDone++;
+      if(onDemandSeekHint && onDemandSegmentPrefetchTotal > 0){
+        const pct = Math.round((onDemandSegmentPrefetchDone / onDemandSegmentPrefetchTotal) * 100);
+        onDemandSeekHint.textContent = pct < 100
+          ? `Downloading to device… ${pct}%`
+          : "Fully downloaded — smooth playback anywhere";
+      }
+      // Yield to the event loop every segment so hls.js requests aren't blocked
+      await new Promise(r => setTimeout(r, 0));
+    }
+    if(onDemandSegmentPrefetchInterval){
+      clearInterval(onDemandSegmentPrefetchInterval);
+      onDemandSegmentPrefetchInterval = null;
+    }
+    updateSeekbarBufferTrack();
+  } catch(_){
+    if(onDemandSegmentPrefetchInterval){
+      clearInterval(onDemandSegmentPrefetchInterval);
+      onDemandSegmentPrefetchInterval = null;
+    }
   }
 }
 
@@ -6790,7 +6883,17 @@ function startBufferPoll(){
         onDemandBufferedSeconds = Math.max(onDemandBufferedSeconds, Number(d.total_seconds) || 0);
         updateSeekbarBufferTrack();
         tryApplyPendingOnDemandSeek();
-        if(onDemandSeekHint) onDemandSeekHint.textContent = "Fully buffered — seek anywhere instantly";
+        if(onDemandSeekHint) onDemandSeekHint.textContent = "Server ready — downloading to device…";
+        // Force hls.js to re-fetch the playlist so it sees #EXT-X-ENDLIST and
+        // updates video.seekable to the full duration. Without this, seeks
+        // beyond the last segment hls.js has seen get clamped by the browser
+        // and fall back to a slow server-side seek.
+        if(hls && typeof hls.stopLoad === "function" && typeof hls.startLoad === "function"){
+          const resumeAt = video.currentTime;
+          try { hls.stopLoad(); } catch(_){}
+          setTimeout(() => { if(hls) try { hls.startLoad(resumeAt); } catch(_){} }, 80);
+        }
+        startSegmentPrefetch(onDemandCurrentPlaylistUrl);
       }
     } catch(_){}
   }, 1500);
@@ -6826,13 +6929,17 @@ function requestOnDemandSeek(targetSeconds, preferServer=false){
   }
 
   // Deterministic rule:
-  // - seek within current seekable range => local seek
-  // - seek outside seekable range => server seek restart
+  // - seek within current MSE buffer (video.seekable) => instant local seek
+  // - seek within server's encoded range => hls.js reload seek (fast, no re-encode)
+  // - seek beyond server's encoded range => server seek restart (ffmpeg re-encode)
   const localTarget = seekSeconds - onDemandBaseOffsetSeconds;
   const seekable = video.seekable;
   const seekableEnd = seekable && seekable.length ? seekable.end(seekable.length - 1) : 0;
   const seekableAbsoluteEnd = onDemandBaseOffsetSeconds + seekableEnd;
   const backendFullyBuffered = onDemandDurationSeconds > 0 && onDemandBufferedSeconds >= (onDemandDurationSeconds - 1.5);
+  // Any seek target the server has already encoded — hls.js can fetch those
+  // segments directly without restarting ffmpeg.
+  const seekWithinServerBuffer = localTarget >= 0 && seekSeconds <= (onDemandBaseOffsetSeconds + onDemandBufferedSeconds + 2);
   const canLocalSeek = !preferServer && localTarget >= 0 && localTarget <= (seekableEnd + 1.25);
 
   if(canLocalSeek){
@@ -6848,9 +6955,10 @@ function requestOnDemandSeek(targetSeconds, preferServer=false){
   }
 
   // Backend can report fully buffered slightly before the browser/HLS seekable
-  // range catches up on the initial pass. For forward seeks only, give local
-  // seekability a brief chance to catch up before forcing a hard server jump.
-  if(!preferServer && backendFullyBuffered && localTarget >= 0){
+  // range catches up on the initial pass. Also handles partial-buffer seeks:
+  // any target within the server's encoded range can be served by hls.js
+  // fetching the segment directly, without restarting ffmpeg.
+  if(!preferServer && (backendFullyBuffered || seekWithinServerBuffer) && localTarget >= 0){
     const tailGap = onDemandDurationSeconds - seekableAbsoluteEnd;
     const nearEpisodeEnd = seekSeconds >= (onDemandDurationSeconds - 6);
     const clampedSeekSeconds = (nearEpisodeEnd && tailGap > 0 && tailGap <= 8)
@@ -8021,6 +8129,8 @@ function resetPlayer() {
   loadingImage.style.display="none";
   stopOnDemandLoadingUI();
   stopBufferPoll();
+  stopSegmentPrefetch();
+  onDemandCurrentPlaylistUrl = null;
   if(onDemandLocalSeekFallbackTimer){
     clearTimeout(onDemandLocalSeekFallbackTimer);
     onDemandLocalSeekFallbackTimer = null;
@@ -8170,6 +8280,8 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(hls){ hls.destroy(); hls = null; }
   video.removeAttribute("src");
   video.load(); // flush stale buffered ranges from previous stream
+  stopSegmentPrefetch();
+  if(!isChannel) onDemandCurrentPlaylistUrl = url;
 
   if(slot) {
     activeSlot = slot;
@@ -8317,7 +8429,13 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   };
 
   if(Hls.isSupported()){
-    hls = new Hls(isChannel ? {} : { autoStartLoad: false, startPosition: 0 });
+    hls = new Hls(isChannel ? {} : {
+      autoStartLoad: false,
+      startPosition: 0,
+      maxBufferLength: 120,
+      maxMaxBufferLength: 600,
+      maxBufferSize: 300 * 1000 * 1000, // 300 MB
+    });
     if(!isChannel){
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         hls.startLoad(0);
@@ -8675,7 +8793,6 @@ function loadBrowseDashboard(items){
       if(i.type !== "folder") return;
       const card = makeBrowseCard(i.name, i.path, null, null, () => {
         searchInput.value = "";
-        currentPath = i.path;
         loadFolder(i.path);
       });
       card.dataset.category = getBrowseCategory(i.name);
@@ -9034,7 +9151,6 @@ function renderMoviesCards(items){
     const card = makeBrowseCard(displayName, i.path, i.genre_folder || null, null, () => {
       if(i.type === "folder"){
         searchInput.value = "";
-        currentPath = i.path;
         loadFolder(i.path);
       } else {
         // Play .mp4 file directly
@@ -9220,7 +9336,6 @@ function loadFolderSubgrid(folderPath){
           backCard.appendChild(backBody);
           backCard.onclick = () => {
             searchInput.value = "";
-            currentPath = targetParent;
             loadFolder(targetParent);
           };
           subgridEl.appendChild(backCard);
@@ -9236,7 +9351,6 @@ function loadFolderSubgrid(folderPath){
             () => {
               if(isFolder){
                 searchInput.value = "";
-                currentPath = i.path;
                 loadFolder(i.path);
               } else {
                 // Play the file — find in sidebar list or synthesize
@@ -9365,6 +9479,7 @@ function loadFolder(path, sidebarOnly = false){
   if(!sidebarOnly && mode === "browse" && path !== currentPath && currentPath){
     pushNav({type:"browse", path:currentPath, section:browseActiveSection});
   }
+  if(!sidebarOnly) currentPath = path;
   const token = listLoadToken;
   fetch(`/api/list?path=${encodeURIComponent(path)}`)
     .then(r=>r.json())
@@ -9403,7 +9518,6 @@ function loadFolder(path, sidebarOnly = false){
         up.onmouseenter = () => setSelectionPreview(parentPreview);
         up.onclick=()=>{
           searchInput.value = "";
-          currentPath = targetPath;
           loadFolder(targetPath);
         };
         list.appendChild(up);
@@ -9447,7 +9561,6 @@ function loadFolder(path, sidebarOnly = false){
           };
           div.ondblclick=()=>{
             searchInput.value = "";
-            currentPath=i.path;
             loadFolder(i.path);
           };
         } else {
