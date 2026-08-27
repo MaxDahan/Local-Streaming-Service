@@ -813,7 +813,6 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   display:none;
   z-index:5;
   border-radius:0 0 12px 12px;
-  overflow:hidden;
   transition:opacity 0.3s;
 }
 .player-controls-bg {
@@ -900,6 +899,38 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   flex-shrink:0;
 }
 .player-btn:hover { opacity:1; }
+.player-sub-wrap {
+  position: relative;
+  display: none;
+}
+.player-sub-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: rgba(18,18,18,0.97);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 110px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  display: none;
+  z-index: 20;
+}
+.player-sub-menu.open { display: block; }
+.player-sub-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.player-sub-menu-item:hover { background: rgba(255,255,255,0.1); }
+.player-sub-menu-item.active { color: #fff; font-weight: 700; }
 .player-time {
   font-size:12px;
   color:rgba(255,255,255,0.85);
@@ -2882,6 +2913,10 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
               <span>Autoplay</span>
             </label>
             <button id="playerBluntBtn" class="player-btn" type="button" aria-label="Hit the blunt" title="Please login to hit the blunt" style="display:none;">&#x1F4A8;</button>
+            <div class="player-sub-wrap" id="playerSubtitleWrap">
+              <button id="playerSubtitleBtn" class="player-btn" type="button" aria-label="Subtitles" title="Subtitles" style="font-size:11px;font-weight:700;letter-spacing:.04em;opacity:0.6;">CC</button>
+              <div id="playerSubtitleMenu" class="player-sub-menu" role="menu"></div>
+            </div>
             <button id="playerMuteBtn" class="player-btn" type="button" aria-label="Mute">&#128266;</button>
             <input id="playerVolumeSlider" type="range" min="0" max="1" step="0.05" value="1" class="player-volume-slider" aria-label="Volume" />
             <button id="playerFullscreenBtn" class="player-btn" type="button" aria-label="Fullscreen">&#x26F6;</button>
@@ -7102,6 +7137,7 @@ function requestOnDemandSeek(targetSeconds, preferServer=false){
         if(Array.isArray(d.queue_preview)) setOnDemandQueuePreview(d.queue_preview);
         updateOnDemandEpisodeUI();
         const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist, true, title, false, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -7250,6 +7286,7 @@ function goToNextOnDemandEpisode(){
         setOnDemandSeekbarDisabled(false);
         updateOnDemandQueueDisabledState();
         const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -7337,6 +7374,7 @@ function goToOnDemandQueueEpisode(queuePosition){
         updateOnDemandQueueDisabledState();
         setOnDemandQueuePreview(d.queue_preview);
         const title = d.display_title || ((currentlyPlayingItem && currentlyPlayingItem.dataset && currentlyPlayingItem.dataset.previewText) || "");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist, true, title, true, currentlyPlayingItem, false, d.slot);
       }, requestToken, {
         timeoutMs: 30000,
@@ -7568,6 +7606,7 @@ function playChannel(channel, sidebarItem=null){
     lastLoadingItem = sidebarItem;
   }
 
+  pendingSubtitleTracks = [];
   playHLS(`channels/${channel.id}/output/${channel.id}.m3u8`, true, channel.name, false, sidebarItem, true);
 }
 
@@ -7616,6 +7655,7 @@ function playVirtualChannel(channel, sidebarItem=null){
       loadingImage.style.display = "none";
       hideBrowseDashboard();
       const playTitle = formatDisplayPath(d.display_title || channel.name, "file");
+      pendingSubtitleTracks = d.subtitle_tracks || [];
       playHLS(d.playlist, true, playTitle, true, sidebarItem, false, d.slot);
     }, requestToken, {
       timeoutMs: 45000,
@@ -7782,8 +7822,10 @@ document.addEventListener("keydown", (e) => {
       setTemporaryOnDemandPreview("⏭ Next Episode", 1200);
     }
   } else if((e.key === "c" || e.key === "C") && !typing && !(snakeOverlay && snakeOverlay.style.display !== "none")){
-    e.preventDefault();
-    clickCookie();
+    if(playerSubtitleWrap && playerSubtitleWrap.style.display !== "none"){
+      e.preventDefault();
+      playerSubtitleBtn.click();
+    }
   } else if((e.key === "b" || e.key === "B") && !typing){
     e.preventDefault();
     hitBlunt();
@@ -7956,6 +7998,79 @@ const playerFullscreenBtn = document.getElementById("playerFullscreenBtn");
 const playerAutoplayLabel = document.getElementById("playerAutoplayLabel");
 const playerNextEpisodeBtn = document.getElementById("playerNextEpisodeBtn");
 const playerBluntBtn = document.getElementById("playerBluntBtn");
+const playerSubtitleWrap = document.getElementById("playerSubtitleWrap");
+const playerSubtitleBtn = document.getElementById("playerSubtitleBtn");
+const playerSubtitleMenu = document.getElementById("playerSubtitleMenu");
+
+let currentSubtitleTracks = [];
+let pendingSubtitleTracks = null;
+let activeSubtitleLang = "off";
+
+function setupSubtitleTracks(tracks) {
+  [...video.querySelectorAll("track")].forEach(t => video.removeChild(t));
+  currentSubtitleTracks = Array.isArray(tracks) ? tracks : [];
+  if(playerSubtitleWrap) playerSubtitleWrap.style.display = currentSubtitleTracks.length ? "block" : "none";
+  if(!currentSubtitleTracks.length) return;
+  currentSubtitleTracks.forEach(tr => {
+    const el = document.createElement("track");
+    el.kind = "subtitles";
+    el.label = tr.label;
+    el.srclang = tr.lang;
+    el.src = `/api/subtitle?path=${encodeURIComponent(tr.path)}`;
+    video.appendChild(el);
+  });
+  buildSubtitleMenu();
+  const stillAvail = currentSubtitleTracks.find(t => t.lang === activeSubtitleLang);
+  selectSubtitleTrack(stillAvail ? activeSubtitleLang : "off", false);
+}
+
+function buildSubtitleMenu() {
+  if(!playerSubtitleMenu) return;
+  playerSubtitleMenu.innerHTML = "";
+  const offBtn = document.createElement("button");
+  offBtn.type = "button";
+  offBtn.className = "player-sub-menu-item" + (activeSubtitleLang === "off" ? " active" : "");
+  offBtn.textContent = "Off";
+  offBtn.dataset.lang = "off";
+  offBtn.onclick = () => selectSubtitleTrack("off");
+  playerSubtitleMenu.appendChild(offBtn);
+  currentSubtitleTracks.forEach(tr => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "player-sub-menu-item" + (activeSubtitleLang === tr.lang ? " active" : "");
+    btn.textContent = tr.label;
+    btn.dataset.lang = tr.lang;
+    btn.onclick = () => selectSubtitleTrack(tr.lang);
+    playerSubtitleMenu.appendChild(btn);
+  });
+}
+
+function selectSubtitleTrack(lang, closeMenu=true) {
+  activeSubtitleLang = lang;
+  for(let i = 0; i < video.textTracks.length; i++) {
+    const t = video.textTracks[i];
+    if(t.kind === "subtitles" || t.kind === "captions") {
+      t.mode = (t.language === lang) ? "showing" : "disabled";
+    }
+  }
+  if(playerSubtitleMenu) {
+    [...playerSubtitleMenu.querySelectorAll(".player-sub-menu-item")].forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+    });
+  }
+  if(playerSubtitleBtn) playerSubtitleBtn.style.opacity = (lang === "off") ? "0.6" : "1";
+  if(closeMenu && playerSubtitleMenu) playerSubtitleMenu.classList.remove("open");
+}
+
+if(playerSubtitleBtn) {
+  playerSubtitleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if(playerSubtitleMenu) playerSubtitleMenu.classList.toggle("open");
+  });
+}
+document.addEventListener("click", () => {
+  if(playerSubtitleMenu) playerSubtitleMenu.classList.remove("open");
+});
 
 function updatePlayPauseIcon(){
   if(!playerPlayPauseBtn) return;
@@ -8280,6 +8395,8 @@ function playHLS(url, hideTimeline=false, title="", folder=false, sidebarItem=nu
   if(hls){ hls.destroy(); hls = null; }
   video.removeAttribute("src");
   video.load(); // flush stale buffered ranges from previous stream
+  setupSubtitleTracks(pendingSubtitleTracks !== null ? pendingSubtitleTracks : currentSubtitleTracks);
+  pendingSubtitleTracks = null;
   stopSegmentPrefetch();
   if(!isChannel) onDemandCurrentPlaylistUrl = url;
 
@@ -8905,6 +9022,7 @@ function loadBrowseDashboard(items){
           loadingImage.style.display = "none";
           hideBrowseDashboard();
           const playTitle = formatDisplayPath(d.display_title || pick.path, "file");
+          pendingSubtitleTracks = d.subtitle_tracks || [];
           playHLS(d.playlist, true, playTitle, true, sidebarItem, false, d.slot);
         }, requestToken, {
           timeoutMs: 45000,
@@ -9012,6 +9130,7 @@ function navigateBack(){
           waitForSegments(d.playlist, 3, () => {
             if(reqToken !== playRequestToken) return;
             const title = formatDisplayPath(d.display_title || prev.path, "file");
+            pendingSubtitleTracks = d.subtitle_tracks || [];
             playHLS(d.playlist, true, title, true, null, false, d.slot);
           }, null, {timeoutMs: 30000, onProgress:()=>{}, onTimeout:()=>{}});
         }).catch(err => {
@@ -9168,6 +9287,7 @@ function renderMoviesCards(items){
             waitForSegments(d.playlist, 3, () => {
               if(reqToken!==playRequestToken) return;
               const pt = formatDisplayPath(d.display_title||displayName, "file");
+              pendingSubtitleTracks = d.subtitle_tracks || [];
               playHLS(d.playlist, true, pt, false, null, false, d.slot);
             }, reqToken, {timeoutMs:45000, onProgress:(sc,el)=>updateOnDemandLoadingProgress(sc,3,el), onTimeout:()=>failOnDemandLoad(null,"⚠️ Stream load timed out.")});
           })
@@ -9368,6 +9488,7 @@ function loadFolderSubgrid(folderPath){
                       updateLocationHash();
                       waitForSegments(d.playlist,3,()=>{
                         if(reqToken!==playRequestToken)return;
+                        pendingSubtitleTracks = d.subtitle_tracks || [];
                         playHLS(d.playlist,true,formatDisplayPath(d.display_title||i.path,"file"),false,null,false,d.slot);
                       },reqToken,{timeoutMs:45000,onProgress:(sc,el)=>updateOnDemandLoadingProgress(sc,3,el),onTimeout:()=>failOnDemandLoad(null,"⚠️ Stream load timed out.")});
                     }).catch(()=>failOnDemandLoad(null,"⚠️ Could not start file stream."));
@@ -9445,6 +9566,7 @@ function wireUpFolderPlayButtons(i, chronoPath){
         stopOnDemandLoadingUI();
         loadingImage.style.display="none";
         const playTitle = formatDisplayPath(d.display_title || i.path, "file");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist,true,playTitle,true,sidebarItem,false,d.slot);
         // Navigate left sidebar up to parent folder after playback starts
         const sidebarParentPath = i.path.split("/").slice(0,-1).join("/");
@@ -9603,6 +9725,7 @@ function loadFolder(path, sidebarOnly = false){
               waitForSegments(d.playlist,3,()=>{
                 if(requestToken !== playRequestToken) return;
                 const playTitle = formatDisplayPath(d.display_title || div.dataset.previewText || i.path, "file");
+                pendingSubtitleTracks = d.subtitle_tracks || [];
                 playHLS(d.playlist,true,playTitle,false,div,false,d.slot);
               }, requestToken, {
                 timeoutMs: 45000,
@@ -9796,6 +9919,7 @@ function applyRestoreState(){
       waitForSegments(d.playlist,3,()=>{
         if(requestToken !== playRequestToken) return;
         const title = formatDisplayPath(d.display_title || state.path, "file");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist,true,title,true,null,false,d.slot);
       }, requestToken, {
         timeoutMs:45000,
@@ -9841,6 +9965,7 @@ function applyRestoreState(){
       waitForSegments(d.playlist,3,()=>{
         if(requestToken !== playRequestToken) return;
         const title = formatDisplayPath(d.display_title || state.path, "file");
+        pendingSubtitleTracks = d.subtitle_tracks || [];
         playHLS(d.playlist,true,title,false,null,false,d.slot);
         // Force seekbar to the saved position immediately after HLS is set up,
         // before canplay fires, so the UI is never stuck at 0:00.

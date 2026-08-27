@@ -1403,6 +1403,50 @@ def safe_path(path):
     return None
 
 
+SUBTITLE_LANG_LABELS = {
+    "fra": "French", "fre": "French", "fr": "French",
+    "eng": "English", "en": "English",
+    "spa": "Spanish", "es": "Spanish",
+    "deu": "German", "ger": "German", "de": "German",
+    "jpn": "Japanese", "ja": "Japanese",
+    "por": "Portuguese", "pt": "Portuguese",
+    "ita": "Italian", "it": "Italian",
+    "nld": "Dutch", "nl": "Dutch",
+    "und": "Unknown",
+}
+
+
+def find_subtitle_tracks(file_path):
+    """Return [{lang, label, path}] for .lang.vtt sidecar files alongside file_path."""
+    if not file_path or not os.path.isfile(file_path):
+        return []
+    stem = os.path.splitext(os.path.basename(file_path))[0]
+    parent = os.path.dirname(file_path)
+    tracks = []
+    try:
+        for name in sorted(os.listdir(parent)):
+            if not name.lower().endswith(".vtt"):
+                continue
+            name_stem = name[:-4]
+            if not name_stem.startswith(stem + "."):
+                continue
+            lang = name_stem[len(stem) + 1:]
+            if not lang or "." in lang:
+                continue
+            vtt_path = os.path.join(parent, name)
+            if not os.path.isfile(vtt_path):
+                continue
+            label = SUBTITLE_LANG_LABELS.get(lang.lower(), lang.upper())
+            try:
+                rel = os.path.relpath(vtt_path, BASE_DIR)
+            except ValueError:
+                rel = vtt_path
+            tracks.append({"lang": lang, "label": label, "path": rel})
+    except OSError:
+        pass
+    return tracks
+
+
 def get_media_duration_seconds(path):
     """Return duration in seconds from ffprobe, or None when unavailable."""
     if not path or not os.path.isfile(path):
@@ -1794,6 +1838,37 @@ class Handler(SimpleHTTPRequestHandler):
                 "themes": themes_config,
             }).encode())
             return
+        if parsed.path == "/api/subtitle":
+            params = parse_qs(parsed.query)
+            rel_path_list = params.get("path", [])
+            if not rel_path_list:
+                self.send_error(400)
+                return
+            rel_path = rel_path_list[0]
+            if os.path.isabs(rel_path):
+                abs_path = os.path.realpath(rel_path)
+            else:
+                abs_path = os.path.realpath(os.path.join(BASE_DIR, rel_path))
+            allowed = any(
+                abs_path == root or abs_path.startswith(root + os.sep)
+                for root in MEDIA_ROOTS
+            )
+            if not allowed or not abs_path.lower().endswith(".vtt") or not os.path.isfile(abs_path):
+                self.send_error(404)
+                return
+            try:
+                with open(abs_path, "rb") as f:
+                    content = f.read()
+            except OSError:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/vtt; charset=utf-8")
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         if parsed.path == "/api/buffer_status":
             ip = self.client_address[0]
             slot = None
@@ -3109,6 +3184,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_total": len(session_meta.get("shuffle_files") or files),
                 "queue_preview": queue_preview,
                 "play_mode": str(session_meta.get("play_mode") or "single"),
+                "subtitle_tracks": find_subtitle_tracks(first_file),
             }).encode())
             return
 
@@ -3181,6 +3257,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "wrapped": next_idx == 0 and len(valid_files) > 1,
                 "queue_preview": queue_preview,
                 "play_mode": play_mode,
+                "subtitle_tracks": find_subtitle_tracks(next_file),
             }).encode())
             return
 
@@ -3262,6 +3339,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "episode_total": len(valid_files),
                 "queue_preview": queue_preview,
                 "play_mode": play_mode,
+                "subtitle_tracks": find_subtitle_tracks(selected_file),
             }).encode())
             return
 
@@ -3624,6 +3702,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "queue_preview": queue_preview,
                 "play_mode": "shuffle",
                 "resume_seek_seconds": 0,
+                "subtitle_tracks": find_subtitle_tracks(first_file),
             }).encode())
             return
 
@@ -3777,6 +3856,7 @@ class Handler(SimpleHTTPRequestHandler):
             "queue_preview": queue_preview,
             "play_mode": play_mode if self.path == "/api/play_folder" else "single",
             "resume_seek_seconds": resume_seek_seconds if self.path == "/api/play_folder" else play_file_seek,
+            "subtitle_tracks": find_subtitle_tracks(stream_files[0]),
         }).encode())
 
 if __name__ == "__main__":

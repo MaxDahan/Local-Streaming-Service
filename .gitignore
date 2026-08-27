@@ -26,8 +26,12 @@ backup-channels.json
 
 # Temporary import/media ingestion scripts and logs
 src/import_eli.sh
+src/import_mypassport.sh
+src/import_sankukai.sh
 output/import_eli.log
 output/import_progress.log
+output/import_sankukai.log
+output/import_sankukai_fresh.log
 
 # Python/cache/editor noise
 __pycache__/

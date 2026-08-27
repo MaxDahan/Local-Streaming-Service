@@ -52,11 +52,15 @@ process_file() {
     acodec=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$input" 2>/dev/null)
     height=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=height -of csv=p=0 "$input" 2>/dev/null)
     a_rate=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=sample_rate -of csv=p=0 "$input" 2>/dev/null)
+    a_channels=$(ffprobe -v quiet -select_streams a:0 -show_entries stream=channels -of csv=p=0 "$input" 2>/dev/null)
 
     # Determine if video and audio are already stream-copy compatible
     local video_ok=false audio_ok=false video_kf_ok=false
     [[ "$vcodec" == "h264" && "${height:-0}" -le "$TARGET_RESOLUTION" ]] && video_ok=true
-    [[ "$acodec" == "aac" && "$a_rate" == "$AUDIO_SAMPLE_RATE" ]] && audio_ok=true
+    # audio_ok requires aac codec, correct sample rate, AND stereo (2ch).
+    # Mono files must be re-encoded to stereo so the HLS stream never gets
+    # a mid-stream channel-layout change that breaks the audio filter chain.
+    [[ "$acodec" == "aac" && "$a_rate" == "$AUDIO_SAMPLE_RATE" && "${a_channels:-0}" -eq 2 ]] && audio_ok=true
 
     # Check keyframe interval: must be ≤ hls_time (6s) so HLS can segment cleanly.
     # A large GOP (e.g. libx264 default 250 frames ≈ 8–10s) causes the player to
