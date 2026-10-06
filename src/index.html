@@ -826,7 +826,25 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
   padding:6px 12px 10px;
 }
 .player-seek-row {
+  position:relative;
   margin-bottom:2px;
+}
+.player-seek-hover-time {
+  position:absolute;
+  top:-23px;
+  left:0;
+  display:none;
+  padding:3px 6px;
+  border-radius:4px;
+  background:rgba(0,0,0,0.88);
+  color:#fff;
+  font-size:11px;
+  line-height:1.2;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  pointer-events:none;
+  transform:translateX(-50%);
+  z-index:1;
 }
 #onDemandSeekRange {
   width:100%;
@@ -2859,8 +2877,8 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       </div>
     </div>
     <div class="browse-section" id="browseFavoritesSection" style="display:none;">
-      <p class="browse-section-title">⭐ Favorites <button class="browse-section-hide-btn" id="browseFavHideBtn">Hide</button></p>
-      <div class="browse-cards" id="browseFavoritesCards"></div>
+      <p class="browse-section-title">⭐ Favorites <button class="browse-section-hide-btn" id="browseFavHideBtn">Show</button></p>
+      <div class="browse-cards" id="browseFavoritesCards" style="display:none;"></div>
     </div>
     <!-- Shows/all library section -->
     <div class="browse-section" id="browseShowsSection">
@@ -2892,6 +2910,7 @@ kbd { background:var(--kbd-bg); border:1px solid var(--kbd-border); border-botto
       <div class="player-controls-inner">
         <div id="playerSeekRow" class="player-seek-row">
           <input id="onDemandSeekRange" type="range" min="0" max="0" step="1" value="0" />
+          <span id="onDemandSeekHoverTime" class="player-seek-hover-time" aria-hidden="true"></span>
         </div>
         <div class="player-btns-row">
           <div class="player-btns-left">
@@ -3095,6 +3114,7 @@ const playerSeekRow = document.getElementById("playerSeekRow");
 const playerLiveTag = document.getElementById("playerLiveTag");
 const liveViewerCount = document.getElementById("liveViewerCount");
 const onDemandSeekRange = document.getElementById("onDemandSeekRange");
+const onDemandSeekHoverTime = document.getElementById("onDemandSeekHoverTime");
 const onDemandSeekCurrent = document.getElementById("onDemandSeekCurrent");
 const onDemandSeekTotal = document.getElementById("onDemandSeekTotal");
 const onDemandSeekHint = document.getElementById("onDemandSeekHint");
@@ -3143,10 +3163,18 @@ const browseFavoritesCards = document.getElementById("browseFavoritesCards");
   }
   const favHideBtn = document.getElementById("browseFavHideBtn");
   if(favHideBtn && browseFavoritesCards){
+    const FAV_VISIBLE_KEY = "maxistreams.favorites.visible";
+    const applyFavVisibility = (visible) => {
+      browseFavoritesCards.style.display = visible ? "" : "none";
+      favHideBtn.textContent = visible ? "Hide" : "Show";
+    };
+    let favVisible = false;
+    try { favVisible = localStorage.getItem(FAV_VISIBLE_KEY) === "1"; } catch(_){}
+    applyFavVisibility(favVisible);
     favHideBtn.onclick = () => {
-      const hidden = browseFavoritesCards.style.display === "none";
-      browseFavoritesCards.style.display = hidden ? "" : "none";
-      favHideBtn.textContent = hidden ? "Hide" : "Show";
+      favVisible = !favVisible;
+      applyFavVisibility(favVisible);
+      try { localStorage.setItem(FAV_VISIBLE_KEY, favVisible ? "1" : "0"); } catch(_){}
     };
   }
 })();
@@ -6934,7 +6962,7 @@ function startBufferPoll(){
   }, 1500);
 }
 
-function saveEpisodeProgress(){
+function saveEpisodeProgress(keepalive=false){
   if(!authToken || onDemandPlayMode !== "chronological" || onDemandDurationSeconds <= 0) return;
   if(activeSlot === null || pendingOnDemand || pendingSeekRequest) return;
   const currentAbs = onDemandBaseOffsetSeconds + (Number(video.currentTime) || 0);
@@ -6942,9 +6970,12 @@ function saveEpisodeProgress(){
   fetch("/api/save_episode_progress", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seek_seconds: currentAbs, token: authToken }),
+    body: JSON.stringify({ seek_seconds: currentAbs, token: authToken, slot: activeSlot }),
+    keepalive,
   }).catch(() => {});
 }
+
+window.addEventListener("pagehide", () => saveEpisodeProgress(true));
 
 function requestOnDemandSeek(targetSeconds, preferServer=false){
   if(mode !== "browse") return;
@@ -7943,6 +7974,26 @@ video.addEventListener("ended", () => {
 });
 
 if(onDemandSeekRange){
+  onDemandSeekRange.addEventListener("pointermove", (event) => {
+    if(!onDemandSeekHoverTime || onDemandDurationSeconds <= 0 || onDemandSeekRange.disabled || event.pointerType === "touch"){
+      if(onDemandSeekHoverTime) onDemandSeekHoverTime.style.display = "none";
+      return;
+    }
+    const rect = onDemandSeekRange.getBoundingClientRect();
+    const thumbInset = 7;
+    const trackWidth = Math.max(1, rect.width - thumbInset * 2);
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left - thumbInset) / trackWidth));
+    const rowRect = playerSeekRow.getBoundingClientRect();
+    const hoverX = rect.left - rowRect.left + thumbInset + ratio * trackWidth;
+    const hoverInset = Math.min(24, rowRect.width / 2);
+    onDemandSeekHoverTime.textContent = formatClock(ratio * onDemandDurationSeconds);
+    onDemandSeekHoverTime.style.left = `${Math.max(hoverInset, Math.min(rowRect.width - hoverInset, hoverX))}px`;
+    onDemandSeekHoverTime.style.display = "block";
+  });
+  onDemandSeekRange.addEventListener("pointerleave", () => {
+    if(onDemandSeekHoverTime) onDemandSeekHoverTime.style.display = "none";
+  });
+
   onDemandSeekRange.addEventListener("pointerdown", () => {
     onDemandScrubbing = true;
   });

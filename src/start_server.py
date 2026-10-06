@@ -284,6 +284,7 @@ BLUNT_COUNT = 0
 BLUNT_LOCK = Lock()
 BLUNT_STORAGE_PATH = os.path.join(BASE_DIR, "output", "blunt_count.json")
 FOLDER_RESUME_LOCK = Lock()
+FOLDER_RESUME_SAVE_LOCK = Lock()
 FOLDER_RESUME_PATH = os.path.join(BASE_DIR, "output", "folder_resume.json")
 FOLDER_RESUME_MAP = {}
 # Suggestions board
@@ -608,13 +609,14 @@ def load_folder_resume_map():
 
 
 def save_folder_resume_map():
-    with FOLDER_RESUME_LOCK:
-        snapshot = dict(FOLDER_RESUME_MAP)
-    try:
-        os.makedirs(os.path.dirname(FOLDER_RESUME_PATH), exist_ok=True)
-        write_json_atomic(FOLDER_RESUME_PATH, snapshot)
-    except OSError as e:
-        print(f"⚠️ Failed to save folder resume map: {e}")
+    with FOLDER_RESUME_SAVE_LOCK:
+        with FOLDER_RESUME_LOCK:
+            snapshot = dict(FOLDER_RESUME_MAP)
+        try:
+            os.makedirs(os.path.dirname(FOLDER_RESUME_PATH), exist_ok=True)
+            write_json_atomic(FOLDER_RESUME_PATH, snapshot)
+        except OSError as e:
+            print(f"⚠️ Failed to save folder resume map: {e}")
 
 
 def get_folder_resume_index(folder_key, identity="guest"):
@@ -3353,28 +3355,31 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Login required"}).encode())
                 return
             ip = self.client_address[0]
-            slot = None
-            for s, info in sessions.items():
-                if info.get("ip") == ip:
-                    slot = s
-                    break
-            if slot is None or slot not in sessions:
+            try:
+                slot = int(body.get("slot"))
+            except (TypeError, ValueError):
+                slot = None
+            session_info = sessions.get(slot) if slot is not None else None
+            if not isinstance(session_info, dict) or session_info.get("ip") != ip:
                 self.send_response(404)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "No active session"}).encode())
                 return
-            session_info = sessions[slot]
             folder_key = session_info.get("folder_key", "")
             play_mode = session_info.get("play_mode", "")
-            if not folder_key or play_mode != "chronological":
+            resume_identity = session_info.get("resume_identity", "")
+            if (
+                not folder_key
+                or play_mode != "chronological"
+                or resume_identity != f"user:{user_key}"
+            ):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Not in chronological mode"}).encode())
                 return
             episode_index = int(session_info.get("shuffle_index", 0) or 0)
-            resume_identity = session_info.get("resume_identity", f"ip:{ip}")
             seek_seconds = max(0.0, float(body.get("seek_seconds") or 0))
             set_folder_resume_index(folder_key, episode_index, resume_identity, seek_seconds=seek_seconds)
             self.send_response(200)

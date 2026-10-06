@@ -8,16 +8,30 @@
 #   audio:  aac 128k stereo 48000Hz
 #   timescale: 1/15360  ← critical for DTS continuity across concat boundaries
 
+set -o pipefail
+
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-RAW_DIR="$BASE_DIR/media/raw"
-CONFIG_FILE="$BASE_DIR/src/configurations/config.json"
-CONVERTED_DIR="$(jq -r 'if (.media_roots | type) == "array" and (.media_roots | length) > 0 then .media_roots[0] elif .media_root and .media_root != "null" then .media_root else empty end' "$CONFIG_FILE" 2>/dev/null)"
-if [ -z "$CONVERTED_DIR" ] || [ "$CONVERTED_DIR" = "null" ]; then
-  CONVERTED_DIR="$BASE_DIR/media/converted"
+if [[ $# -gt 2 ]]; then
+    echo "Usage: $0 [source_dir [output_dir]]"
+    exit 2
 fi
+
+RAW_DIR="${1:-$BASE_DIR/media/raw}"
+CONFIG_FILE="$BASE_DIR/src/configurations/config.json"
+CONFIGURED_OUTPUT_DIR="$(jq -r 'if (.media_roots | type) == "array" and (.media_roots | length) > 0 then .media_roots[0] elif .media_root and .media_root != "null" then .media_root else empty end' "$CONFIG_FILE" 2>/dev/null)"
+if [ -z "$CONFIGURED_OUTPUT_DIR" ] || [ "$CONFIGURED_OUTPUT_DIR" = "null" ]; then
+    CONFIGURED_OUTPUT_DIR="$BASE_DIR/media/converted"
+fi
+CONVERTED_DIR="${2:-$CONFIGURED_OUTPUT_DIR}"
 if [[ "$CONVERTED_DIR" != /* ]]; then
   CONVERTED_DIR="$BASE_DIR/$CONVERTED_DIR"
 fi
+
+if [[ ! -d "$RAW_DIR" ]]; then
+    echo "❌ Source directory not found: $RAW_DIR"
+    exit 1
+fi
+
 LOG_FILE="$BASE_DIR/output/encode.log"
 
 # Encoding settings — must stay in sync with stream output format
@@ -156,11 +170,22 @@ export -f process_file
 echo "📼 Encoding from '$RAW_DIR' → '$CONVERTED_DIR' (${PARALLEL_JOBS} parallel jobs)"
 echo "   Log: $LOG_FILE"
 
-find "$RAW_DIR" -type f \
+mapfile -d '' -t INPUT_FILES < <(find "$RAW_DIR" -type f \
     \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \
        -o -iname "*.mov" -o -iname "*.wmv" -o -iname "*.flv" \
        -o -iname "*.m4v" -o -iname "*.ts"  -o -iname "*.webm" \) \
-    ! -name ".*" -print0 \
-    | xargs -0 -P "$PARALLEL_JOBS" -I{} bash -c 'process_file "$@"' _ {}
+        ! -name ".*" -print0)
+
+if [[ ${#INPUT_FILES[@]} -eq 0 ]]; then
+    echo "❌ No supported video files found under: $RAW_DIR"
+    exit 1
+fi
+
+echo "   Files: ${#INPUT_FILES[@]}"
+if ! printf '%s\0' "${INPUT_FILES[@]}" \
+        | xargs -0 -r -P "$PARALLEL_JOBS" -I{} bash -c 'process_file "$@"' _ {}; then
+    echo "❌ One or more files failed; see $LOG_FILE"
+    exit 1
+fi
 
 echo "🎉 All files processed!"
